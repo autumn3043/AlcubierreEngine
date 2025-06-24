@@ -3,14 +3,19 @@
 AlcubierreEngine::AlcubierreEngine() {
     try {
         Init();
-    } catch (DebugManager::AlcExcept exception) {
-        DebugManager::Log(exception);
+    } catch (AlcExceptions::AlcExcept& _E) {
+        DebugManager::Log(_E);
     }
+
+    Cleanup();
 }
 
 int AlcubierreEngine::Init() {
-    GLFW = GLFWHandler();
-    VK = VulkanHandler();
+    GLFW = std::make_unique<GLFWHandler>();
+    VK = std::make_unique<VulkanHandler>();
 
     return 0;
+}
+
+void AlcubierreEngine::Cleanup() {
 }

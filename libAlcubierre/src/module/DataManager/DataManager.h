@@ -60,6 +60,11 @@ class DataManager {
         const DataManagerNamespace::appdata& GetAppData() const {return APPDATA;}
         const DataManagerNamespace::userdata& GetUserData() const {return USERDATA;}
 
+        class AlcFs {
+            public:
+                static int WriteLn(std::string path, std::string line);
+        };
+
     private:
         DataManager();
 

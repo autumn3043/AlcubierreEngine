@@ -5,18 +5,18 @@
 #include "module/GLFWHandler/GLFWHandler.h"
 #include "module/DebugManager/DebugManager.h"
 
+#include <memory>
+
 class AlcubierreEngine {
     public:
         AlcubierreEngine();
-
-        void DebugLog(std::string);
-        void DebugLog(std::exception);
     
     private:
-        int Init();
+        std::unique_ptr<VulkanHandler> VK;
+        std::unique_ptr<GLFWHandler> GLFW;
 
-        VulkanHandler VK;
-        GLFWHandler GLFW;
+        int Init();
+        void Cleanup();
 };
 
 #endif

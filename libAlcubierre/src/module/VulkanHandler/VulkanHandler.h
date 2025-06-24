@@ -10,6 +10,7 @@ class VulkanHandler {
         VkQueue Queue;
 
         VulkanHandler();
+        ~VulkanHandler();
 
     private:
         VkApplicationInfo FetchAppData();

@@ -9,6 +9,7 @@ class GLFWHandler {
         GLFWwindow* Window;
 
         GLFWHandler();
+        ~GLFWHandler();
 
     private:
         GLFWwindow* CreateWindow();

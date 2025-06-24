@@ -1,8 +1,11 @@
 #include "module/DebugManager/DebugManager.h"
+#include "module/DataManager/DataManager.h"
 
 #include <iostream>
 #include <utility>
 #include <string>
+#include <sstream>
+#include <iomanip>
 
 DebugManager& DebugManager::GetDebugManager() {
     static DebugManager instance;
@@ -13,25 +16,44 @@ DebugManager& DebugManager::GetDebugManager() {
 //Public statics for shorthand interfacing
 
 void DebugManager::Log(std::string Message, bool Write) { 
-    DebugReport Report(Message);
+    AlcExceptions::DebugReport Report(Message);
     GetDebugManager().InternalLog(std::move(Report), Write);
 }
 
 void DebugManager::Log(std::exception exception, bool Write) {
-    DebugReport Report(std::string(exception.what()));
+    AlcExceptions::DebugReport Report(std::string(exception.what()));
     GetDebugManager().InternalLog(std::move(Report), Write);
 } 
 
-void DebugManager::Log(AlcExcept exception, bool Write) {
+void DebugManager::Log(AlcExceptions::AlcExcept exception, bool Write) {
     GetDebugManager().InternalLog(std::move(exception.Get()), Write);
 }
 
-void DebugManager::Log(DebugReport Report, bool Write) {
+void DebugManager::Log(AlcExceptions::DebugReport Report, bool Write) {
     GetDebugManager().InternalLog(std::move(Report), Write);
 }
 
 //Private management of demystified input
 
-void DebugManager::InternalLog(DebugReport Report, bool Write) {
-    std::cout << Report.Message << std::endl;
+void DebugManager::InternalLog(AlcExceptions::DebugReport Report, bool Write) {
+
+    tm _time = *localtime(&Report.Time);
+    std::ostringstream oss;
+    oss << "@["
+        << std::setw(2) << std::setfill('0') << _time.tm_hour << ":"
+        << std::setw(2) << std::setfill('0') << _time.tm_min << ":"
+        << std::setw(2) << std::setfill('0') << _time.tm_sec << "]: ";
+
+    std::string timeHold = oss.str();
+
+    std::string invokeHold = "";
+    if(Report.Invoker != "") std::string invokeHold = "[" + Report.Invoker + "]: ";
+
+    std::string DebugMessage = timeHold + invokeHold + Report.Message;
+    std::cout << DebugMessage << std::endl;
+    if(Write) WriteToLogFile(DebugMessage);
+}
+
+void DebugManager::WriteToLogFile(std::string Line) {
+    DataManager::AlcFs::WriteLn("log", Line);
 }
