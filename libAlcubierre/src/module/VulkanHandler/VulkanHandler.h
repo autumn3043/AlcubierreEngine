@@ -21,8 +21,8 @@ class VulkanHandler {
         int Init();
 
         int CreateVulkanInstance();
-            VkApplicationInfo FetchAppData();
-            VkInstanceCreateInfo FetchCreateData();
+            void FetchCreateData(AlcInstanceCreateInfo& ReturnBundle);
+            void FetchAppData(AlcApplicationInfo& ReturnBundle);
 
         int CreateLogicalDevice(int);
             std::vector<std::pair<int, VkPhysicalDevice>> SelectPhysicalDevice();

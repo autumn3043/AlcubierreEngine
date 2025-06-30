@@ -33,8 +33,10 @@ int VulkanHandler::Init() {
 }
 
 int VulkanHandler::CreateVulkanInstance() {
-    VkInstanceCreateInfo CreateInfo = FetchCreateData();
-    if (vkCreateInstance(&CreateInfo, nullptr, &Instance) != VK_SUCCESS) {
+    AlcInstanceCreateInfo CreateInfo;
+    FetchCreateData(CreateInfo);
+
+    if (vkCreateInstance(CreateInfo.Get(), nullptr, &Instance) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create Vulkan instance!");
     } else {
         DebugManager::Log("Successfully constructed Vulkan instance");
@@ -42,19 +44,21 @@ int VulkanHandler::CreateVulkanInstance() {
     }
 }
 
-VkInstanceCreateInfo VulkanHandler::FetchCreateData() {
+void VulkanHandler::FetchCreateData(AlcInstanceCreateInfo& ReturnBundle) {
     VkInstanceCreateInfo hold{};
     hold.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 
-    VkApplicationInfo VkAppData = FetchAppData();
-    hold.pApplicationInfo = &VkAppData; //Two lines cuz out of scope copy otherwise ykwim
+    AlcApplicationInfo VkAppData;
+    FetchAppData(VkAppData);
+    hold.pApplicationInfo = VkAppData.Get();
 
     hold.enabledExtensionCount = static_cast<uint32_t>(0);
     hold.ppEnabledExtensionNames = nullptr;
-    return hold;
+    
+    ReturnBundle.Set(hold);
 }
 
-VkApplicationInfo VulkanHandler::FetchAppData() {
+void VulkanHandler::FetchAppData(AlcApplicationInfo& ReturnBundle) {
     VkApplicationInfo hold{};
     hold.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 
@@ -68,7 +72,7 @@ VkApplicationInfo VulkanHandler::FetchAppData() {
 
     hold.apiVersion = VK_API_VERSION_1_0;
 
-    return hold;
+    ReturnBundle.Set(hold);
 }
 
 int VulkanHandler::CreateLogicalDevice(int overrideIndice) {
