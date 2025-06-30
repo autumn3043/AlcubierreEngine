@@ -10,6 +10,7 @@
 class AlcubierreEngine {
     public:
         AlcubierreEngine();
+        ~AlcubierreEngine();
     
     private:
         std::unique_ptr<VulkanHandler> VK;

@@ -14,49 +14,67 @@ DataManager::DataManager() {
     #include "module/DataManager/default/format/appdata_json.h"
     #include "module/DataManager/default/format/enginedata_json.h"
 
+    nlohmann::json userdataraw;
+    // try {
+        //read from user config file
+        // USERDATA = UserDataFromJson(userdataraw);
+    // } catch (const std::exception _E1) {
+        // DebugManager::Log(AlcExceptions::DebugReport(_E1.what()));
+        DebugManager::Log("Falling back to internal default userconfig");
+
+        userdataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_userdata), formattedjson_userdata_len));
+        USERDATA = UserDataFromJson(userdataraw);
+    // }
+
+    nlohmann::json appdataraw;
+    // try {
+        //read from app config h file
+        // appdata = appdataFromJson(appdataraw);
+    // } catch (const std::exception _E1) {
+        // DebugManager::Log(AlcExceptions::DebugReport(_E1.what()));
+        DebugManager::Log("Falling back to internal default app config");
+
+        appdataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_appdata), formattedjson_appdata_len));
+        APPDATA = AppDataFromJson(appdataraw);
+    // }
+
+    nlohmann::json enginedataraw;
     try {
-        nlohmann::json userdataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_userdata), formattedjson_userdata_len));
-
-        USERDATA.DisplayWidth = userdataraw["window_width"].get<int>();
-        USERDATA.DisplayHeight = userdataraw["window_height"].get<int>();
-
-    } catch (nlohmann::json::exception exception) {
-        DebugManager::Log("Failed to parse developer-defined default userdata config file. Referring to internal values.");
-
-        USERDATA.DisplayWidth = 800;
-        USERDATA.DisplayHeight = 600;
-
-    } catch (...) {
-        throw AlcExceptions::ConfigAssignFail();
+        enginedataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_enginedata), formattedjson_enginedata_len));
+        ENGINEDATA = EngineDataFromJson(enginedataraw);
+    } catch (const std::exception _E) {
+        DebugManager::Log(AlcExceptions::DebugReport(_E.what()));
     }
 
-    try {
-        nlohmann::json appdataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_appdata), formattedjson_appdata_len));
-
-        APPDATA.Version = version(int(appdataraw["version_major"].get<int>()), int(appdataraw["version_minor"].get<int>()), int(appdataraw["version_patch"].get<int>()));
-        APPDATA.Name = appdataraw["name"].get<std::string>();
-        APPDATA.Hints; //TODO
-
-    } catch (nlohmann::json::exception exception) {
-        DebugManager::Log("Failed to parse developer-defined default userdata config file. Referring to internal values.");
-
-        APPDATA.Version = version(0, 0, 0);
-        APPDATA.Name = "FALLBACK_WINDOW_TITLE";
-
-    } catch (...) {
-        throw AlcExceptions::ConfigAssignFail();;
-    }
-
-    try {
-        nlohmann::json enginedataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_enginedata), formattedjson_enginedata_len));
-        
-        ENGINEDATA.Version = version(int(enginedataraw["version_major"].get<int>()), int(enginedataraw["version_minor"].get<int>()), int(enginedataraw["version_patch"].get<int>()));
-        ENGINEDATA.Name = enginedataraw["name"].get<std::string>();
-    
-    } catch (nlohmann::json::exception exception) {
-        throw AlcExceptions::ConfigAssignFail();
-    }
 }
+
+DataManagerNamespace::userdata DataManager::UserDataFromJson(nlohmann::json json) {
+    DataManagerNamespace::userdata hold;
+
+    hold.WindowWidth = json["window_width"].get<int>();
+    hold.WindowHeight = json["window_height"].get<int>();
+
+    return hold;
+}
+
+DataManagerNamespace::appdata DataManager::AppDataFromJson(nlohmann::json json) {
+    DataManagerNamespace::appdata hold;
+
+    hold.Version = version(int(json["version_major"].get<int>()), int(json["version_minor"].get<int>()), int(json["version_patch"].get<int>()));
+    hold.Name = json["name"].get<std::string>();
+
+    return hold;
+}
+
+DataManagerNamespace::enginedata DataManager::EngineDataFromJson(nlohmann::json json) {
+    DataManagerNamespace::enginedata hold;
+
+    hold.Version = version(int(json["version_major"].get<int>()), int(json["version_minor"].get<int>()), int(json["version_patch"].get<int>()));
+    hold.Name = json["name"].get<std::string>();
+
+    return hold;
+}
+
 
 #include <fstream>
 int DataManager::AlcFs::WriteLn(std::string path, std::string line) {

@@ -30,7 +30,7 @@ GLFWwindow* GLFWHandler::CreateWindow() {
         glfwWindowHint(hint.key, hint.value);
     }
 
-    GLFWwindow* hold = glfwCreateWindow(USERDATA.DisplayWidth, USERDATA.DisplayHeight, APPDATA.Name.c_str(), nullptr, nullptr);
+    GLFWwindow* hold = glfwCreateWindow(USERDATA.WindowWidth, USERDATA.WindowHeight, APPDATA.Name.c_str(), nullptr, nullptr);
     
     if(!hold) {
         glfwTerminate();

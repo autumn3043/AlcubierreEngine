@@ -47,8 +47,8 @@ namespace DataManagerNamespace {
     };
 
     struct userdata {
-        int DisplayWidth;
-        int DisplayHeight;
+        int WindowWidth;
+        int WindowHeight;
     };
 }
 
@@ -67,6 +67,10 @@ class DataManager {
 
     private:
         DataManager();
+
+        DataManagerNamespace::userdata UserDataFromJson(nlohmann::json json);
+        DataManagerNamespace::appdata AppDataFromJson(nlohmann::json json);
+        DataManagerNamespace::enginedata EngineDataFromJson(nlohmann::json json);
 
         DataManagerNamespace::enginedata ENGINEDATA;
         DataManagerNamespace::appdata APPDATA;

@@ -3,25 +3,36 @@
 
 #include <vulkan/vulkan.h>
 
+#include <vector>
+#include <cstdlib>
+
+#include "module/VulkanHandler/VulkanStructBundles.h"
+
 class VulkanHandler {
     public:
-        VkInstance Instance;
-        VkDevice Device;
-        VkQueue Queue;
-
         VulkanHandler();
         ~VulkanHandler();
 
     private:
-        VkApplicationInfo FetchAppData();
-        VkInstanceCreateInfo FetchCreateData();
+        VkInstance Instance;
+        VkDevice Device;
+        VkQueue Queue;
 
-        VkPhysicalDevice PhysicalDevice;
+        int Init();
 
         int CreateVulkanInstance();
-        // VkPhysicalDevice SelectPhysicalDevice();
-        // VkDevice GetLogicalDevice(VkPhysicalDevice SelectedPhysicalDevice);
-        // VkQueue GetDeviceQueue();
+            VkApplicationInfo FetchAppData();
+            VkInstanceCreateInfo FetchCreateData();
+
+        int CreateLogicalDevice(int);
+            std::vector<std::pair<int, VkPhysicalDevice>> SelectPhysicalDevice();
+            int ScoreDevice(VkPhysicalDevice _PhysicalDevice);
+
+            void FetchDeviceInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceCreateInfo& ReturnBundle);
+            void FetchQueueInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceQueueCreateInfo& ReturnBundle);
+
+            std::vector<uint32_t> GetDeviceIndices(VkPhysicalDevice _PhysicalDevice);
+
 };
 
 #endif 

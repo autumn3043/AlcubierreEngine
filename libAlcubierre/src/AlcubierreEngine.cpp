@@ -6,7 +6,9 @@ AlcubierreEngine::AlcubierreEngine() {
     } catch (AlcExceptions::AlcExcept& _E) {
         DebugManager::Log(_E);
     }
+}
 
+AlcubierreEngine::~AlcubierreEngine() {
     Cleanup();
 }
 
@@ -18,4 +20,6 @@ int AlcubierreEngine::Init() {
 }
 
 void AlcubierreEngine::Cleanup() {
+    VK.reset();
+    GLFW.reset();
 }
