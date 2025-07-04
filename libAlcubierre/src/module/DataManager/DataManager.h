@@ -2,6 +2,7 @@
 #define DATAMANAGER_ALE_H
 
 #include <string>
+#include <vector>
 #include <list>
 #include <nlohmann/json.hpp>
 #include <exception>
@@ -38,6 +39,7 @@ namespace DataManagerNamespace {
     struct enginedata {
         std::string Name;
         version Version;
+        std::vector<std::string> Extensions;
     };
 
     struct appdata {

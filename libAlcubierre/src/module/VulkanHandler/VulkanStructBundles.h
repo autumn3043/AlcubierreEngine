@@ -9,9 +9,6 @@
 class AlcInstanceCreateInfo {
     public:
         AlcInstanceCreateInfo() {};
-        AlcInstanceCreateInfo(VkInstanceCreateInfo _InstanceCreateInfo) {
-            Set(_InstanceCreateInfo);
-        }
 
         void Set(VkInstanceCreateInfo _InstanceCreateInfo) {
             InstanceCreateInfo = _InstanceCreateInfo;
@@ -20,7 +17,7 @@ class AlcInstanceCreateInfo {
             InstanceCreateInfo.pApplicationInfo = &pApplicationInfo_;
         }
 
-        const VkInstanceCreateInfo* Get() const {
+        VkInstanceCreateInfo* Get() {
             return &InstanceCreateInfo;
         }
     
@@ -28,6 +25,29 @@ class AlcInstanceCreateInfo {
         VkInstanceCreateInfo InstanceCreateInfo;
 
         VkApplicationInfo pApplicationInfo_;
+};
+
+class AlcEnabledExtensions {
+    public:
+        AlcEnabledExtensions() {};
+        AlcEnabledExtensions(std::vector<std::string>& _EnabledExtensions) {
+            Set(_EnabledExtensions);
+        }
+
+        void Set(std::vector<std::string>& _EnabledExtensions) {
+            for(const std::string& extension : _EnabledExtensions) {
+                ExtensionNames.push_back(extension);
+                ExtensionNamePointers.push_back(ExtensionNames.back().c_str());
+            }
+        }
+
+        const std::vector<const char*>* Get() const {
+            return &ExtensionNamePointers;
+        }
+
+    private:
+        std::vector<std::string> ExtensionNames;
+        std::vector<const char*> ExtensionNamePointers;
 };
 
 class AlcApplicationInfo {
@@ -106,7 +126,7 @@ class AlcDeviceQueueCreateInfo {
     public:
         AlcDeviceQueueCreateInfo() {};
         AlcDeviceQueueCreateInfo(VkDeviceQueueCreateInfo _DeviceQueueCreateInfo) {
-            Set(DeviceQueueCreateInfo);
+            Set(_DeviceQueueCreateInfo);
         }
 
         void Set(VkDeviceQueueCreateInfo _DeviceQueueCreateInfo) {
@@ -124,6 +144,33 @@ class AlcDeviceQueueCreateInfo {
         VkDeviceQueueCreateInfo DeviceQueueCreateInfo;
 
         float QueuePriorities_;
+
+};
+
+class AlcDebugUtilsMessengerCreateInfoEXT {
+    public:
+        AlcDebugUtilsMessengerCreateInfoEXT() {};
+        AlcDebugUtilsMessengerCreateInfoEXT(VkDebugUtilsMessengerCreateInfoEXT _DebugUtilsMessengerCreateInfoEXT) {
+            Set(_DebugUtilsMessengerCreateInfoEXT);
+        }
+
+        void Set(VkDebugUtilsMessengerCreateInfoEXT _DebugUtilsMessengerCreateInfoEXT) {
+            DebugUtilsMessengerCreateInfoEXT = _DebugUtilsMessengerCreateInfoEXT;
+
+            pfnUserCallback_ = _DebugUtilsMessengerCreateInfoEXT.pfnUserCallback;
+            DebugUtilsMessengerCreateInfoEXT.pfnUserCallback = pfnUserCallback_;
+
+            DebugUtilsMessengerCreateInfoEXT.pUserData = nullptr;
+        }
+
+        const VkDebugUtilsMessengerCreateInfoEXT* Get() const {
+            return &DebugUtilsMessengerCreateInfoEXT;
+        }
+    
+    private:
+        VkDebugUtilsMessengerCreateInfoEXT DebugUtilsMessengerCreateInfoEXT;
+
+        PFN_vkDebugUtilsMessengerCallbackEXT pfnUserCallback_;
 
 };
 

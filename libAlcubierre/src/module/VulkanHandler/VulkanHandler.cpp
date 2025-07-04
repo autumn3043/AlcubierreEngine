@@ -21,6 +21,12 @@ VulkanHandler::~VulkanHandler() {
     } catch (...) {/*Do nothing for now*/}
 
     try {
+        PFN_vkDestroyDebugUtilsMessengerEXT DestroyFunction = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(Instance, "vkDestroyDebugUtilsMessengerEXT");
+        DestroyFunction(Instance, DebugMessenger, nullptr);
+        DebugManager::Log("Successfully destroyed Vulkan debug link");
+    } catch (...) {/*Do nothing for now*/}
+
+    try {
         vkDestroyInstance(Instance, nullptr);
         DebugManager::Log("Successfully destroyed Vulkan instance");
     } catch (...) {/*Do nothing for now*/}
@@ -28,13 +34,24 @@ VulkanHandler::~VulkanHandler() {
 
 int VulkanHandler::Init() {
     CreateVulkanInstance();
+    CreateDebugLink();
     CreateLogicalDevice(0);
     return 0;
 }
 
 int VulkanHandler::CreateVulkanInstance() {
-    AlcInstanceCreateInfo CreateInfo;
+    AlcInstanceCreateInfo CreateInfo{};
     FetchCreateData(CreateInfo);
+
+        //Local because passing around a copy of this is a pain in the ass and well beyond the scope of the struct bundle system.
+        AlcEnabledExtensions EnabledExtensions;
+        FetchExtensionData(EnabledExtensions);
+        CreateInfo.Get()->enabledExtensionCount = static_cast<uint32_t>(EnabledExtensions.Get()->size());
+        CreateInfo.Get()->ppEnabledExtensionNames = EnabledExtensions.Get()->data();
+
+        AlcDebugUtilsMessengerCreateInfoEXT DebugLinkCreateInfo{};
+        FetchDebugData(DebugLinkCreateInfo);
+        CreateInfo.Get()->pNext = (VkDebugUtilsMessengerCreateInfoEXT*) DebugLinkCreateInfo.Get();
 
     if (vkCreateInstance(CreateInfo.Get(), nullptr, &Instance) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create Vulkan instance!");
@@ -51,11 +68,15 @@ void VulkanHandler::FetchCreateData(AlcInstanceCreateInfo& ReturnBundle) {
     AlcApplicationInfo VkAppData;
     FetchAppData(VkAppData);
     hold.pApplicationInfo = VkAppData.Get();
-
-    hold.enabledExtensionCount = static_cast<uint32_t>(0);
-    hold.ppEnabledExtensionNames = nullptr;
     
     ReturnBundle.Set(hold);
+}
+
+void VulkanHandler::FetchExtensionData(AlcEnabledExtensions& ReturnBundle) {
+    DataManagerNamespace::enginedata EngineData = DataManager::GetDataManager().GetEngineData();
+    std::vector<std::string> EnabledExtensions = EngineData.Extensions;
+
+    ReturnBundle.Set(EnabledExtensions);
 }
 
 void VulkanHandler::FetchAppData(AlcApplicationInfo& ReturnBundle) {
@@ -73,6 +94,58 @@ void VulkanHandler::FetchAppData(AlcApplicationInfo& ReturnBundle) {
     hold.apiVersion = VK_API_VERSION_1_0;
 
     ReturnBundle.Set(hold);
+}
+
+int VulkanHandler::CreateDebugLink() {
+    AlcDebugUtilsMessengerCreateInfoEXT DebugLinkCreateInfo{};
+    FetchDebugData(DebugLinkCreateInfo);
+
+    PFN_vkCreateDebugUtilsMessengerEXT CreateFunction = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(Instance, "vkCreateDebugUtilsMessengerEXT");
+    if(CreateFunction != nullptr) {
+        VkResult CreateStatus = CreateFunction(Instance, DebugLinkCreateInfo.Get(), nullptr, &DebugMessenger);
+        if(CreateStatus != VK_SUCCESS) {
+            throw AlcExceptions::AlcExcept(AlcExceptions::DebugReport("Issue creating debug callback loop")); 
+        } else {
+            DebugManager::Log("Successfully established debug link");
+            return 0;
+        }
+    } else {
+        throw AlcExceptions::AlcExcept(AlcExceptions::DebugReport("Debug extension not present")); 
+    }
+}
+
+void VulkanHandler::FetchDebugData(AlcDebugUtilsMessengerCreateInfoEXT& ReturnBundle) {
+    VkDebugUtilsMessengerCreateInfoEXT hold{};
+
+    hold.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+
+    hold.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    hold.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+
+    hold.pfnUserCallback = VulkanDebugCallback;
+    hold.pUserData = nullptr;
+
+    ReturnBundle.Set(hold);
+}
+
+VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandler::VulkanDebugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData) {
+
+    std::string CallbackMessage(pCallbackData->pMessage);
+
+
+    AlcExceptions::DebugReport Report(
+        CallbackMessage,
+        "Vulkan Debug Callback",
+        {},
+        std::time(nullptr),
+        1
+    );
+
+    return VK_FALSE;
 }
 
 int VulkanHandler::CreateLogicalDevice(int overrideIndice) {

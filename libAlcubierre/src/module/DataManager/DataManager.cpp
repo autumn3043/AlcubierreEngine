@@ -15,36 +15,24 @@ DataManager::DataManager() {
     #include "module/DataManager/default/format/enginedata_json.h"
 
     nlohmann::json userdataraw;
-    // try {
-        //read from user config file
-        // USERDATA = UserDataFromJson(userdataraw);
-    // } catch (const std::exception _E1) {
-        // DebugManager::Log(AlcExceptions::DebugReport(_E1.what()));
         DebugManager::Log("Falling back to internal default userconfig");
 
         userdataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_userdata), formattedjson_userdata_len));
         USERDATA = UserDataFromJson(userdataraw);
-    // }
 
     nlohmann::json appdataraw;
-    // try {
-        //read from app config h file
-        // appdata = appdataFromJson(appdataraw);
-    // } catch (const std::exception _E1) {
-        // DebugManager::Log(AlcExceptions::DebugReport(_E1.what()));
         DebugManager::Log("Falling back to internal default app config");
 
         appdataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_appdata), formattedjson_appdata_len));
         APPDATA = AppDataFromJson(appdataraw);
-    // }
 
     nlohmann::json enginedataraw;
-    try {
-        enginedataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_enginedata), formattedjson_enginedata_len));
-        ENGINEDATA = EngineDataFromJson(enginedataraw);
-    } catch (const std::exception _E) {
-        DebugManager::Log(AlcExceptions::DebugReport(_E.what()));
-    }
+        try {
+            enginedataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_enginedata), formattedjson_enginedata_len));
+            ENGINEDATA = EngineDataFromJson(enginedataraw);
+        } catch (const std::exception _E) {
+            DebugManager::Log(AlcExceptions::DebugReport(_E.what()));
+        }
 
 }
 
@@ -71,6 +59,7 @@ DataManagerNamespace::enginedata DataManager::EngineDataFromJson(nlohmann::json 
 
     hold.Version = version(int(json["version_major"].get<int>()), int(json["version_minor"].get<int>()), int(json["version_patch"].get<int>()));
     hold.Name = json["name"].get<std::string>();
+    hold.Extensions = json["extensions"].get<std::vector<std::string>>();
 
     return hold;
 }

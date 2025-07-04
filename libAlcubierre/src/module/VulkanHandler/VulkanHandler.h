@@ -15,6 +15,7 @@ class VulkanHandler {
 
     private:
         VkInstance Instance;
+        VkDebugUtilsMessengerEXT DebugMessenger;
         VkDevice Device;
         VkQueue Queue;
 
@@ -22,7 +23,17 @@ class VulkanHandler {
 
         int CreateVulkanInstance();
             void FetchCreateData(AlcInstanceCreateInfo& ReturnBundle);
+            void FetchExtensionData(AlcEnabledExtensions& ReturnBundle);
             void FetchAppData(AlcApplicationInfo& ReturnBundle);
+
+        int CreateDebugLink();
+            void FetchDebugData(AlcDebugUtilsMessengerCreateInfoEXT& ReturnBundle);
+
+            static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugCallback(
+                VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                VkDebugUtilsMessageTypeFlagsEXT messageType,
+                const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+                void* pUserData);
 
         int CreateLogicalDevice(int);
             std::vector<std::pair<int, VkPhysicalDevice>> SelectPhysicalDevice();

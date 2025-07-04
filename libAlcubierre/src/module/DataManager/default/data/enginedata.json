@@ -2,5 +2,8 @@
     "name" : "Alcubierre Engine",
     "version_major" : 0,
     "version_minor" : 0,
-    "version_patch" : 1
+    "version_patch" : 1,
+    "extensions" : [
+        "VK_EXT_debug_utils"
+    ]
 }
