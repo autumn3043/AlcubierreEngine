@@ -8,12 +8,10 @@ TARGET = $(shell find src -name '*.cpp')
 .PHONY: test build dataformat clean
 
 dataformat:
-	@xxd -i -n formattedjson_userdata $(CONFIGPREFIX)/data/userdata.json > $(CONFIGPREFIX)/format/userdata_json.h
-	@xxd -i -n formattedjson_appdata $(CONFIGPREFIX)/data/appdata.json > $(CONFIGPREFIX)/format/appdata_json.h
-	@xxd -i -n formattedjson_enginedata $(CONFIGPREFIX)/data/enginedata.json > $(CONFIGPREFIX)/format/enginedata_json.h
+	@xxd -i -n formattedjson_enginedata $(CONFIGPREFIX)/enginedata.json > $(CONFIGPREFIX)/enginedata_json.h
 
 build:
-	$(MAKE) dataformat 
+	$(MAKE) dataformat
 	g++ $(COMPILEFLAGS) -o $(OUTPUT) $(TARGET) $(LINKFLAGS) > makelog 2>&1
 
 clean:

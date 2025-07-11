@@ -12,7 +12,7 @@ class GLFWHandler {
         ~GLFWHandler();
 
     private:
-        GLFWwindow* CreateWindow();
+        void CreateWindow(GLFWwindow*&);
 };
 
 #endif

@@ -1,8 +1,8 @@
 #include "AlcubierreEngine.h"
 
-AlcubierreEngine::AlcubierreEngine() {
+AlcubierreEngine::AlcubierreEngine(AlcubierreInitInfo& InitInfo) {
     try {
-        Init();
+        Init(InitInfo);
     } catch (AlcExceptions::AlcExcept& _E) {
         DebugManager::Log(_E);
     }
@@ -12,7 +12,8 @@ AlcubierreEngine::~AlcubierreEngine() {
     Cleanup();
 }
 
-int AlcubierreEngine::Init() {
+int AlcubierreEngine::Init(AlcubierreInitInfo& InitInfo) {
+    DataManager::GetDataManager(InitInfo.UserConfig, InitInfo.AppConfig);
     GLFW = std::make_unique<GLFWHandler>();
     VK = std::make_unique<VulkanHandler>();
 

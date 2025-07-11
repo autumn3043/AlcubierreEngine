@@ -4,19 +4,25 @@
 #include "module/VulkanHandler/VulkanHandler.h"
 #include "module/GLFWHandler/GLFWHandler.h"
 #include "module/DebugManager/DebugManager.h"
+#include "module/DataManager/DataManager.h"
 
 #include <memory>
 
 class AlcubierreEngine {
     public:
-        AlcubierreEngine();
+        struct AlcubierreInitInfo {
+            const char* AppConfig = nullptr;
+            const char* UserConfig = nullptr;
+        };
+
+        AlcubierreEngine(AlcubierreInitInfo& InitInfo);
         ~AlcubierreEngine();
     
     private:
         std::unique_ptr<VulkanHandler> VK;
         std::unique_ptr<GLFWHandler> GLFW;
 
-        int Init();
+        int Init(AlcubierreInitInfo& InitInfo);
         void Cleanup();
 };
 

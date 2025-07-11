@@ -78,11 +78,6 @@ class AlcApplicationInfo {
         const VkApplicationInfo* Get() const {
             return &ApplicationInfo;
         }
-
-        ~AlcApplicationInfo() {
-            free(pApplicationName_);
-            free(pEngineName_);
-        }
     
     private:
         VkApplicationInfo ApplicationInfo;

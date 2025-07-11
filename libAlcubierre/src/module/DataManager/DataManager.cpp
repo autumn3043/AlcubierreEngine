@@ -1,79 +1,48 @@
 #include "module/DataManager/DataManager.h"
-using namespace DataManagerNamespace;
 
-#include "module/DebugManager/DebugManager.h"
+#include <nlohmann/json.hpp>
 
-DataManager& DataManager::GetDataManager() {
-    static DataManager instance;
-
+DataManager& DataManager::GetDataManager(const char* userdata, const char* appdata) {
+    static DataManager instance(userdata, appdata);
     return instance;
 }
 
-DataManager::DataManager() {
-    #include "module/DataManager/default/format/userdata_json.h"
-    #include "module/DataManager/default/format/appdata_json.h"
-    #include "module/DataManager/default/format/enginedata_json.h"
+#include "module/DataManager/default/enginedata_json.h"
+DataManager::DataManager(const char* userdata, const char* appdata) {
+    Import(std::string(reinterpret_cast<char*>(formattedjson_enginedata), formattedjson_enginedata_len).c_str());
+    if(appdata) Import(appdata);
+    if(userdata) Import(userdata);
+}
 
-    nlohmann::json userdataraw;
-        DebugManager::Log("Falling back to internal default userconfig");
+std::any JsonToAny(const nlohmann::json& j) {
+    if (j.is_boolean()) return j.get<bool>();
+    if (j.is_number_integer()) return j.get<int>();
+    if (j.is_number_unsigned()) return j.get<unsigned int>();
+    if (j.is_number_float()) return j.get<double>();
+    if (j.is_string()) return j.get<std::string>();
+    if (j.is_array()) {
+        std::vector<std::any> arr;
+        for (const auto& elem : j) arr.push_back(JsonToAny(elem));
+        return arr;
+    }
+    if (j.is_object()) {
+        return j; //Handles json objects, but if the developer still calls them its just gonna break. fuck you.
+    }
+    return {};
+}
 
-        userdataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_userdata), formattedjson_userdata_len));
-        USERDATA = UserDataFromJson(userdataraw);
+void DataManager::Import(const char* in) {
+    nlohmann::json rawjson = nlohmann::json::parse(in);
 
-    nlohmann::json appdataraw;
-        DebugManager::Log("Falling back to internal default app config");
+    for(auto& [key, value] : rawjson.items()) {
+        if(!blocks.contains(key)) {
+            blocks.emplace(key, JsonToAny(value));
+        } else {
+            std::unordered_map<std::string, std::any>::iterator it = blocks.find(key);
 
-        appdataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_appdata), formattedjson_appdata_len));
-        APPDATA = AppDataFromJson(appdataraw);
-
-    nlohmann::json enginedataraw;
-        try {
-            enginedataraw = nlohmann::json::parse(std::string(reinterpret_cast<char*>(formattedjson_enginedata), formattedjson_enginedata_len));
-            ENGINEDATA = EngineDataFromJson(enginedataraw);
-        } catch (const std::exception _E) {
-            DebugManager::Log(AlcExceptions::DebugReport(_E.what()));
+            if(JsonToAny(value).type() == it->second.type()) {
+                it->second = JsonToAny(value);
+            }
         }
-
-}
-
-DataManagerNamespace::userdata DataManager::UserDataFromJson(nlohmann::json json) {
-    DataManagerNamespace::userdata hold;
-
-    hold.WindowWidth = json["window_width"].get<int>();
-    hold.WindowHeight = json["window_height"].get<int>();
-
-    return hold;
-}
-
-DataManagerNamespace::appdata DataManager::AppDataFromJson(nlohmann::json json) {
-    DataManagerNamespace::appdata hold;
-
-    hold.Version = version(int(json["version_major"].get<int>()), int(json["version_minor"].get<int>()), int(json["version_patch"].get<int>()));
-    hold.Name = json["name"].get<std::string>();
-
-    return hold;
-}
-
-DataManagerNamespace::enginedata DataManager::EngineDataFromJson(nlohmann::json json) {
-    DataManagerNamespace::enginedata hold;
-
-    hold.Version = version(int(json["version_major"].get<int>()), int(json["version_minor"].get<int>()), int(json["version_patch"].get<int>()));
-    hold.Name = json["name"].get<std::string>();
-    hold.Extensions = json["extensions"].get<std::vector<std::string>>();
-
-    return hold;
-}
-
-
-#include <fstream>
-int DataManager::AlcFs::WriteLn(std::string path, std::string line) {
-    try {
-        std::ofstream output;
-        output.open(path, std::ios::app);
-        output << line << std::endl;
-        output.close();
-        return 0;
-    } catch(...) {
-        throw AlcExceptions::IOError();
     }
 }

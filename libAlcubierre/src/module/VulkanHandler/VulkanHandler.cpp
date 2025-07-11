@@ -73,8 +73,8 @@ void VulkanHandler::FetchCreateData(AlcInstanceCreateInfo& ReturnBundle) {
 }
 
 void VulkanHandler::FetchExtensionData(AlcEnabledExtensions& ReturnBundle) {
-    DataManagerNamespace::enginedata EngineData = DataManager::GetDataManager().GetEngineData();
-    std::vector<std::string> EnabledExtensions = EngineData.Extensions;
+    DataManager& DM = DataManager::GetDataManager();
+    std::vector<std::string> EnabledExtensions = DM.Get<std::vector<std::string>>("extensions");
 
     ReturnBundle.Set(EnabledExtensions);
 }
@@ -83,13 +83,12 @@ void VulkanHandler::FetchAppData(AlcApplicationInfo& ReturnBundle) {
     VkApplicationInfo hold{};
     hold.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 
-    DataManagerNamespace::appdata AppData = DataManager::GetDataManager().GetAppData();
-    hold.pApplicationName = AppData.Name.c_str();
-    hold.applicationVersion = VK_MAKE_VERSION(static_cast<uint32_t>(AppData.Version.GetIndex(0)), static_cast<uint32_t>(AppData.Version.GetIndex(1)), static_cast<uint32_t>(AppData.Version.GetIndex(2)));
+    DataManager& DM = DataManager::GetDataManager();
+    hold.pApplicationName = DM.Get<std::string>("application_name").c_str();
+    hold.applicationVersion = VK_MAKE_VERSION(static_cast<uint32_t>(DM.Get<int>("version_major")), static_cast<uint32_t>(DM.Get<int>("version_minor")), static_cast<uint32_t>(DM.Get<int>("version_patch")));
 
-    DataManagerNamespace::enginedata EngineData = DataManager::GetDataManager().GetEngineData();
-    hold.pEngineName = EngineData.Name.c_str();
-    hold.engineVersion = VK_MAKE_VERSION(static_cast<uint32_t>(EngineData.Version.GetIndex(0)), static_cast<uint32_t>(EngineData.Version.GetIndex(1)), static_cast<uint32_t>(EngineData.Version.GetIndex(2)));
+    hold.pEngineName = DM.Get<std::string>("engine_name").c_str();
+    hold.engineVersion = VK_MAKE_VERSION(static_cast<uint32_t>(DM.Get<int>("version_major")), static_cast<uint32_t>(DM.Get<int>("version_minor")), static_cast<uint32_t>(DM.Get<int>("version_patch")));
 
     hold.apiVersion = VK_API_VERSION_1_0;
 

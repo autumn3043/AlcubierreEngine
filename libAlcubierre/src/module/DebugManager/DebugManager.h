@@ -66,6 +66,11 @@ namespace AlcExceptions {
         public:
             IOError() : AlcExcept(DebugReport("Error reading filesystem")) {}
     };
+
+    class ConfigValMissing : public AlcExcept {
+        public:
+            ConfigValMissing() : AlcExcept(DebugReport("Configuration value was missing from defaults, and no fallback was provided.")) {}
+    };
 }
 
 class DebugManager {

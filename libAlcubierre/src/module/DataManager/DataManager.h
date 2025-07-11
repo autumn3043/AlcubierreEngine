@@ -1,81 +1,51 @@
-#ifndef DATAMANAGER_ALE_H
-#define DATAMANAGER_ALE_H
+#ifndef DATAMANAGER_ALC_H
+#define DATAMANAGER_ALC_H
+
+#include "module/DebugManager/DebugManager.h"
 
 #include <string>
+#include <unordered_map>
+#include <any>
 #include <vector>
-#include <list>
-#include <nlohmann/json.hpp>
-#include <exception>
-
-namespace DataManagerNamespace {
-    class version {
-        public:
-            version() : VersionLiteral{0, 0, 0}, VersionString("0.0.0") {}
-
-            version(int major, int minor, int patch) : 
-                VersionLiteral{major, minor, patch} {
-                VersionString = std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(patch);
-                
-            }
-
-            std::string GetStr() {
-                return VersionString;
-            }
-
-            int GetIndex(int i) {
-                return VersionLiteral[i];
-            }
-
-        private:
-            std::string VersionString;
-            int VersionLiteral[3];
-    };
-
-    struct GLFWHint {
-        int key;
-        int value;
-    };
-
-    struct enginedata {
-        std::string Name;
-        version Version;
-        std::vector<std::string> Extensions;
-    };
-
-    struct appdata {
-        std::string Name;
-        version Version;
-        std::vector<GLFWHint> Hints;
-    };
-
-    struct userdata {
-        int WindowWidth;
-        int WindowHeight;
-    };
-}
 
 class DataManager {
     public:
-        static DataManager& GetDataManager();
+        static DataManager& GetDataManager(const char* userdata = nullptr, const char* appdata = nullptr);
 
-        const DataManagerNamespace::enginedata& GetEngineData() const {return ENGINEDATA;}
-        const DataManagerNamespace::appdata& GetAppData() const {return APPDATA;}
-        const DataManagerNamespace::userdata& GetUserData() const {return USERDATA;}
+        template <typename T>
+        T Get(const std::string& key, T fallback) {
+            try {
+                return Get<T>(key);
+            } catch (AlcExceptions::ConfigValMissing E) {
+                return fallback;
+            } catch (...) {
+                throw;
+            }
+        }
 
-        class AlcFs {
-            public:
-                static int WriteLn(std::string path, std::string line);
-        };
+        template <typename T>
+        T Get(const std::string& key) {
+            if(blocks.contains(key)) {
+                T hold;
+                try {
+                    hold = std::any_cast<T>(blocks[key]);
+                    return hold;
+                } catch (std::bad_any_cast E) {
+                    throw AlcExceptions::AlcExcept(AlcExceptions::DebugReport("Bad type: " + std::string(typeid(T).name())));
+                }
+            } else {
+                throw AlcExceptions::AlcExcept(AlcExceptions::ConfigValMissing());
+            }
+        }
 
     private:
-        DataManager();
+        DataManager(const char* userdata, const char* appdata);
 
-        DataManagerNamespace::userdata UserDataFromJson(nlohmann::json json);
-        DataManagerNamespace::appdata AppDataFromJson(nlohmann::json json);
-        DataManagerNamespace::enginedata EngineDataFromJson(nlohmann::json json);
+        std::unordered_map<std::string, std::any> blocks;
 
-        DataManagerNamespace::enginedata ENGINEDATA;
-        DataManagerNamespace::appdata APPDATA;
-        DataManagerNamespace::userdata USERDATA;
+        void Import(const char* in);
+
+        //Each get call provides its own fallback, but values in User will overwrite those in App, and App will overwrite Lib, providing support for default values via downstream flow.
 };
+
 #endif
