@@ -1,14 +1,13 @@
 #include "module/GLFWHandler/GLFWHandler.h"
 
-#include "module/DataManager/DataManager.h"
-#include "module/DebugManager/DebugManager.h"
+#include "core/AlcubierreCore.h"
 
 #include <cstring>
 #include <iostream>
 #include <vector>
 
 GLFWHandler::GLFWHandler() {
-    Window = CreateWindow();
+    CreateWindow(Window);
 }
 
 GLFWHandler::~GLFWHandler() {
@@ -18,25 +17,20 @@ GLFWHandler::~GLFWHandler() {
     DebugManager::Log("Successfully destroyed GLFW window");
 }
 
-GLFWwindow* GLFWHandler::CreateWindow() {
+void GLFWHandler::CreateWindow(GLFWwindow*& window) {
     glfwInit();
 
-    DataManager DATA = DataManager::GetDataManager();
+    // for(DataManagerNamespace::GLFWHint hint : DataManager::GetDataManager().Get("glfw_hints")) {
+    //     glfwWindowHint(hint.key, hint.value);
+    // }
+    DataManager& DM = DataManager::GetDataManager();
 
-    const DataManagerNamespace::appdata& APPDATA = DATA.GetAppData();
-    const DataManagerNamespace::userdata& USERDATA = DATA.GetUserData();
-
-    for(DataManagerNamespace::GLFWHint hint : APPDATA.Hints) {
-        glfwWindowHint(hint.key, hint.value);
-    }
-
-    GLFWwindow* hold = glfwCreateWindow(USERDATA.WindowWidth, USERDATA.WindowHeight, APPDATA.Name.c_str(), nullptr, nullptr);
+    window = glfwCreateWindow(DM.Get<int>("window_width"), DM.Get<int>("window_height"), DM.Get<std::string>("application_name").c_str(), nullptr, nullptr);
     
-    if(!hold) {
+    if(!window) {
         glfwTerminate();
         throw std::runtime_error("Failed to create GLFW window");
     } else {
         DebugManager::Log("Successfully constructed GLFW window");
-        return hold;
     }
 }

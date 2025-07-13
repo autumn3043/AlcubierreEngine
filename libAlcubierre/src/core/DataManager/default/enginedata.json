@@ -1,0 +1,19 @@
+{
+    "engine_name" : "Alcubierre Engine",
+    "engine_version" : [
+        1,
+        0,
+        0
+    ],
+    "application_name" : "Default App Name",
+    "application_version" : [
+        1,
+        0,
+        0
+    ],
+    "window_width" : 800,
+    "window_height" : 600,
+    "extensions" : [
+        "VK_EXT_debug_utils"
+    ]
+}

@@ -66,6 +66,11 @@ namespace AlcExceptions {
         public:
             IOError() : AlcExcept(DebugReport("Error reading filesystem")) {}
     };
+
+    class ConfigParseException : public AlcExcept {
+        public:
+            ConfigParseException(std::string message) : AlcExcept(DebugReport(message)) {}
+    };
 }
 
 class DebugManager {

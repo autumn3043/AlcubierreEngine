@@ -1,5 +1,4 @@
-#include "module/DebugManager/DebugManager.h"
-#include "module/DataManager/DataManager.h"
+#include "core/DebugManager/DebugManager.h"
 
 #include <iostream>
 #include <utility>
@@ -51,9 +50,4 @@ void DebugManager::InternalLog(AlcExceptions::DebugReport Report, bool Write) {
 
     std::string DebugMessage = timeHold + invokeHold + Report.Message;
     std::cout << DebugMessage << std::endl;
-    if(Write) WriteToLogFile(DebugMessage);
-}
-
-void DebugManager::WriteToLogFile(std::string Line) {
-    DataManager::AlcFs::WriteLn("log", Line);
 }
