@@ -2,7 +2,7 @@ COMPILEFLAGS = -std=c++23 -O2 -I./ -I./src -shared -fPIC
 LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
 OUTPUT = libAlcubierre.so
-CONFIGPREFIX = ./src/module/DataManager/default
+CONFIGPREFIX = ./src/core/DataManager/default
 TARGET = $(shell find src -name '*.cpp')
 
 .PHONY: test build dataformat clean

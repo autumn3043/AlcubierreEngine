@@ -67,9 +67,9 @@ namespace AlcExceptions {
             IOError() : AlcExcept(DebugReport("Error reading filesystem")) {}
     };
 
-    class ConfigValMissing : public AlcExcept {
+    class ConfigParseException : public AlcExcept {
         public:
-            ConfigValMissing() : AlcExcept(DebugReport("Configuration value was missing from defaults, and no fallback was provided.")) {}
+            ConfigParseException(std::string message) : AlcExcept(DebugReport(message)) {}
     };
 }
 

@@ -3,8 +3,7 @@
 
 #include "module/VulkanHandler/VulkanHandler.h"
 #include "module/GLFWHandler/GLFWHandler.h"
-#include "module/DebugManager/DebugManager.h"
-#include "module/DataManager/DataManager.h"
+#include "core/AlcubierreCore.h"
 
 #include <memory>
 

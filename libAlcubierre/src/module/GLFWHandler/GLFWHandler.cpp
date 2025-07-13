@@ -1,7 +1,6 @@
 #include "module/GLFWHandler/GLFWHandler.h"
 
-#include "module/DataManager/DataManager.h"
-#include "module/DebugManager/DebugManager.h"
+#include "core/AlcubierreCore.h"
 
 #include <cstring>
 #include <iostream>
@@ -25,6 +24,7 @@ void GLFWHandler::CreateWindow(GLFWwindow*& window) {
     //     glfwWindowHint(hint.key, hint.value);
     // }
     DataManager& DM = DataManager::GetDataManager();
+
     window = glfwCreateWindow(DM.Get<int>("window_width"), DM.Get<int>("window_height"), DM.Get<std::string>("application_name").c_str(), nullptr, nullptr);
     
     if(!window) {

@@ -30,11 +30,11 @@ class AlcInstanceCreateInfo {
 class AlcEnabledExtensions {
     public:
         AlcEnabledExtensions() {};
-        AlcEnabledExtensions(std::vector<std::string>& _EnabledExtensions) {
+        AlcEnabledExtensions(std::vector<std::string> _EnabledExtensions) {
             Set(_EnabledExtensions);
         }
 
-        void Set(std::vector<std::string>& _EnabledExtensions) {
+        void Set(std::vector<std::string> _EnabledExtensions) {
             for(const std::string& extension : _EnabledExtensions) {
                 ExtensionNames.push_back(extension);
                 ExtensionNamePointers.push_back(ExtensionNames.back().c_str());

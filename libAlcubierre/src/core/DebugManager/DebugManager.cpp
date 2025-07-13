@@ -1,5 +1,4 @@
-#include "module/DebugManager/DebugManager.h"
-#include "module/DataManager/DataManager.h"
+#include "core/DebugManager/DebugManager.h"
 
 #include <iostream>
 #include <utility>

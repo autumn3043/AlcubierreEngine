@@ -1,7 +1,6 @@
 #include "module/VulkanHandler/VulkanHandler.h"
 
-#include "module/DataManager/DataManager.h"
-#include "module/DebugManager/DebugManager.h"
+#include "core/AlcubierreCore.h"
 
 #include <utility>
 #include <algorithm>
@@ -22,14 +21,18 @@ VulkanHandler::~VulkanHandler() {
 
     try {
         PFN_vkDestroyDebugUtilsMessengerEXT DestroyFunction = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(Instance, "vkDestroyDebugUtilsMessengerEXT");
-        DestroyFunction(Instance, DebugMessenger, nullptr);
-        DebugManager::Log("Successfully destroyed Vulkan debug link");
+        if(DestroyFunction != nullptr) {
+            DestroyFunction(Instance, DebugMessenger, nullptr);
+            DebugManager::Log("Successfully destroyed Vulkan debug link");
+        }
     } catch (...) {/*Do nothing for now*/}
 
     try {
         vkDestroyInstance(Instance, nullptr);
         DebugManager::Log("Successfully destroyed Vulkan instance");
-    } catch (...) {/*Do nothing for now*/}
+    } catch (...) {
+        DebugManager::Log("Failed to destroy Vulkan instance");
+    }
 }
 
 int VulkanHandler::Init() {
@@ -74,9 +77,9 @@ void VulkanHandler::FetchCreateData(AlcInstanceCreateInfo& ReturnBundle) {
 
 void VulkanHandler::FetchExtensionData(AlcEnabledExtensions& ReturnBundle) {
     DataManager& DM = DataManager::GetDataManager();
-    std::vector<std::string> EnabledExtensions = DM.Get<std::vector<std::string>>("extensions");
+    std::vector<std::string> EnabledExtensionsStr = DM.Get<std::vector<std::string>>("extensions");
 
-    ReturnBundle.Set(EnabledExtensions);
+    ReturnBundle.Set(EnabledExtensionsStr);
 }
 
 void VulkanHandler::FetchAppData(AlcApplicationInfo& ReturnBundle) {
@@ -84,11 +87,17 @@ void VulkanHandler::FetchAppData(AlcApplicationInfo& ReturnBundle) {
     hold.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 
     DataManager& DM = DataManager::GetDataManager();
-    hold.pApplicationName = DM.Get<std::string>("application_name").c_str();
-    hold.applicationVersion = VK_MAKE_VERSION(static_cast<uint32_t>(DM.Get<int>("version_major")), static_cast<uint32_t>(DM.Get<int>("version_minor")), static_cast<uint32_t>(DM.Get<int>("version_patch")));
 
     hold.pEngineName = DM.Get<std::string>("engine_name").c_str();
-    hold.engineVersion = VK_MAKE_VERSION(static_cast<uint32_t>(DM.Get<int>("version_major")), static_cast<uint32_t>(DM.Get<int>("version_minor")), static_cast<uint32_t>(DM.Get<int>("version_patch")));
+
+    std::vector<int> engineversion = DM.Get<std::vector<int>>("engine_version");
+    hold.engineVersion = VK_MAKE_VERSION(static_cast<uint32_t>(engineversion[0]), static_cast<uint32_t>(engineversion[1]), static_cast<uint32_t>(engineversion[2]));
+
+    hold.pApplicationName = DM.Get<std::string>("application_name").c_str();
+
+    std::vector<int> appversion = DM.Get<std::vector<int>>("application_version");
+    hold.applicationVersion = VK_MAKE_VERSION(static_cast<uint32_t>(appversion[0]), static_cast<uint32_t>(appversion[1]), static_cast<uint32_t>(appversion[2]));
+
 
     hold.apiVersion = VK_API_VERSION_1_0;
 
@@ -109,7 +118,8 @@ int VulkanHandler::CreateDebugLink() {
             return 0;
         }
     } else {
-        throw AlcExceptions::AlcExcept(AlcExceptions::DebugReport("Debug extension not present")); 
+        DebugManager::Log("Debug extension not present, Vulkan failed to link"); 
+        return 1;
     }
 }
 
