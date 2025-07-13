@@ -5,6 +5,13 @@
 #include <utility>
 #include <memory>
 
+#include "core/DebugManager/DebugManager.h"
+
+class DataManagerException : public AlcExceptions::AlcExcept {
+    public:
+        DataManagerException(std::string message) : AlcExceptions::AlcExcept(AlcExceptions::DebugReport(message)) {}
+};
+
 class DataManager {
     public:
         static DataManager& GetDataManager(const char* userdata = nullptr, const char* appdata = nullptr) {

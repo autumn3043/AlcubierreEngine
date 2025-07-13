@@ -41,36 +41,6 @@ namespace AlcExceptions {
         private:
             DebugReport Report;
     };
-
-    class UnknownExcept : public AlcExcept {
-        public:
-            UnknownExcept() : AlcExcept(DebugReport("Unknown exception")) {}
-    };
-
-    class RuntimeExcept : public AlcExcept {
-        public:
-            RuntimeExcept() : AlcExcept(DebugReport("Runtime exception")) {}
-    };
-
-    class SetupFail : public AlcExcept {
-        public:
-            SetupFail() : AlcExcept(DebugReport("Setup failure")) {}
-    };
-
-    class ConfigAssignFail : public AlcExcept {
-        public:
-            ConfigAssignFail() : AlcExcept(DebugReport("Config assignment failure")) {}
-    };
-
-    class IOError : public AlcExcept {
-        public:
-            IOError() : AlcExcept(DebugReport("Error reading filesystem")) {}
-    };
-
-    class ConfigParseException : public AlcExcept {
-        public:
-            ConfigParseException(std::string message) : AlcExcept(DebugReport(message)) {}
-    };
 }
 
 class DebugManager {

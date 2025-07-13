@@ -1,7 +1,5 @@
 #include "module/VulkanHandler/VulkanHandler.h"
 
-#include "core/AlcubierreCore.h"
-
 #include <utility>
 #include <algorithm>
 
@@ -112,7 +110,7 @@ int VulkanHandler::CreateDebugLink() {
     if(CreateFunction != nullptr) {
         VkResult CreateStatus = CreateFunction(Instance, DebugLinkCreateInfo.Get(), nullptr, &DebugMessenger);
         if(CreateStatus != VK_SUCCESS) {
-            throw AlcExceptions::AlcExcept(AlcExceptions::DebugReport("Issue creating debug callback loop")); 
+            throw VulkanException("Issue creating debug callback loop"); 
         } else {
             DebugManager::Log("Successfully established debug link");
             return 0;
@@ -170,15 +168,15 @@ int VulkanHandler::CreateLogicalDevice(int overrideIndice) {
         if(CreateEcho != VK_SUCCESS) {
             switch(CreateEcho) {
                 case VK_ERROR_EXTENSION_NOT_PRESENT:
-                    throw AlcExceptions::AlcExcept(AlcExceptions::DebugReport("Requested extension not present in device marked compatible."));
+                    throw VulkanException("Requested extension not present in device marked compatible.");
                 break;
 
                 case VK_ERROR_FEATURE_NOT_PRESENT:
-                    throw AlcExceptions::AlcExcept(AlcExceptions::DebugReport("Requested feature not present in device marked compatible."));
+                    throw VulkanException("Requested feature not present in device marked compatible.");
                 break;
 
                 default:
-                    throw AlcExceptions::AlcExcept(AlcExceptions::DebugReport("Failed to instantiate Vulkan logical device."));
+                    throw VulkanException("Failed to intialise logical device.");
                 break;
             }
 
@@ -197,7 +195,6 @@ int VulkanHandler::CreateLogicalDevice(int overrideIndice) {
 }
 
 std::vector<std::pair<int, VkPhysicalDevice>> VulkanHandler::SelectPhysicalDevice() {
-    DebugManager::Log("Selecting physical device");
     uint32_t CompatibleDeviceCount = 0;
     vkEnumeratePhysicalDevices(Instance, &CompatibleDeviceCount, nullptr);
     if(CompatibleDeviceCount == 0) {
@@ -231,7 +228,6 @@ int VulkanHandler::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {
     VkPhysicalDeviceFeatures AvailableFeatures;
     vkGetPhysicalDeviceFeatures(_PhysicalDevice, &AvailableFeatures);
 
-    DebugManager::Log("Scoring device " + std::string(DeviceProperties.deviceName));
     int hold = 0;
 
     //Same deal for properties
@@ -264,13 +260,10 @@ int VulkanHandler::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {
         return 0;
     }
 
-    DebugManager::Log("Device " + std::string(DeviceProperties.deviceName) + " scored: " + std::to_string(hold));
     return hold;
 }
 
 void VulkanHandler::FetchDeviceInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceCreateInfo& ReturnBundle) {
-    DebugManager::Log("Fetching physical device info");
-
     VkDeviceCreateInfo hold{};
     hold.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
@@ -288,8 +281,6 @@ void VulkanHandler::FetchDeviceInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceC
 }
 
 void VulkanHandler::FetchQueueInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceQueueCreateInfo& ReturnBundle) {
-    DebugManager::Log("Fetching physical device queue info");
-
     VkDeviceQueueCreateInfo hold {};
     hold.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 
@@ -303,7 +294,6 @@ void VulkanHandler::FetchQueueInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceQu
 }
 
 std::vector<uint32_t> VulkanHandler::GetDeviceIndices(VkPhysicalDevice _PhysicalDevice) {
-    DebugManager::Log("Fetching physical device queue indices");
     std::vector<uint32_t> hold;
 
     uint32_t QueueFamilyCount = 0;
