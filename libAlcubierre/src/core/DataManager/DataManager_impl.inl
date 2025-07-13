@@ -5,8 +5,6 @@
 #include <type_traits>
 #include <nlohmann/json.hpp>
 
-#include "core/DebugManager/DebugManager.h"
-
 class DataManager::JsonHolder {
     public:
         nlohmann::json json;
@@ -26,7 +24,7 @@ T DataManager::Get(std::string key, T fallback) {
     T hold;
     try {
         hold = GetFromJson<T>(*pjsonholder, key);
-    } catch (AlcExceptions::ConfigParseException E) {
+    } catch (DataManagerException E) {
         hold = fallback;
         DebugManager::Log(E);
     } catch (...) {
@@ -44,7 +42,7 @@ template <typename T>
 T DataManager::GetFromJson(const JsonHolder& jsonholder, const std::string& key, bool R, int I) {
     std::string keyname = key;
     if(!jsonholder.json.contains(key) && !R) {
-        throw AlcExceptions::AlcExcept(AlcExceptions::ConfigParseException("Config JSON was missing requested key: " + keyname));
+        throw DataManagerException("Config JSON was missing requested key: " + keyname);
     }
 
     nlohmann::json data;
@@ -61,31 +59,31 @@ T DataManager::GetFromJson(const JsonHolder& jsonholder, const std::string& key,
         if constexpr(std::is_same_v<T, bool>) {
             return data.get<T>();
         } else {
-            throw AlcExceptions::AlcExcept(AlcExceptions::ConfigParseException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name()));
+            throw DataManagerException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name());
         }
     } else if (dataT == nlohmann::json::value_t::number_integer) {
         if constexpr(std::is_same_v<T, int>) {
             return data.get<T>();
         } else {
-            throw AlcExceptions::AlcExcept(AlcExceptions::ConfigParseException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name() + " (int)"));
+            throw DataManagerException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name() + " (int)");
         }
     } else if (dataT == nlohmann::json::value_t::number_unsigned) {
         if constexpr(std::is_same_v<T, int>) {
             return data.get<T>();
         } else {
-            throw AlcExceptions::AlcExcept(AlcExceptions::ConfigParseException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name() + " (uint)"));
+            throw DataManagerException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name() + " (uint)");
         }
     } else if (dataT == nlohmann::json::value_t::number_float) {
         if constexpr(std::is_same_v<T, int>) {
             return data.get<T>();
         } else {
-            throw AlcExceptions::AlcExcept(AlcExceptions::ConfigParseException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name() + " double"));
+            throw DataManagerException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name() + " double");
         }
     } else if (dataT == nlohmann::json::value_t::string) {
         if constexpr(std::is_same_v<T, std::string>) {
             return data.get<T>();
         } else {
-           throw AlcExceptions::AlcExcept(AlcExceptions::ConfigParseException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name()));
+           throw DataManagerException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name());
         }
     } else if (dataT == nlohmann::json::value_t::array) {
         if constexpr(is_std_vector<T>::value) {
@@ -100,10 +98,10 @@ T DataManager::GetFromJson(const JsonHolder& jsonholder, const std::string& key,
             }
             return(hold);
         } else {
-           throw AlcExceptions::AlcExcept(AlcExceptions::ConfigParseException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name()));
+           throw DataManagerException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name());
         }
     } else {
-        throw AlcExceptions::AlcExcept(AlcExceptions::ConfigParseException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name()));
+        throw DataManagerException("Config JSON type mismatch for: "  + keyname + " of type: " + data.type_name());
     }
 
     T debugshutup;

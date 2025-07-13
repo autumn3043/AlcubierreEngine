@@ -1,5 +1,5 @@
 COMPILEFLAGS = -std=c++23 -O2 -I./ -I./src -shared -fPIC
-LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
+LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lwayland-client -lwayland-cursor -lwayland-egl
 
 OUTPUT = libAlcubierre.so
 CONFIGPREFIX = ./src/core/DataManager/default

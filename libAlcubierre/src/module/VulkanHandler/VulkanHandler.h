@@ -6,7 +6,14 @@
 #include <vector>
 #include <cstdlib>
 
+#include "core/AlcubierreCore.h"
+
 #include "module/VulkanHandler/VulkanStructBundles.h"
+
+class VulkanException : public AlcExceptions::AlcExcept {
+    public:
+        VulkanException(std::string message) : AlcExceptions::AlcExcept(AlcExceptions::DebugReport(message)) {}
+};
 
 class VulkanHandler {
     public:
