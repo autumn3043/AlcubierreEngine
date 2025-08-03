@@ -1,4 +1,4 @@
-#include "core/DebugManager/DebugManager.h"
+#include "module/DebugManager/public.h"
 
 #include <iostream>
 #include <utility>
@@ -6,35 +6,37 @@
 #include <sstream>
 #include <iomanip>
 
-DebugManager& DebugManager::GetDebugManager() {
-    static DebugManager instance;
-
-    return instance;
+DebugManager& DebugManager::Get() {
+    static DebugManager Instance;
+    return Instance;
 }
 
-//Public statics for shorthand interfacing
+DebugManager::DebugManager() {
+    PrivatePtr = new DebugManagerImpl();
+}
+// Public static methods for shorthand interfacing
 
 void DebugManager::Log(std::string Message, bool Write) { 
-    AlcExceptions::DebugReport Report(Message);
+    DebugReport Report(Message);
     GetDebugManager().InternalLog(std::move(Report), Write);
 }
 
 void DebugManager::Log(std::exception exception, bool Write) {
-    AlcExceptions::DebugReport Report(std::string(exception.what()));
+    DebugReport Report(std::string(exception.what()));
     GetDebugManager().InternalLog(std::move(Report), Write);
 } 
 
-void DebugManager::Log(AlcExceptions::AlcExcept exception, bool Write) {
+void DebugManager::Log(AlcEngineExcept exception, bool Write) {
     GetDebugManager().InternalLog(std::move(exception.Get()), Write);
 }
 
-void DebugManager::Log(AlcExceptions::DebugReport Report, bool Write) {
+void DebugManager::Log(DebugReport Report, bool Write) {
     GetDebugManager().InternalLog(std::move(Report), Write);
 }
 
-//Private management of demystified input
+//Private management of demystified inpui
 
-void DebugManager::InternalLog(AlcExceptions::DebugReport Report, bool Write) {
+void DebugManager::InternalLog(DebugReport Report, bool Write) {
 
     tm _time = *localtime(&Report.Time);
     std::ostringstream oss;

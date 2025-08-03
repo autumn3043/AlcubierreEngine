@@ -44,7 +44,7 @@ int VulkanHandler::CreateVulkanInstance() {
     AlcInstanceCreateInfo CreateInfo{};
     FetchCreateData(CreateInfo);
 
-        //Local because passing around a copy of this is a pain in the ass and well beyond the scope of the struct bundle system.
+        //Local addendums to CreateInfo because passing around a copy of this is a pain in the ass and well beyond the scope of the struct bundle system.
         AlcEnabledExtensions EnabledExtensions;
         FetchExtensionData(EnabledExtensions);
         CreateInfo.Get()->enabledExtensionCount = static_cast<uint32_t>(EnabledExtensions.Get()->size());
