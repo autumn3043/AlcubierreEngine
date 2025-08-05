@@ -1,5 +1,5 @@
-#ifndef ALCENGINE_MODULE_DEBUGMANAGER_PUBLIC_H
-#define ALCENGINE_MODULE_DEBUGMANAGER_PUBLIC_H
+#ifndef ALCENGINE_CORE_DEBUGMANAGER_PUBLIC_H
+#define ALCENGINE_CORE_DEBUGMANAGER_PUBLIC_H
 
 #include <exception>
 #include <ctime>
@@ -32,7 +32,7 @@ class DebugReport {
 
 class AlcEngineException : public std::exception {
     public:
-        AlcExcept(DebugReport report_) : Report(std::move(report_)) {}
+        AlcEngineException(DebugReport report_) : Report(std::move(report_)) {}
 
         DebugReport Get() const {return Report;}
         const char* what() const noexcept override {
@@ -45,7 +45,7 @@ class AlcEngineException : public std::exception {
 
 class DebugManager {
     public:
-        static DebugManager& Get();
+        static DebugManager& GetDebugManager();
 
         static void Log(std::string, bool Write = true);
         static void Log(std::exception, bool Write = true);
@@ -57,8 +57,6 @@ class DebugManager {
         ~DebugManager();
 
         void InternalLog(DebugReport Report, bool Write = true);
-
-        DebugManagerImpl* PrivatePtr;
 
 };
 

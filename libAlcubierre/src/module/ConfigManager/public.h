@@ -4,21 +4,32 @@
 #include <string>
 #include "core/Registry/interface/IConfigManager.h"
 
-class IConfigManagerImpl : public IConfigManager {
-
-};
-
-class ConfigManagerIMPL;
+class ConfigManagerImpl;
 
 class ConfigManager {
     public:
-        ConfigManager(const char* userdata = nullptr, const char* appdata = nullptr);
+        int Get_Impl(Container& v_out);
+        int Set_Impl(const std::string& key, const void* value);
+        int Import_Impl(const std::string& dataset);
+
+        class IConfigManagerImpl : public IConfigManager {
+            public:
+                ConfigManager* Parent;
+
+                IConfigManagerImpl(ConfigManager* _parent) : Parent(_parent) {}
+
+                int Get(const std::string& key, Container& v_out) override { return Parent->Get_Impl(v_out); }
+                int Set(const std::string& key, const void* value) override { return Parent->Set_Impl(key, value); }
+                int Import(const std::string& dataset) override { return Parent->Import_Impl(dataset); }
+        };
+
+        ConfigManager();
         ~ConfigManager();
 
-        IConfigManagerImpl IConfigManager_IMPL;
+        IConfigManagerImpl IConfigManager_ConfigManager;
         
     private:
-        ConfigManagerIMPL* PrivatePtr;
+        ConfigManagerImpl* PrivatePtr;
 };
 
 #endif

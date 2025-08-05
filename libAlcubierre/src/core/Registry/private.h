@@ -12,7 +12,7 @@ class RegistryImpl {
    public:
       std::vector<std::function<WrapperBaseClass*()>> Constructors;
       std::vector<WrapperBaseClass> Modules;
-      std::unordered_map<std::string, InterfaceBaseClass&> Services;
+      std::unordered_map<std::string, InterfaceBaseClass*> Services;
 };
 
 #endif

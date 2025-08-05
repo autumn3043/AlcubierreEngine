@@ -6,10 +6,9 @@
 
 class InterfaceBaseClass {
     public:
-        virtual InterfaceBaseClass() = 0; 
-        //Override this in deriving classes to assign const references ro functions if you know what I mean
+        std::string token;
 
-        virtual std::string token();
+        virtual ~InterfaceBaseClass() = default;
 };
 
 #endif

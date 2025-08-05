@@ -9,9 +9,13 @@ class ConfigManagerWrapper : public WrapperBaseClass{
 
     ConfigManager* native;
 
-    ConfigManager() {
+    ConfigManagerWrapper() {
         native = new ConfigManager();
-        Registry::GetRegistry().RegisterService(native->IConfigManager_IMPL);
+        Registry::GetRegistry().RegisterService(native->IConfigManager_ConfigManager);
+    }
+
+    ~ConfigManagerWrapper() {
+        delete native;
     }
 };
 

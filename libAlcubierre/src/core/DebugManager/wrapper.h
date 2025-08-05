@@ -1,6 +1,6 @@
-#ifndef ALCENGINE_MODULE_DEBUGMANAGER_WRAPPER_H
-#define ALCENGINE_MODULE_DEBUGMANAGER_WRAPPER_H
+#ifndef ALCENGINE_CORE_DEBUGMANAGER_WRAPPER_H
+#define ALCENGINE_CORE_DEBUGMANAGER_WRAPPER_H
 
-#include "module/DebugManager/public.h"
+#include "core/DebugManager/public.h"
 
 #endif

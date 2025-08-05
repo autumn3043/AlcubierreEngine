@@ -4,15 +4,19 @@ LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lwayland-client -lwayland-cursor -lw
 OUTPUT = libAlcubierre.so
 CONFIGPREFIX = ./src/module/DataManager/default
 TARGET = $(shell find src -name '*.cpp')
+TEMPTARGET = src/core/DebugManager/source.cpp src/core/PublicInterface/source.cpp src/core/Registry/source.cpp src/module/ConfigManager/source.cpp
 
-.PHONY: test build dataformat clean
+.PHONY: fullbuild build dataformat clean
+
+fullbuild:
+	$(MAKE) dataformat
+	$(MAKE) build
 
 dataformat:
 	@xxd -i -n formattedjson_enginedata $(CONFIGPREFIX)/enginedata.json > $(CONFIGPREFIX)/enginedata_json.h
 
 build:
-	$(MAKE) dataformat
-	g++ $(COMPILEFLAGS) -o $(OUTPUT) $(TARGET) $(LINKFLAGS) > makelog 2>&1
+	g++ $(COMPILEFLAGS) -o $(OUTPUT) $(TEMPTARGET) $(LINKFLAGS) > makelog 2>&1
 
 clean:
 	rm $(OUTPUT)

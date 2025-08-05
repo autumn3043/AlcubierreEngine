@@ -1,4 +1,4 @@
-#include "module/DebugManager/public.h"
+#include "core/DebugManager/public.h"
 
 #include <iostream>
 #include <utility>
@@ -6,32 +6,31 @@
 #include <sstream>
 #include <iomanip>
 
-DebugManager& DebugManager::Get() {
+DebugManager& DebugManager::GetDebugManager() {
     static DebugManager Instance;
     return Instance;
 }
 
-DebugManager::DebugManager() {
-    PrivatePtr = new DebugManagerImpl();
-}
+DebugManager::DebugManager() {}
+
 // Public static methods for shorthand interfacing
 
 void DebugManager::Log(std::string Message, bool Write) { 
     DebugReport Report(Message);
-    GetDebugManager().InternalLog(std::move(Report), Write);
+    DebugManager::GetDebugManager().InternalLog(std::move(Report), Write);
 }
 
 void DebugManager::Log(std::exception exception, bool Write) {
     DebugReport Report(std::string(exception.what()));
-    GetDebugManager().InternalLog(std::move(Report), Write);
+    DebugManager::GetDebugManager().InternalLog(std::move(Report), Write);
 } 
 
-void DebugManager::Log(AlcEngineExcept exception, bool Write) {
-    GetDebugManager().InternalLog(std::move(exception.Get()), Write);
+void DebugManager::Log(AlcEngineException exception, bool Write) {
+    DebugManager::GetDebugManager().InternalLog(std::move(exception.Get()), Write);
 }
 
 void DebugManager::Log(DebugReport Report, bool Write) {
-    GetDebugManager().InternalLog(std::move(Report), Write);
+    DebugManager::GetDebugManager().InternalLog(std::move(Report), Write);
 }
 
 //Private management of demystified inpui

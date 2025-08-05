@@ -13,7 +13,7 @@ class Registry {
     public:
         static Registry& GetRegistry();
 
-        void RegisterModule(std::function<WrapperBaseClass*()> _constructor); //Get the constructor, add it to a list...
+        void RegisterModule(std::function<WrapperBaseClass*()> _constructor, std::string& moduleID); //Get the constructor, add it to a list...
         void Init(); //...and fire them.
         void RegisterService(InterfaceBaseClass& _service);
         InterfaceBaseClass& FetchService(std::string token);
@@ -27,9 +27,10 @@ class Registry {
 
 struct ModuleRegistryBundle {
     std::function<WrapperBaseClass*()> constructor;
+    std::string moduleID;
 
-    ModuleRegistryBundle(std::function<WrapperBaseClass*()> _constructor) : constructor(std::move(_constructor)) {
-        Registry::GetRegistry().RegisterModule(constructor);
+    ModuleRegistryBundle(std::function<WrapperBaseClass*()> _constructor, std::string _ID) : constructor(std::move(_constructor)), moduleID(_ID) {
+        Registry::GetRegistry().RegisterModule(constructor, moduleID);
     }
 };
 
