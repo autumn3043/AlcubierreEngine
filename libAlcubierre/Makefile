@@ -1,10 +1,10 @@
-COMPILEFLAGS = -std=c++23 -O2 -I./ -I./src -shared -fPIC
+COMPILEFLAGS = -std=c++23 -O2 -I./ -I./src -shared -fPIC -g -O0
 LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lwayland-client -lwayland-cursor -lwayland-egl
 
 OUTPUT = libAlcubierre.so
 CONFIGPREFIX = ./src/module/DataManager/default
 TARGET = $(shell find src -name '*.cpp')
-TEMPTARGET = src/core/DebugManager/source.cpp src/core/PublicInterface/source.cpp src/core/Registry/source.cpp src/module/ConfigManager/source.cpp
+TEMPTARGET = src/core/DebugManager/source.cpp src/core/PublicInterface/source.cpp src/core/Registry/source.cpp src/module/ConfigManager/source.cpp AlcubierreEngine.h
 
 .PHONY: fullbuild build dataformat clean
 

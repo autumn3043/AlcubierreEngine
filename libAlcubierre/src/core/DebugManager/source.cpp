@@ -13,6 +13,8 @@ DebugManager& DebugManager::GetDebugManager() {
 
 DebugManager::DebugManager() {}
 
+DebugManager::~DebugManager() {}
+
 // Public static methods for shorthand interfacing
 
 void DebugManager::Log(std::string Message, bool Write) { 

@@ -3,57 +3,109 @@
 
 #include "core/Registry/base/InterfaceBaseClass.h"
 
-#include <typeinfo> //This prevents undefined behaviour when a value is malformed.
+#include <type_traits>
 
 class IConfigManager : public InterfaceBaseClass {
     public:
-        std::string token = "IConfigManager";
+        std::string token() override { return "IConfigManager"; }
 
-        //This interface is a bit weighty because we handle creating a return object in the same context as type detection, the trade off being a brief invokation. TODO.
-        struct Container {
-            void* ptr = nullptr;
-            std::type_info T_info;
-            std::string& key;
+        template <typename T>
+        T Get(const std::string& key, T defaultValue) {
+            //Pass the Container and ask the implementation to fill it out. If it detects a type mismatch, it will handle logging the issue, our job is simply to cast the pointer on success and then delete it.
+            //If the implementation fails, one of two things happen: if we have a default value, we use that. Hunky dory. If we don't though, we need to throw some kind of error to be handled upstream but without including <exception>
+            T hold;
+            TypeDescriptor* descriptor = new TypeDescriptor(std::type_identity<T>{});
 
-            Container(std::string& _k, type_info _ti) : key(_k), T_info(_ti) {}
+            Container item = Container(key, nullptr, descriptor);
+
+            if(GetInternal(item) == 0) {
+                hold = *static_cast<T*>(item.ptr);
+                delete static_cast<T*>(item.ptr);
+            } else {
+                hold = defaultValue;
+                //Implementation promises that pointer is nullptr in this case.
+            }
+            
+            return hold;
+            
+        }
+
+        template <typename T>
+        void Set(T value) {
+            TypeDescriptor* descriptor = new TypeDescriptor(std::type_identity<T>{});
+
+            Container item = Container("dummykey", &value, descriptor);
+            SetInternal(item);
+
+            delete descriptor;
+        }
+
+        struct TypeDescriptor{
+            TypeDescriptor() = default;
+
+            template <typename T>
+            struct is_vector : std::false_type {};
+
+            template <typename U, typename Alloc>
+            struct is_vector<std::vector<U, Alloc>> : std::true_type {};
+
+            template <typename T>
+            explicit TypeDescriptor(std::type_identity<T> = {}) {
+                if constexpr (is_vector<T>::value) {
+                    nested = new TypeDescriptor(std::type_identity<typename T::value_type>{});
+                    type = "!!VECTOR!! You should never see this.";
+
+                } else {
+                    nested = nullptr;
+                    type = human_readable_type<T>();
+                }
+            }
+
+            ~TypeDescriptor() {
+                if(nested) delete nested;
+            }
+
+            std::string Type() {
+                if(nested) {
+                    return "vector<" + nested->Type() + ">";
+
+                } else {
+                    return type;
+                }
+            }
+
+            TypeDescriptor* nested;
+            std::string type;
         };
 
         template <typename T>
-        T GetKey(const std::string key, const T defaultValue) {
-            T Rvalue = defaultValue;
-            Container Cvalue = Container(key, typeid(T));
-
-            if(Get(Cvalue) == 0) {
-                T* ptrCopy = static_cast<T*>(Cvalue.ptr);
-                Rvalue = *ptrCopy;
-            }
-
-            if(Cvalue.ptr) {
-                delete static_cast<T*>(Cvalue.ptr); //Implementation promises to assign the ptr *if and only if* it matches the requested type
-            } else {
-                delete Cvalue.ptr; //If Cvalue isn't set, then it is just nullptr and safe to delete like this. This doesn't actually do anything but it helps to visualise the process.
-            }
-
-            return Rvalue;
-
+        static std::string human_readable_type() {
+            if constexpr(std::is_same_v<T, bool>) return "bool";
+            else if constexpr (std::is_same_v<T, int>) return "int";
+            else if constexpr (std::is_same_v<T, long>) return "long";
+            else if constexpr (std::is_same_v<T, long long>) return "long long";
+            else if constexpr (std::is_same_v<T, unsigned>) return "unsigned int";
+            else if constexpr (std::is_same_v<T, float>) return "float";
+            else if constexpr (std::is_same_v<T, double>) return "double";
+            else if constexpr (std::is_same_v<T, std::string>) return "string";
+            else if constexpr (std::is_same_v<T, std::nullptr_t>) return "nullptr";
+            else if constexpr (std::is_same_v<T, void>) return "void";
+            else return "FAILED_GET_TYPE";
+            //Congratulations, you have assigned a config value to a primitive type that *is* specified by templates, but that I forgot to account for. Amazing job. Dipshit.
+            //"Why is this manually accounting" because typeid().name() is buns and im not pulling in a regex library to demangle it.
+            //Just add a constexpr line to account for your type I guess. Remember that templates are made at compile so you can't do custom types because they don't exist in this translation unit.
         }
 
-    private:
-        virtual const int Get(Container& v_out) = 0;
+        struct Container {
+            const std::string key;
+            void* ptr;
+            TypeDescriptor* t_info;
+            
+            Container(const std::string& _key, void* value, TypeDescriptor* _t_info) : key(_key), ptr(value), t_info(_t_info) {}
+        };
 
-    //akjsdn
-
-        template <typename T>
-        int SetKey(const std::string& key, const T& value) {
-            return Set(key, static_cast<const void*>(&value)); 
-        }
-
-        virtual int Set(const std::string& key, const void* value) = 0;
-        //Again, we use a template to allow for arbitrary types to be handed over without the interface ever having to see the backend parser. 
-        //void* must cast to the type the backend thinks it is or the entire universe will sponteneously combust. TODO
-
-        virtual int Import(const std::string& dataset) = 0;
-        //Dataset in backend-parseable format. Maybe having this be a string is the flimsiest part of this interface. Maybe you should shut up and cast the damn string.
+        virtual int GetInternal(Container& v_out) = 0; //Implementation reports status via int and fills out the ptr. Because the container is owned by the interface we can handle deletion smoothly. 
+        virtual int SetInternal(Container& v_in) = 0;
 };
 
 #endif

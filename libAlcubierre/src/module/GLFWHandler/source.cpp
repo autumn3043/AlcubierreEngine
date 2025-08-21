@@ -39,7 +39,7 @@ GLFWImpl::~GLFWImpl() {
 #include <cstring>
 
 void GLFWImpl::CreateWindow() {
-    Window = glfwCreateWindow(CM.Get<int>("window_width"), CM.Get<int>("window_height"), CM.Get<std::string>("application_name").c_str(), nullptr, nullptr);
+    Window = glfwCreateWindow(CM.Get<int>("window_height", 800), CM.Get<int>("window_width", 600), CM.Get<std::string>("application_name", "default").c_str(), nullptr, nullptr);
     
     if(!Window) {
         glfwTerminate();

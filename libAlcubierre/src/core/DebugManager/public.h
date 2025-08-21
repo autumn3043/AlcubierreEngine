@@ -60,4 +60,6 @@ class DebugManager {
 
 };
 
+inline DebugManager& DM() { return DebugManager::GetDebugManager(); }
+
 #endif

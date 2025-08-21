@@ -3,8 +3,6 @@
 
 #include <cstring>
 
-DebugManager& DM = DebugManager::GetDebugManager();
-
 std::string to_string (nlohmann::json::value_t t) {
     static constexpr const char* names[] = {
         "null", "object", "array", "string", "boolean",
@@ -23,199 +21,139 @@ ConfigManager::~ConfigManager() {
     delete PrivatePtr;
 }
 
-int ConfigManager::Get_Impl(Container& v_out) {
-    if(PrivatePtr->RawConfig.contains(v_out.key)) {
-        if(v_out.T_info == GetJsonTypeId(RawConfig[v_out.key])) {
-            v_out.ptr = std::move(ExtractPtrFromJson(RawConfig[v_out.key])); //This must be the ONLY assignment of the pointer, and ONLY invoked if the assigning type is the same as the requested type, which is what the deletion logic assumes.
-            return 0;
-
-        } else {
-            DM.Log("Failed to retrieve key '" + key + "' because its type did not match the requested type");
-            return 1;
-        }
-
-    } else {
-        DM.Log("Failed to retrieve key '" + key + "' because it does not exist in memory"); 
+int ConfigManager::Get_Impl(IConfigManager::Container& v_out) {
+    //Does a value exist at this key?
+    if(!PrivatePtr->RawConfig.contains(v_out.key)) {
         return 1;
     }
-}
 
-int ConfigManager::Set_Impl(const std::string& key, const void* value) {
-    if(!PrivatePtr->RawConfig.contains(key)) {
-        DM.Log("Assignment error: cannot inspect type of key '" + key + "' because it does not exist");
+    //Does its type match the expected return type?
+    if(v_out.t_info->Type() != PrivatePtr->GetDescriptorFromJson(PrivatePtr->RawConfig[v_out.key]).Type()) {
         return 1;
+    }
 
-    } else {
-        nlohmann::json value_cast = PrivatePtr->CastNativeToJson(PrivatePtr->RawConfig[key], value);
-        if(!value_cast.is_null()) return PrivatePtr->LoadItemToMemory(key, value_cast); //LoadItemToMemory moves value_cast so its ok for it go out of scope once it finishes
-        else return 1;
-    } 
+    //If yes to both, get, return and move a pointer to it.
+    v_out.ptr = std::move(PrivatePtr->GetPointerToJson(PrivatePtr->RawConfig[v_out.key]));
+    return 0;
 }
 
-int ConfigManager::Import_Impl(const std::string& dataset) { 
-    nlohmann::json parsedData;
+IConfigManager::TypeDescriptor ConfigManagerImpl::GetDescriptorFromJson(const nlohmann::json& json) {
+    IConfigManager::TypeDescriptor desc;
+
+    switch(json.type()) {
+        case nlohmann::json::value_t::boolean:
+            desc = IConfigManager::TypeDescriptor(std::type_identity<bool>{});
+        break;
+
+        case nlohmann::json::value_t::number_integer:
+            desc = IConfigManager::TypeDescriptor(std::type_identity<int64_t>{});
+        break;
+
+        case nlohmann::json::value_t::number_unsigned:
+            desc = IConfigManager::TypeDescriptor(std::type_identity<uint64_t>{});
+        break;
+
+        case nlohmann::json::value_t::number_float:
+            desc = IConfigManager::TypeDescriptor(std::type_identity<double>{});
+        break;
+
+        case nlohmann::json::value_t::string:
+            desc = IConfigManager::TypeDescriptor(std::type_identity<std::string>{});
+        break;
+
+        case nlohmann::json::value_t::array:
+            if(json.empty()) {
+                desc = IConfigManager::TypeDescriptor(std::type_identity<void>{});
+
+            } else {
+                desc.nested = new IConfigManager::TypeDescriptor(ConfigManagerImpl::GetDescriptorFromJson(json.front()));
+            }
+
+        break;
+
+        //Because we're using templates, we can't handle for nlohmann::json native or binary_t types. If the user chooses to use them anyway, they are passed without type checking and we trust that the user isn't dumb.
+        default:
+            desc.type = "unknown";
+        break;
+    }
+
+    return std::move(desc);
+}
+
+void* ConfigManagerImpl::GetPointerToJson(const nlohmann::json& json) {
+    void* hold = nullptr;
+
+    switch(json.type()) {
+        case nlohmann::json::value_t::boolean:
+            hold = new bool(json.get<bool>());
+        break;
+        
+        case nlohmann::json::value_t::number_integer:
+            hold = new int64_t(json.get<int64_t>());
+        break;
+
+        case nlohmann::json::value_t::number_unsigned:
+            hold = new uint64_t(json.get<uint64_t>());
+        break;
+
+        case nlohmann::json::value_t::number_float:
+            hold = new double(json.get<double>());
+        break;
+
+        case nlohmann::json::value_t::string:
+            hold = new std::string(json.get<std::string>());
+        break;
+
+        case nlohmann::json::value_t::array:
+            std::vector<void*>* array = new std::vector<void*>();
+
+            for(const nlohmann::json& item : json) {
+                array->push_back(std::move(GetPointerToJson(item)));
+            }
+
+            hold = std::move(array);
+        break;
+    }
+
+    return hold;
+}
+
+int ConfigManager::Set_Impl(IConfigManager::Container& v_in) {
+    std::string input = *static_cast<std::string*>(v_in.ptr);
+    nlohmann::json json;
 
     try {
-        parsedData = nlohmann::json::parse(dataset.c_str());
-
+        json = nlohmann::json::parse(input.c_str());
     } catch (nlohmann::json::parse_error E) {
-        DM.Log(E);
+        DM().Log("Failed to parse string:\n" + input + "\nJson error message:" + E.what());
         return 1;
-
     } catch (...) {
         throw;
     }
 
-    return PrivatePtr->LoadObjectToMemory(parsedData); 
+    PrivatePtr->SetFromParsed(json);
+    return 0;
+}
+
+ModuleRegistryBundle ConfigManagerWrapper::bundle(
+    []() -> WrapperBaseClass* { return new ConfigManagerWrapper(); },
+    "MODULE_CONFIGMANAGER"
+);
+
+void ConfigManagerImpl::SetFromParsed(const nlohmann::json& json) {
+    for(auto& [key, val] : json.items()) {
+        if(RawConfig.contains(key)) {
+            if(RawConfig[key].type() == val.type()) {
+                RawConfig[key] = val;
+            }
+        } else {
+            RawConfig[key] = val;
+        }
+    }
+
+    DM().Log(RawConfig.dump());
 }
 
 ConfigManagerImpl::ConfigManagerImpl() {
     RawConfig = nlohmann::json();
-}
-
-int ConfigManagerImpl::LoadItemToMemory(const std::string& key, nlohmann::json& item) {
-    if(!RawConfig.contains(key)) {
-        RawConfig.push_back(std::move(item));
-        return 0;
-
-    } else if (RawConfig[key].type() == item.type()) {
-        RawConfig[key] = std::move(item);
-        return 0;
-
-    } else {
-        DM.Log("Assignment error: key '" + key + "' has type " + to_string(RawConfig[key].type()) + " but was trying to assign a value of type " + to_string(item));
-        return 1;
-    }
-}
-
-int ConfigManagerImpl::LoadObjectToMemory(nlohmann::json object) {
-    for(auto& [key, val] : object.items()) { 
-    //nlohmann asserts that the type here is auto for some reason instead of whatever the underlying type is (which I cannot even find in the docs) so we have this bullshit. 
-    //I can only assume this exists purely to torture me, the #1 certified auto hater.
-        LoadItemToMemory(key, val);
-    }
-
-    return 0;
-}
-
-bool ConfigManagerImpl::CompareType(const nlohmann::json& json) {
-    switch(json.type()) {
-        case json::value_t::boolean:
-            return typeid(bool);
-
-        case json::value_t::number_integer:
-            return typeid(int64_t);
-
-        case json::value_t::number_unsigned:
-            return typeid(uint64_t);
-
-        case json::value_t::number_float:
-            return typeid(double);
-
-        case json::value_t::string:
-            return typeid(std::string);
-
-        case json::value_t::array:
-            return typeid();
-
-        case json::value_t::binary:
-            return typeid();
-
-        case json::value_t::object:
-            return typeid(nlohmann::json);
-
-        default:
-            return typeid(void); 
-    }
-}
-
-const void* ConfigManagerImpl::ExtractPtrFromJson(const nlohmann::json& json) {
-    void* Rvalue = nullptr;
-
-    switch(json.type()) {
-        case nlohmann::json::value_t::boolean:
-            Rvalue = new bool(json.get<bool>());
-        break;
-
-        case nlohmann::json::value_t::number_integer:
-            Rvalue = new int64_t(json.get<int64_t>());
-        break;
-
-        case nlohmann::json::value_t::number_unsigned:
-            Rvalue = new uint64_t(json.get<uint64_t>());
-        break;
-
-        case nlohmann::json::value_t::number_float:
-            Rvalue = new double(json.get<double>());
-        break;
-
-        case nlohmann::json::value_t::string:
-            Rvalue = new std::string(json.get<std::string>());
-        break;
-
-        case nlohmann::json::value_t::array:
-            std::vector<void*> hold = new std::vector<void*>(); //A local array (non-pointer) of the JSON elements (pointers.)
-
-            for(const nlohmann::json& item : json) {
-                hold.push_back(ExtractPtrFromJson(item)); //Fill that array out with support for recursion.
-            }
-
-            Rvalue = static_cast<void*>(hold); //Create the return pointer by passing the pointer we already created.
-        break;
-
-        case nlohmann::json::value_t::binary:
-            Rvalue = new nlohmann::json::binary_t(json.get<nlohmann::json::binary_t>());
-        break;
-
-        case nlohmann::json::value_t::object:
-            Rvalue = new nlohmann::json(json);
-        break;
-
-    }
-
-    return Rvalue;
-}
-
-nlohmann::json ConfigManagerImpl::CastNativeToJson(nlohmann::json& target, const void* value) {
-    try {
-        nlohmann::json hold;
-
-        switch(target.type()) {
-            case nlohmann::json::value_t::boolean:
-                hold = *static_cast<bool*>(value);
-
-            case nlohmann::json::value_t::number_integer:
-                hold = *static_cast<int64_t*>(value);
-
-            case nlohmann::json::value_t::number_unsigned:
-                hold = *static_cast<uint64_t*>(value);
-
-            case nlohmann::json::value_t::number_float:
-                hold = *static_cast<double*>(value);
-
-            case nlohmann::json::value_t::string:
-                hold = *static_cast<std::string*>(value);
-
-            case nlohmann::json::value_t::array:
-                hold = *static_cast<const nlohmann::json::array_t*>(value);
-
-            case nlohmann::json::value_t::binary:
-                hold = *static_cast<const nlohmann::json::binary_t*>(value);
-
-            case nlohmann::json::value_t::object:
-                hold = *static_cast<const nlohmann::json::object_t*>(value);
-
-            default:
-                DM.Log("Assignment error: key '" + "' cannot be modified because it holds an unrecognised type");
-                return 1;
-        }
-        return hold;
-
-    } catch (const nlohmann::json::type_error& E) {
-        DM.Log("Assignment error: key '" + key + "' has type " + to_string(target.type()) + " but nlohmann indicated that the type of the provided void* was different: " + E.message);
-        return nlohmann::json();
-
-    } catch (...) {
-        throw;
-    }
 }

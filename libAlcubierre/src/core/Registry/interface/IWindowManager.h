@@ -5,6 +5,8 @@
 
 class IWindowManager : public InterfaceBaseClass {
     std::string token override = "IWindowManager";
+
+    virtual ~IWindowManager() = default;
 };
 
 #endif
