@@ -1,50 +1,48 @@
 #include "module/GLFWHandler/public.h"
 #include "module/GLFWHandler/private.h"
 
-//PROVIDES
-#include "core/Registry/interface/IWindowManager.h"
+#include "core/DebugManager/public.h"
 
-//REQUIRES
-#include "core/DebugManager/wrapper.h"
-using DM = DebugManager::GetDebugManager();
 #include "core/Registry/interface/IConfigManager.h"
 
 GLFWHandler::GLFWHandler() {
     PrivatePtr = new GLFWImpl();
-
-    IWindowManager_IMPL = PrivatePtr->iwindowmanager_impl;
 }
 
 GLFWHandler::~GLFWHandler() {
-    PrivatePtr->~GLFWHandler();
+    delete PrivatePtr;
 }
 
 GLFWImpl::GLFWImpl() {
-    iwindowmanager_impl = IWindowManager();
-    CM = Registry::FetchService("IConfigManager");
-
     glfwInit();
     CreateWindow();
 
-    DM.Log("Successfully created GLFW window");
+    DM().Log("Successfully created GLFW window");
 }
 
 GLFWImpl::~GLFWImpl() {
-    glfwDestroyWindow();
+    glfwDestroyWindow(Window);
     glfwTerminate();
 
-    DM.Log("Successfully destroyed GLFW window");
+    DM().Log("Successfully destroyed GLFW window");
 }
 
 #include <cstring>
 
 void GLFWImpl::CreateWindow() {
-    Window = glfwCreateWindow(CM.Get<int>("window_height", 800), CM.Get<int>("window_width", 600), CM.Get<std::string>("application_name", "default").c_str(), nullptr, nullptr);
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+
+    Window = glfwCreateWindow(CM->Get<int>("window_height", 800), CM->Get<int>("window_width", 600), CM->Get<std::string>("application_name", "default").c_str(), nullptr, nullptr);
     
     if(!Window) {
         glfwTerminate();
         throw std::runtime_error("Failed to create GLFW window");
     } else {
-        DM.Log("Successfully constructed GLFW window");
+        DM().Log("Successfully constructed GLFW window");
     }
 }
+
+ModuleRegistryBundle GLFWHandlerWrapper::bundle(
+    []() -> WrapperBaseClass* { return new GLFWHandlerWrapper(); },
+    "MODULE_GLFWHANDLER"
+);

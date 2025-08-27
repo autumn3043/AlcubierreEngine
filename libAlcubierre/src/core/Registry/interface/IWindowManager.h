@@ -4,7 +4,7 @@
 #include "core/Registry/base/InterfaceBaseClass.h"
 
 class IWindowManager : public InterfaceBaseClass {
-    std::string token override = "IWindowManager";
+    std::string token() override { return "IConfigManager"; }
 
     virtual ~IWindowManager() = default;
 };

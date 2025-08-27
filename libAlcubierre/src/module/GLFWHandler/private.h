@@ -8,11 +8,7 @@ class GLFWImpl {
         GLFWImpl();
         ~GLFWImpl();
 
-        IWindowManager iwindowmanager_impl;
-
     private:
-        IConfigManager& CM;
-
         void CreateWindow();
 
         GLFWwindow* Window;

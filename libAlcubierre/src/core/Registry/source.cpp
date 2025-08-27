@@ -29,10 +29,18 @@ void Registry::Init() {
 }
 
 void Registry::RegisterService(InterfaceBaseClass& _service) {
-    PrivatePtr->Services[_service.token()] = &_service;
-    DM().Log("Registered service '" + _service.token() + "'");
+    if(!PrivatePtr->Services.contains(_service.token())) {
+        PrivatePtr->Services[_service.token()] = &_service;
+        DM().Log("Registered service '" + _service.token() + "'");
+    } else {
+        DM().Log("Failed attempt to register service with non-unique token '" + _service.token() + "'");
+    }
 }
 
 InterfaceBaseClass* Registry::FetchService(std::string token) {
-    return PrivatePtr->Services.at(token);
+    if(PrivatePtr->Services.contains(token)) {
+        return PrivatePtr->Services.at(token);
+    } else {
+        throw AlcEngineException(DebugReport("Attempted to access unregistered service '" + token + "'"));
+    }
 }
