@@ -32,5 +32,6 @@
 *.app
 
 makelog
-sandbox/
+Sandbox
 Progress\ Notes.txt
+libAlcubierre/build/*
