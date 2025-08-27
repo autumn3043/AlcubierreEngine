@@ -66,7 +66,8 @@ IConfigManager::TypeDescriptor ConfigManagerImpl::GetDescriptorFromJson(const nl
                 desc = IConfigManager::TypeDescriptor(std::type_identity<void>{});
 
             } else {
-                desc.nested = new IConfigManager::TypeDescriptor(ConfigManagerImpl::GetDescriptorFromJson(json.front()));
+                IConfigManager::TypeDescriptor nestedHold = ConfigManagerImpl::GetDescriptorFromJson(json.front());
+                desc.nested = new IConfigManager::TypeDescriptor(std::move(nestedHold));
             }
 
         break;
@@ -77,7 +78,7 @@ IConfigManager::TypeDescriptor ConfigManagerImpl::GetDescriptorFromJson(const nl
         break;
     }
 
-    return std::move(desc);
+    return desc;
 }
 
 void* ConfigManagerImpl::GetPointerToJson(const nlohmann::json& json) {

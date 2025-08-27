@@ -1,11 +1,9 @@
-FLAGS = -std=c++23 -O2 -I./ -I./src -g -O0
+FLAGS = -std=c++23 -I./ -I./src -g -O0
 
 OUTPUT = libAlcubierre.a
 
 BASE_DIR = src/core
 MODULE_DIR = src/module
-
-LINKED_LIBS = -lglfw -lvulkan -ldl -lpthread -lwayland-client -lwayland-cursor -lwayland-egl
 
 BASE_SRCS = $(shell find $(BASE_DIR) -name source.cpp)
 BASE_OBJS = $(patsubst $(BASE_DIR)/%/source.cpp,%.o,$(BASE_SRCS))

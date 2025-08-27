@@ -19,16 +19,44 @@ class IConfigManager : public InterfaceBaseClass {
             Container item = Container(key, nullptr, descriptor);
 
             if(GetInternal(item) == 0) {
-                hold = *static_cast<T*>(item.ptr);
-                delete static_cast<T*>(item.ptr);
+                hold = Extract<T>(item.ptr);
+
             } else {
                 hold = defaultValue;
                 //Implementation promises that pointer is nullptr in this case.
             }
             
+            delete descriptor;
             return hold;
             
         }
+
+        template <typename T>
+        struct is_vector : std::false_type {};
+
+        template <typename U, typename Alloc>
+        struct is_vector<std::vector<U, Alloc>> : std::true_type {};
+
+        template <typename T>
+        T Extract(void* ptr) {
+            T hold;
+
+            if constexpr (is_vector<T>::value) {
+                std::vector<void*>* vector = static_cast<std::vector<void*>*>(ptr);
+
+                for(void* element : *vector) {
+                    hold.emplace_back(Extract<typename T::value_type>(element));
+                }
+
+                delete static_cast<std::vector<void*>*>(ptr);
+
+            } else {
+                hold = *static_cast<T*>(ptr);
+                delete static_cast<T*>(ptr);
+            }
+
+            return hold;
+        }        
 
         template <typename T>
         void Set(T value) {
