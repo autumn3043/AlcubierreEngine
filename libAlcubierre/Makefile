@@ -1,18 +1,25 @@
-COMPILEFLAGS = -std=c++23 -O2 -I./ -I./src -shared -fPIC
-LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lwayland-client -lwayland-cursor -lwayland-egl
+FLAGS = -std=c++23 -I./ -I./src -g -O0
 
-OUTPUT = libAlcubierre.so
-CONFIGPREFIX = ./src/core/DataManager/default
-TARGET = $(shell find src -name '*.cpp')
+OUTPUT = libAlcubierre.a
 
-.PHONY: test build dataformat clean
+BASE_DIR = src/core
+MODULE_DIR = src/module
 
-dataformat:
-	@xxd -i -n formattedjson_enginedata $(CONFIGPREFIX)/enginedata.json > $(CONFIGPREFIX)/enginedata_json.h
+BASE_SRCS = $(shell find $(BASE_DIR) -name source.cpp)
+BASE_OBJS = $(patsubst $(BASE_DIR)/%/source.cpp,%.o,$(BASE_SRCS))
+MODULE_SRCS = $(shell find $(MODULE_DIR) -name source.cpp)
+MODULE_OBJS = $(patsubst $(MODULE_DIR)/%/source.cpp,%.o,$(MODULE_SRCS))
+ALL_OBJS = $(BASE_OBJS) $(MODULE_OBJS)
 
-build:
-	$(MAKE) dataformat
-	g++ $(COMPILEFLAGS) -o $(OUTPUT) $(TARGET) $(LINKFLAGS) > makelog 2>&1
+engine: $(ALL_OBJS)
+	ar rcs build/$(OUTPUT) $(shell find src -name '*.o')
+	cp $(BASE_DIR)/PublicInterface/public.h build/AlcubierreEngine.h
+
+%.o: $(BASE_DIR)/%/source.cpp
+	g++ $(FLAGS) -o $(<D)/$@ -c $< > makelog 2>&1
+
+%.o: $(MODULE_DIR)/%/source.cpp
+	g++ $(FLAGS) -o $(<D)/$@ -c $< > makelog 2>&1
 
 clean:
-	rm $(OUTPUT)
+	rm $(shell find src -name '*.o')
