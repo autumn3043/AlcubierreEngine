@@ -1,7 +1,14 @@
-#include "module/VulkanHandler/VulkanHandler.h"
+#include "module/VulkanHandler/public.h"
 
 #include <utility>
 #include <algorithm>
+
+#include "core/Registry/interface/IConfigManager.h"
+
+ModuleRegistryBundle VulkanHandlerWrapper::bundle(
+    []() -> WrapperBaseClass* { return new VulkanHandlerWrapper(); },
+    "MODULE_VULKANHANDLER"
+);
 
 VulkanHandler::VulkanHandler() {
     try {
@@ -14,22 +21,22 @@ VulkanHandler::VulkanHandler() {
 VulkanHandler::~VulkanHandler() {
     try {
         vkDestroyDevice(Device, nullptr);
-        DebugManager::Log("Successfully destroyed Vulkan logical device");
+        DM().Log("Successfully destroyed Vulkan logical device");
     } catch (...) {/*Do nothing for now*/}
 
     try {
         PFN_vkDestroyDebugUtilsMessengerEXT DestroyFunction = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(Instance, "vkDestroyDebugUtilsMessengerEXT");
         if(DestroyFunction != nullptr) {
             DestroyFunction(Instance, DebugMessenger, nullptr);
-            DebugManager::Log("Successfully destroyed Vulkan debug link");
+            DM().Log("Successfully destroyed Vulkan debug link");
         }
     } catch (...) {/*Do nothing for now*/}
 
     try {
         vkDestroyInstance(Instance, nullptr);
-        DebugManager::Log("Successfully destroyed Vulkan instance");
+        DM().Log("Successfully destroyed Vulkan instance");
     } catch (...) {
-        DebugManager::Log("Failed to destroy Vulkan instance");
+        DM().Log("Failed to destroy Vulkan instance");
     }
 }
 
@@ -57,7 +64,7 @@ int VulkanHandler::CreateVulkanInstance() {
     if (vkCreateInstance(CreateInfo.Get(), nullptr, &Instance) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create Vulkan instance!");
     } else {
-        DebugManager::Log("Successfully constructed Vulkan instance");
+        DM().Log("Successfully constructed Vulkan instance");
         return 0;
     }
 }
@@ -74,8 +81,8 @@ void VulkanHandler::FetchCreateData(AlcInstanceCreateInfo& ReturnBundle) {
 }
 
 void VulkanHandler::FetchExtensionData(AlcEnabledExtensions& ReturnBundle) {
-    DataManager& DM = DataManager::GetDataManager();
-    std::vector<std::string> EnabledExtensionsStr = DM.Get<std::vector<std::string>>("extensions");
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+    std::vector<std::string> EnabledExtensionsStr = CM->Get<std::vector<std::string>>("extensions", {"VK_EXT_debug_utils"});
 
     ReturnBundle.Set(EnabledExtensionsStr);
 }
@@ -84,16 +91,16 @@ void VulkanHandler::FetchAppData(AlcApplicationInfo& ReturnBundle) {
     VkApplicationInfo hold{};
     hold.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 
-    DataManager& DM = DataManager::GetDataManager();
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
 
-    hold.pEngineName = DM.Get<std::string>("engine_name").c_str();
+    hold.pEngineName = CM->Get<std::string>("engine_name", "Alcubierre Engine").c_str();
 
-    std::vector<int> engineversion = DM.Get<std::vector<int>>("engine_version");
+    std::vector<int> engineversion = CM->Get<std::vector<int>>("engine_version", {0, 0, 0});
     hold.engineVersion = VK_MAKE_VERSION(static_cast<uint32_t>(engineversion[0]), static_cast<uint32_t>(engineversion[1]), static_cast<uint32_t>(engineversion[2]));
 
-    hold.pApplicationName = DM.Get<std::string>("application_name").c_str();
+    hold.pApplicationName = CM->Get<std::string>("application_name", "Default Application").c_str();
 
-    std::vector<int> appversion = DM.Get<std::vector<int>>("application_version");
+    std::vector<int> appversion = CM->Get<std::vector<int>>("application_version", {0, 0, 0});
     hold.applicationVersion = VK_MAKE_VERSION(static_cast<uint32_t>(appversion[0]), static_cast<uint32_t>(appversion[1]), static_cast<uint32_t>(appversion[2]));
 
 
@@ -112,11 +119,11 @@ int VulkanHandler::CreateDebugLink() {
         if(CreateStatus != VK_SUCCESS) {
             throw VulkanException("Issue creating debug callback loop"); 
         } else {
-            DebugManager::Log("Successfully established debug link");
+            DM().Log("Successfully established debug link");
             return 0;
         }
     } else {
-        DebugManager::Log("Debug extension not present, Vulkan failed to link"); 
+        DM().Log("Debug extension not present, Vulkan failed to link"); 
         return 1;
     }
 }
@@ -144,7 +151,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandler::VulkanDebugCallback(
     std::string CallbackMessage(pCallbackData->pMessage);
 
 
-    AlcExceptions::DebugReport Report(
+    DebugReport Report(
         CallbackMessage,
         "Vulkan Debug Callback",
         {},
@@ -182,7 +189,7 @@ int VulkanHandler::CreateLogicalDevice(int overrideIndice) {
 
             return 1;
         } else {
-            DebugManager::Log("Successfully instantiated Vulkan logical device");
+            DM().Log("Successfully instantiated Vulkan logical device");
 
             vkGetDeviceQueue(Device, GetDeviceIndices(PhysicalDevice)[0], 0, &Queue);
             

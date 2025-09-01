@@ -3,14 +3,20 @@
 
 #include <vulkan/vulkan.h>
 
+#include "core/Registry/public.h"
+
+//Services
+
 #include <vector>
 #include <cstdlib>
 
 #include "module/VulkanHandler/VulkanStructBundles.h"
 
-class VulkanException : public AlcExceptions::AlcExcept {
+#include "core/DebugManager/public.h"
+
+class VulkanException : public AlcEngineException {
     public:
-        VulkanException(std::string message) : AlcExceptions::AlcExcept(AlcExceptions::DebugReport(message)) {}
+        VulkanException(std::string message) : AlcEngineException(DebugReport(message)) {}
 };
 
 class VulkanHandler {
@@ -49,6 +55,23 @@ class VulkanHandler {
 
             std::vector<uint32_t> GetDeviceIndices(VkPhysicalDevice _PhysicalDevice);
 
+};
+
+class VulkanHandlerWrapper : public WrapperBaseClass{
+    public:
+        VulkanHandlerWrapper() {
+            native = new VulkanHandler();
+            // Registry::GetRegistry().RegisterService(native->IWindowManager_VulkanHandler);
+        }
+
+        ~VulkanHandlerWrapper() {
+            delete native;
+        }
+
+    private:
+        VulkanHandler* native = nullptr;
+
+        static ModuleRegistryBundle bundle;
 };
 
 #endif 

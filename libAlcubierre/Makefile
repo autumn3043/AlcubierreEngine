@@ -9,7 +9,7 @@ BASE_SRCS = $(shell find $(BASE_DIR) -name source.cpp)
 BASE_OBJS = $(patsubst $(BASE_DIR)/%/source.cpp,%.o,$(BASE_SRCS))
 MODULE_SRCS = $(shell find $(MODULE_DIR) -name source.cpp)
 MODULE_OBJS = $(patsubst $(MODULE_DIR)/%/source.cpp,%.o,$(MODULE_SRCS))
-ALL_OBJS = $(BASE_OBJS) ConfigManager.o GLFWHandler.o
+ALL_OBJS = $(BASE_OBJS) $(MODULE_OBJS)
 
 engine: $(ALL_OBJS)
 	ar rcs build/$(OUTPUT) $(shell find src -name '*.o')
