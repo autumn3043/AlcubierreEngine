@@ -4,9 +4,10 @@
 #include "core/Registry/base/InterfaceBaseClass.h"
 
 class IWindowManager : public InterfaceBaseClass {
-    std::string token() override { return "IConfigManager"; }
+    public:
+        std::string token() override { return "IWindowManager"; }
 
-    virtual ~IWindowManager() = default;
+        virtual void* GetWindowObject() = 0;
 };
 
 #endif

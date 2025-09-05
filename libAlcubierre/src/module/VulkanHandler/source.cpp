@@ -1,24 +1,39 @@
 #include "module/VulkanHandler/public.h"
+#include "module/VulkanHandler/private.h"
 
 #include <utility>
 #include <algorithm>
 
 #include "core/Registry/interface/IConfigManager.h"
+#include "core/Registry/interface/IWindowSurfaceBridge.h"
 
 ModuleRegistryBundle VulkanHandlerWrapper::bundle(
     []() -> WrapperBaseClass* { return new VulkanHandlerWrapper(); },
     "MODULE_VULKANHANDLER"
 );
 
-VulkanHandler::VulkanHandler() {
-    try {
-        Init();
-    } catch(...) {
-        throw;
-    }
-}
+VulkanHandler::VulkanHandler() : IGraphicsBackend_VulkanHandler(this) {}
 
 VulkanHandler::~VulkanHandler() {
+    if(PrivatePtr) delete PrivatePtr;
+}
+
+void* VulkanHandler::GetBackendObjectImpl() {
+    if(!PrivatePtr) {
+        PrivatePtr = new VulkanHandlerIMPL();
+    }
+
+    return PrivatePtr;
+}
+
+VulkanHandlerIMPL::VulkanHandlerIMPL() {
+    CreateVulkanInstance();
+    CreateDebugLink();
+    CreateLogicalDevice(0);
+    CreateSurface();
+}
+
+VulkanHandlerIMPL::~VulkanHandlerIMPL() {
     try {
         vkDestroyDevice(Device, nullptr);
         DM().Log("Successfully destroyed Vulkan logical device");
@@ -40,14 +55,7 @@ VulkanHandler::~VulkanHandler() {
     }
 }
 
-int VulkanHandler::Init() {
-    CreateVulkanInstance();
-    CreateDebugLink();
-    CreateLogicalDevice(0);
-    return 0;
-}
-
-int VulkanHandler::CreateVulkanInstance() {
+int VulkanHandlerIMPL::CreateVulkanInstance() {
     AlcInstanceCreateInfo CreateInfo{};
     FetchCreateData(CreateInfo);
 
@@ -69,7 +77,7 @@ int VulkanHandler::CreateVulkanInstance() {
     }
 }
 
-void VulkanHandler::FetchCreateData(AlcInstanceCreateInfo& ReturnBundle) {
+void VulkanHandlerIMPL::FetchCreateData(AlcInstanceCreateInfo& ReturnBundle) {
     VkInstanceCreateInfo hold{};
     hold.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 
@@ -80,14 +88,14 @@ void VulkanHandler::FetchCreateData(AlcInstanceCreateInfo& ReturnBundle) {
     ReturnBundle.Set(hold);
 }
 
-void VulkanHandler::FetchExtensionData(AlcEnabledExtensions& ReturnBundle) {
+void VulkanHandlerIMPL::FetchExtensionData(AlcEnabledExtensions& ReturnBundle) {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
     std::vector<std::string> EnabledExtensionsStr = CM->Get<std::vector<std::string>>("extensions", {"VK_EXT_debug_utils"});
 
     ReturnBundle.Set(EnabledExtensionsStr);
 }
 
-void VulkanHandler::FetchAppData(AlcApplicationInfo& ReturnBundle) {
+void VulkanHandlerIMPL::FetchAppData(AlcApplicationInfo& ReturnBundle) {
     VkApplicationInfo hold{};
     hold.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 
@@ -109,7 +117,7 @@ void VulkanHandler::FetchAppData(AlcApplicationInfo& ReturnBundle) {
     ReturnBundle.Set(hold);
 }
 
-int VulkanHandler::CreateDebugLink() {
+int VulkanHandlerIMPL::CreateDebugLink() {
     AlcDebugUtilsMessengerCreateInfoEXT DebugLinkCreateInfo{};
     FetchDebugData(DebugLinkCreateInfo);
 
@@ -128,7 +136,7 @@ int VulkanHandler::CreateDebugLink() {
     }
 }
 
-void VulkanHandler::FetchDebugData(AlcDebugUtilsMessengerCreateInfoEXT& ReturnBundle) {
+void VulkanHandlerIMPL::FetchDebugData(AlcDebugUtilsMessengerCreateInfoEXT& ReturnBundle) {
     VkDebugUtilsMessengerCreateInfoEXT hold{};
 
     hold.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -142,7 +150,7 @@ void VulkanHandler::FetchDebugData(AlcDebugUtilsMessengerCreateInfoEXT& ReturnBu
     ReturnBundle.Set(hold);
 }
 
-VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandler::VulkanDebugCallback(
+VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandlerIMPL::VulkanDebugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT messageType,
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
@@ -162,7 +170,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandler::VulkanDebugCallback(
     return VK_FALSE;
 }
 
-int VulkanHandler::CreateLogicalDevice(int overrideIndice) {
+int VulkanHandlerIMPL::CreateLogicalDevice(int overrideIndice) {
     try {
         std::vector<std::pair<int, VkPhysicalDevice>> PhysicalDeviceCandidates = SelectPhysicalDevice();
         VkPhysicalDevice PhysicalDevice = std::get<1>(PhysicalDeviceCandidates[overrideIndice]);  
@@ -201,7 +209,7 @@ int VulkanHandler::CreateLogicalDevice(int overrideIndice) {
     }
 }
 
-std::vector<std::pair<int, VkPhysicalDevice>> VulkanHandler::SelectPhysicalDevice() {
+std::vector<std::pair<int, VkPhysicalDevice>> VulkanHandlerIMPL::SelectPhysicalDevice() {
     uint32_t CompatibleDeviceCount = 0;
     vkEnumeratePhysicalDevices(Instance, &CompatibleDeviceCount, nullptr);
     if(CompatibleDeviceCount == 0) {
@@ -227,7 +235,7 @@ std::vector<std::pair<int, VkPhysicalDevice>> VulkanHandler::SelectPhysicalDevic
     return Candidates;
 }
 
-int VulkanHandler::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {    
+int VulkanHandlerIMPL::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {    
     
     VkPhysicalDeviceProperties DeviceProperties;
     vkGetPhysicalDeviceProperties(_PhysicalDevice, &DeviceProperties);
@@ -270,7 +278,7 @@ int VulkanHandler::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {
     return hold;
 }
 
-void VulkanHandler::FetchDeviceInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceCreateInfo& ReturnBundle) {
+void VulkanHandlerIMPL::FetchDeviceInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceCreateInfo& ReturnBundle) {
     VkDeviceCreateInfo hold{};
     hold.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
@@ -287,7 +295,7 @@ void VulkanHandler::FetchDeviceInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceC
     ReturnBundle.Set(hold);
 }
 
-void VulkanHandler::FetchQueueInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceQueueCreateInfo& ReturnBundle) {
+void VulkanHandlerIMPL::FetchQueueInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceQueueCreateInfo& ReturnBundle) {
     VkDeviceQueueCreateInfo hold {};
     hold.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 
@@ -300,7 +308,7 @@ void VulkanHandler::FetchQueueInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceQu
     ReturnBundle.Set(hold);
 }
 
-std::vector<uint32_t> VulkanHandler::GetDeviceIndices(VkPhysicalDevice _PhysicalDevice) {
+std::vector<uint32_t> VulkanHandlerIMPL::GetDeviceIndices(VkPhysicalDevice _PhysicalDevice) {
     std::vector<uint32_t> hold;
 
     uint32_t QueueFamilyCount = 0;
@@ -319,4 +327,10 @@ std::vector<uint32_t> VulkanHandler::GetDeviceIndices(VkPhysicalDevice _Physical
     }
 
     return hold;
+}
+
+int VulkanHandlerIMPL::CreateSurface() {
+    IWindowSurfaceBridge* WSB = dynamic_cast<IWindowSurfaceBridge*>(Registry::GetRegistry().FetchService("IWindowSurfaceBridge"));
+
+    return WSB->CreateWindowSurface(&Instance, &Surface);
 }

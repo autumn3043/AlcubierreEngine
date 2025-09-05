@@ -13,8 +13,10 @@ AlcubierreEngine::~AlcubierreEngine() {
 
 AlcubierreEngineImpl::AlcubierreEngineImpl() {
     Registry::GetRegistry().Init();
+
+    dynamic_cast<IWindowManager*>(Registry::GetRegistry().FetchService("IWindowManager"))->GetWindowObject();
+    dynamic_cast<IGraphicsBackend*>(Registry::GetRegistry().FetchService("IGraphicsBackend"))->GetBackendObject();
 }
 
 AlcubierreEngineImpl::~AlcubierreEngineImpl() {
-    
 }

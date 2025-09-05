@@ -13,6 +13,11 @@ std::string to_string (nlohmann::json::value_t t) {
     return idx < std::size(names) ? names[idx] : "unknown";
 }
 
+ModuleRegistryBundle ConfigManagerWrapper::bundle(
+    []() -> WrapperBaseClass* { return new ConfigManagerWrapper(); },
+    "MODULE_CONFIGMANAGER"
+);
+
 ConfigManager::ConfigManager() : IConfigManager_ConfigManager(this) {
     PrivatePtr = new ConfigManagerImpl();
 }
@@ -135,11 +140,6 @@ int ConfigManager::Set_Impl(IConfigManager::Container& v_in) {
     PrivatePtr->SetFromParsed(json);
     return 0;
 }
-
-ModuleRegistryBundle ConfigManagerWrapper::bundle(
-    []() -> WrapperBaseClass* { return new ConfigManagerWrapper(); },
-    "MODULE_CONFIGMANAGER"
-);
 
 void ConfigManagerImpl::SetFromParsed(const nlohmann::json& json) {
     for(auto& [key, val] : json.items()) {

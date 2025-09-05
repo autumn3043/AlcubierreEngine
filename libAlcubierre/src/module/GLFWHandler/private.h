@@ -8,7 +8,6 @@ class GLFWImpl {
         GLFWImpl();
         ~GLFWImpl();
 
-    private:
         void CreateWindow();
 
         GLFWwindow* Window;

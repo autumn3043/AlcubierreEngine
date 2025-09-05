@@ -3,14 +3,23 @@
 
 #include "core/DebugManager/public.h"
 
-#include "core/Registry/interface/IConfigManager.h"
+ModuleRegistryBundle GLFWHandlerWrapper::bundle(
+    []() -> WrapperBaseClass* { return new GLFWHandlerWrapper(); },
+    "MODULE_GLFWHANDLER"
+);
 
-GLFWHandler::GLFWHandler() {
-    PrivatePtr = new GLFWImpl();
-}
+GLFWHandler::GLFWHandler() : IWindowManager_GLFWHandler(this) {}
 
 GLFWHandler::~GLFWHandler() {
-    delete PrivatePtr;
+    if(PrivatePtr) delete PrivatePtr;
+}
+
+void* GLFWHandler::GetWindowObjectImpl() {
+    if(!PrivatePtr) {
+        PrivatePtr = new GLFWImpl();
+    }
+
+    return PrivatePtr->Window;
 }
 
 GLFWImpl::GLFWImpl() {
@@ -41,8 +50,3 @@ void GLFWImpl::CreateWindow() {
         DM().Log("Successfully constructed GLFW window");
     }
 }
-
-ModuleRegistryBundle GLFWHandlerWrapper::bundle(
-    []() -> WrapperBaseClass* { return new GLFWHandlerWrapper(); },
-    "MODULE_GLFWHANDLER"
-);
