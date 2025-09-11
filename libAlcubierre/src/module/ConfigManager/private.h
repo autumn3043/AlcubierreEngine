@@ -14,12 +14,14 @@ class ConfigManagerException : public AlcEngineException {
 class ConfigManagerImpl {
     public:
         ConfigManagerImpl();
+        ~ConfigManagerImpl();
 
         nlohmann::json RawConfig;
 
         IConfigManager::TypeDescriptor GetDescriptorFromJson(const nlohmann::json& json);
         void* GetPointerToJson(const nlohmann::json& json);
-        void SetFromParsed(const nlohmann::json& json);
+        int get_impl(IConfigManager::Container& v_out);
+        int set_impl(IConfigManager::Container& v_in);
         
 };
 

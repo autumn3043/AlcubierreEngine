@@ -6,11 +6,15 @@
 //Services
 //Depends
 #include "core/Registry/interface/IWindowManager.h"
+#include "core/Registry/interface/IConfigManager.h"
 //Provides
 #include "core/Registry/interface/IWindowSurfaceBridge.h"
 
+class GLFWSurfaceBridgeImpl;
+
 class GLFWSurfaceBridge {
     public:
+        int WakeImpl();
         int CreateWindowSurfaceImpl(void* TargetInstance, void* TargetSurfaceObject);
 
         class IWindowSurfaceBridgeImpl : public IWindowSurfaceBridge {
@@ -19,12 +23,15 @@ class GLFWSurfaceBridge {
 
                 IWindowSurfaceBridgeImpl(GLFWSurfaceBridge* _parent) : Parent(_parent) {}
 
+                int Wake() override { return Parent->WakeImpl(); }
                 int CreateWindowSurface(void* TargetInstance, void* TargetSurfaceObject) override { return Parent->CreateWindowSurfaceImpl(TargetInstance, TargetSurfaceObject); }
         };
 
         GLFWSurfaceBridge();
         ~GLFWSurfaceBridge();
 
+        GLFWSurfaceBridgeImpl* PrivatePtr = nullptr;
+        
         IWindowSurfaceBridgeImpl IWindowSurfaceBridge_GLFWSurfaceBridge;
 };
 

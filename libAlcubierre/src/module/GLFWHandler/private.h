@@ -8,7 +8,7 @@ class GLFWImpl {
         GLFWImpl();
         ~GLFWImpl();
 
-        void CreateWindow();
+        int CreateWindow();
 
         GLFWwindow* Window;
 };

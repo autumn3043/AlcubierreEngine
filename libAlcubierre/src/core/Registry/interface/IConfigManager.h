@@ -4,6 +4,7 @@
 #include "core/Registry/base/InterfaceBaseClass.h"
 
 #include <type_traits>
+#include <cstdint>
 
 class IConfigManager : public InterfaceBaseClass {
     public:
@@ -56,13 +57,13 @@ class IConfigManager : public InterfaceBaseClass {
             }
 
             return hold;
-        }        
+        }
 
         template <typename T>
-        void Set(T value) {
+        void Set(std::string key, std::string value) {
             TypeDescriptor* descriptor = new TypeDescriptor(std::type_identity<T>{});
 
-            Container item = Container("dummykey", &value, descriptor);
+            Container item = Container(key, &value, descriptor);
             SetInternal(item);
 
             delete descriptor;
@@ -110,6 +111,8 @@ class IConfigManager : public InterfaceBaseClass {
         static std::string human_readable_type() {
             if constexpr(std::is_same_v<T, bool>) return "bool";
             else if constexpr (std::is_same_v<T, int>) return "int";
+            else if constexpr (std::is_same_v<T, int64_t>) return "int";
+            else if constexpr (std::is_same_v<T, uint64_t>) return "int";
             else if constexpr (std::is_same_v<T, long>) return "long";
             else if constexpr (std::is_same_v<T, long long>) return "long long";
             else if constexpr (std::is_same_v<T, unsigned>) return "unsigned int";

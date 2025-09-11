@@ -3,42 +3,55 @@
 
 #include <cstring>
 
-std::string to_string (nlohmann::json::value_t t) {
-    static constexpr const char* names[] = {
-        "null", "object", "array", "string", "boolean",
-        "number_integer", "number_unsigned", "number_float",
-        "binary", "discarded"
-    };
-    std::size_t idx = static_cast<std::size_t>(t);
-    return idx < std::size(names) ? names[idx] : "unknown";
-}
-
 ModuleRegistryBundle ConfigManagerWrapper::bundle(
     []() -> WrapperBaseClass* { return new ConfigManagerWrapper(); },
     "MODULE_CONFIGMANAGER"
 );
 
-ConfigManager::ConfigManager() : IConfigManager_ConfigManager(this) {
-    PrivatePtr = new ConfigManagerImpl();
-}
+ConfigManager::ConfigManager() : IConfigManager_ConfigManager(this) {}
 
 ConfigManager::~ConfigManager() {
-    delete PrivatePtr;
+    if(PrivatePtr) delete PrivatePtr;
+}
+
+int ConfigManager::WakeImpl() {
+    if(!PrivatePtr) {
+        PrivatePtr = new ConfigManagerImpl();
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+ConfigManagerImpl::ConfigManagerImpl() {
+    RawConfig = nlohmann::json();
+}
+
+ConfigManagerImpl::~ConfigManagerImpl() {
+    // DM().Log(RawConfig.dump());
 }
 
 int ConfigManager::Get_Impl(IConfigManager::Container& v_out) {
+    return PrivatePtr->get_impl(v_out);
+}
+
+int ConfigManager::Set_Impl(IConfigManager::Container& v_in) {
+    return PrivatePtr->set_impl(v_in);    
+}
+
+int ConfigManagerImpl::get_impl(IConfigManager::Container& v_out) {
     //Does a value exist at this key?
-    if(!PrivatePtr->RawConfig.contains(v_out.key)) {
+    if(!RawConfig.contains(v_out.key)) {
         return 1;
     }
 
     //Does its type match the expected return type?
-    if(v_out.t_info->Type() != PrivatePtr->GetDescriptorFromJson(PrivatePtr->RawConfig[v_out.key]).Type()) {
+    if(v_out.t_info->Type() != GetDescriptorFromJson(RawConfig[v_out.key]).Type()) {
         return 1;
     }
 
     //If yes to both, get, return and move a pointer to it.
-    v_out.ptr = std::move(PrivatePtr->GetPointerToJson(PrivatePtr->RawConfig[v_out.key]));
+    v_out.ptr = std::move(GetPointerToJson(RawConfig[v_out.key]));
     return 0;
 }
 
@@ -71,8 +84,7 @@ IConfigManager::TypeDescriptor ConfigManagerImpl::GetDescriptorFromJson(const nl
                 desc = IConfigManager::TypeDescriptor(std::type_identity<void>{});
 
             } else {
-                IConfigManager::TypeDescriptor nestedHold = ConfigManagerImpl::GetDescriptorFromJson(json.front());
-                desc.nested = new IConfigManager::TypeDescriptor(std::move(nestedHold));
+                desc.nested = new IConfigManager::TypeDescriptor(ConfigManagerImpl::GetDescriptorFromJson(json.front()));
             }
 
         break;
@@ -124,37 +136,27 @@ void* ConfigManagerImpl::GetPointerToJson(const nlohmann::json& json) {
     return hold;
 }
 
-int ConfigManager::Set_Impl(IConfigManager::Container& v_in) {
+int ConfigManagerImpl::set_impl(IConfigManager::Container& v_in) {
     std::string input = *static_cast<std::string*>(v_in.ptr);
-    nlohmann::json json;
+    nlohmann::json parsed;
 
     try {
-        json = nlohmann::json::parse(input.c_str());
+        parsed = nlohmann::json::parse(input);
     } catch (nlohmann::json::parse_error E) {
         DM().Log("Failed to parse string:\n" + input + "\nJson error message:" + E.what());
         return 1;
-    } catch (...) {
-        throw;
-    }
+    } 
 
-    PrivatePtr->SetFromParsed(json);
-    return 0;
-}
-
-void ConfigManagerImpl::SetFromParsed(const nlohmann::json& json) {
-    for(auto& [key, val] : json.items()) {
-        if(RawConfig.contains(key)) {
-            if(RawConfig[key].type() == val.type()) {
-                RawConfig[key] = val;
-            }
+    if(RawConfig.contains(v_in.key)) {
+        if(v_in.t_info->Type() == GetDescriptorFromJson(RawConfig[v_in.key]).Type()) {
+            RawConfig[v_in.key].swap(parsed);
+            return 0;
         } else {
-            RawConfig[key] = val;
+            return 1;
         }
+
+    } else {
+        RawConfig.push_back(nlohmann::json::object_t::value_type(v_in.key, parsed));
+        return 0;
     }
-
-    DM().Log(RawConfig.dump());
-}
-
-ConfigManagerImpl::ConfigManagerImpl() {
-    RawConfig = nlohmann::json();
 }

@@ -14,39 +14,56 @@ GLFWHandler::~GLFWHandler() {
     if(PrivatePtr) delete PrivatePtr;
 }
 
-void* GLFWHandler::GetWindowObjectImpl() {
+int GLFWHandler::WakeImpl() {
     if(!PrivatePtr) {
         PrivatePtr = new GLFWImpl();
+        return 1;
+    } else {
+        return 0;
     }
+}
 
+void* GLFWHandler::GetWindowObjectImpl() {
     return PrivatePtr->Window;
 }
 
 GLFWImpl::GLFWImpl() {
     glfwInit();
-    CreateWindow();
 
-    DM().Log("Successfully created GLFW window");
+    if(CreateWindow() == 1) {
+        throw std::runtime_error("Failed to create GLFW window");
+    } else {
+        DM().Log("Successfully constructed GLFW window");
+    }
 }
 
 GLFWImpl::~GLFWImpl() {
-    glfwDestroyWindow(Window);
-    glfwTerminate();
+    if(Window) {
+        glfwDestroyWindow(Window);
+        DM().Log("Successfully destroyed GLFW window");
+    }
 
-    DM().Log("Successfully destroyed GLFW window");
+    glfwTerminate();
 }
 
 #include <cstring>
 
-void GLFWImpl::CreateWindow() {
+int GLFWImpl::CreateWindow() {
+    Registry::GetRegistry().FetchService("IWindowSurfaceBridge");
+    
     IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+
+    std::vector<std::vector<int>> hints = CM->Get<std::vector<std::vector<int>>>("glfw_window_hints", {});
+    for(std::vector<int> hint : hints) {
+        glfwWindowHint(hint[0], hint[1]);
+        DM().Log("Window hint executed: " + std::to_string(hint[0]) + ", Value: " + std::to_string(hint[1]));
+    }
 
     Window = glfwCreateWindow(CM->Get<int>("window_height", 800), CM->Get<int>("window_width", 600), CM->Get<std::string>("application_name", "default").c_str(), nullptr, nullptr);
     
     if(!Window) {
-        glfwTerminate();
-        throw std::runtime_error("Failed to create GLFW window");
+        return 1;
     } else {
-        DM().Log("Successfully constructed GLFW window");
+        return 0;
     }
 }

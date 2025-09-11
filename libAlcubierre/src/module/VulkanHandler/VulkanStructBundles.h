@@ -35,9 +35,13 @@ class AlcEnabledExtensions {
         }
 
         void Set(std::vector<std::string> _EnabledExtensions) {
-            for(const std::string& extension : _EnabledExtensions) {
-                ExtensionNames.push_back(extension);
-                ExtensionNamePointers.push_back(ExtensionNames.back().c_str());
+            ExtensionNames = std::move(_EnabledExtensions);
+
+            ExtensionNamePointers.clear();
+            ExtensionNamePointers.reserve(ExtensionNames.size());
+
+            for(const std::string& extension : ExtensionNames) {
+                ExtensionNamePointers.push_back(extension.c_str());
             }
         }
 

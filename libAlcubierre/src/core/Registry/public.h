@@ -15,7 +15,7 @@ class Registry {
 
         void RegisterModule(std::function<WrapperBaseClass*()> _constructor, std::string& moduleID); //Get the constructor, add it to a list...
         void Init(); //...and fire them.
-        void RegisterService(InterfaceBaseClass& _service);
+        void RegisterService(InterfaceBaseClass& _service); //Which causes them to register their services.
         InterfaceBaseClass* FetchService(std::string token);
 
     private:

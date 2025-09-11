@@ -4,9 +4,6 @@
 #include <utility>
 #include <algorithm>
 
-#include "core/Registry/interface/IConfigManager.h"
-#include "core/Registry/interface/IWindowSurfaceBridge.h"
-
 ModuleRegistryBundle VulkanHandlerWrapper::bundle(
     []() -> WrapperBaseClass* { return new VulkanHandlerWrapper(); },
     "MODULE_VULKANHANDLER"
@@ -18,11 +15,16 @@ VulkanHandler::~VulkanHandler() {
     if(PrivatePtr) delete PrivatePtr;
 }
 
-void* VulkanHandler::GetBackendObjectImpl() {
+int VulkanHandler::WakeImpl() {
     if(!PrivatePtr) {
         PrivatePtr = new VulkanHandlerIMPL();
+        return 1;
+    } else {
+        return 0;
     }
+}
 
+void* VulkanHandler::GetBackendObjectImpl() {
     return PrivatePtr;
 }
 
@@ -69,8 +71,10 @@ int VulkanHandlerIMPL::CreateVulkanInstance() {
         FetchDebugData(DebugLinkCreateInfo);
         CreateInfo.Get()->pNext = (VkDebugUtilsMessengerCreateInfoEXT*) DebugLinkCreateInfo.Get();
 
-    if (vkCreateInstance(CreateInfo.Get(), nullptr, &Instance) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create Vulkan instance!");
+    VkResult hold = vkCreateInstance(CreateInfo.Get(), nullptr, &Instance);
+    if(hold != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create Vulkan instance! " + std::to_string(hold));
+        
     } else {
         DM().Log("Successfully constructed Vulkan instance");
         return 0;
@@ -332,5 +336,13 @@ std::vector<uint32_t> VulkanHandlerIMPL::GetDeviceIndices(VkPhysicalDevice _Phys
 int VulkanHandlerIMPL::CreateSurface() {
     IWindowSurfaceBridge* WSB = dynamic_cast<IWindowSurfaceBridge*>(Registry::GetRegistry().FetchService("IWindowSurfaceBridge"));
 
-    return WSB->CreateWindowSurface(&Instance, &Surface);
+    int hold = WSB->CreateWindowSurface(&Instance, &Surface);
+
+    if(hold == 0) {
+        DM().Log("Successfully established Vulkan window surface bridge link");
+    } else {
+        DM().Log("Failed to establish Vulkan wsb link");
+    }
+
+    return hold;
 }

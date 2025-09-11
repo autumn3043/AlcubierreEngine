@@ -24,7 +24,7 @@ void Registry::RegisterModule(std::function<WrapperBaseClass*()> _constructor, s
 
 void Registry::Init() {
     for (std::function<WrapperBaseClass*()>& constructor : PrivatePtr->Constructors) {
-        PrivatePtr->Modules.emplace_back(std::unique_ptr<WrapperBaseClass>(constructor()));
+        PrivatePtr->Modules.emplace_back(std::unique_ptr<WrapperBaseClass>(constructor())); //RegisterService is called here.
     }
 }
 
@@ -39,6 +39,7 @@ void Registry::RegisterService(InterfaceBaseClass& _service) {
 
 InterfaceBaseClass* Registry::FetchService(std::string token) {
     if(PrivatePtr->Services.contains(token)) {
+        PrivatePtr->Services.at(token)->Wake();
         return PrivatePtr->Services.at(token);
     } else {
         throw AlcEngineException(DebugReport("Attempted to access unregistered service '" + token + "'"));

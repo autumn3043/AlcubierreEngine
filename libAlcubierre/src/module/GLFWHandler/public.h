@@ -6,7 +6,6 @@
 //Services
 //Depends
 #include "core/Registry/interface/IConfigManager.h"
-
 //Provides
 #include "core/Registry/interface/IWindowManager.h"
 
@@ -17,6 +16,7 @@ class GLFWHandler {
         GLFWHandler();
         ~GLFWHandler();
 
+        int WakeImpl();
         void* GetWindowObjectImpl();
 
         class IWindowManagerImpl : public IWindowManager {
@@ -25,6 +25,7 @@ class GLFWHandler {
 
                 IWindowManagerImpl(GLFWHandler* _parent) : Parent(_parent) {}
 
+                int Wake() override { return Parent->WakeImpl(); }
                 void* GetWindowObject() override { return Parent->GetWindowObjectImpl(); }
         };
 

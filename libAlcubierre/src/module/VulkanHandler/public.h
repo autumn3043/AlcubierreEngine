@@ -7,7 +7,6 @@
 //Depends
 #include "core/Registry/interface/IConfigManager.h"
 #include "core/Registry/interface/IWindowSurfaceBridge.h"
-
 //Provides
 #include "core/Registry/interface/IGraphicsBackend.h"
 
@@ -25,6 +24,7 @@ class VulkanHandler {
         VulkanHandler();
         ~VulkanHandler();
 
+        int WakeImpl();
         void* GetBackendObjectImpl();
 
         class IGraphicsBackendImpl : public IGraphicsBackend {
@@ -33,6 +33,7 @@ class VulkanHandler {
 
                 IGraphicsBackendImpl(VulkanHandler* _parent) : Parent(_parent) {}
 
+                int Wake() override { return Parent->WakeImpl(); }
                 void* GetBackendObject() override { return Parent->GetBackendObjectImpl(); }
         };
 
