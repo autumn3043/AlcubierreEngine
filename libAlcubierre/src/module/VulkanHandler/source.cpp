@@ -165,10 +165,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandlerIMPL::VulkanDebugCallback(
 
     DebugReport Report(
         CallbackMessage,
+        1,
         "Vulkan Debug Callback",
-        {},
-        std::time(nullptr),
-        1
+        std::time(nullptr)
     );
 
     return VK_FALSE;

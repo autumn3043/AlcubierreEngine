@@ -6,8 +6,6 @@ LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lwayland-client -lwayland-cursor -lw
 OUTPUT = Sandbox
 TARGET = ./main.cpp
 
-test: 
-
 build:
 	g++ $(COMPILEFLAGS) -o $(OUTPUT) $(TARGET) -Wl,--whole-archive $(BUILD_DIR)/libAlcubierre.a -Wl,--no-whole-archive $(LINKFLAGS) > makelog 2>&1
 

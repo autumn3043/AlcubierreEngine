@@ -5,29 +5,24 @@
 #include <ctime>
 #include <stacktrace>
 
-class DebugManagerImpl;
-
 class DebugReport {
     public:
         DebugReport(
-            std::string msg_ = "",
+            std::string msg_,
+            int level_ = 0,
             std::string invoker_ = "",
-            std::stacktrace trace_ = {},
-            std::time_t time_ = std::time(nullptr), 
-            int level_ = 0
+            std::time_t time_ = std::time(nullptr) 
         ) :
             Message(msg_),
+            Level(level_),
             Invoker(invoker_),
-            Trace(trace_),
-            Time(time_),
-            Level(level_)
+            Time(time_)
         {};
 
         const std::string Message;
-        const std::string Invoker;
-        const std::stacktrace Trace;
-        const std::time_t Time;
         const int Level;
+        const std::string Invoker;
+        const std::time_t Time;
 };
 
 class AlcEngineException : public std::exception {
@@ -43,21 +38,22 @@ class AlcEngineException : public std::exception {
         DebugReport Report;
 };
 
+class DebugManagerImpl;
+
 class DebugManager {
     public:
         static DebugManager& GetDebugManager();
 
-        static void Log(std::string, bool Write = true);
-        static void Log(std::exception, bool Write = true);
-        static void Log(DebugReport, bool Write = true);
-        static void Log(AlcEngineException, bool Write = true);
+        void Log(std::string, bool Write = true);
+        void Log(std::exception, bool Write = true);
+        void Log(DebugReport, bool Write = true);
+        void Log(AlcEngineException, bool Write = true);
 
     private:
         DebugManager();
         ~DebugManager();
 
-        void InternalLog(DebugReport Report, bool Write = true);
-
+        DebugManagerImpl* PrivatePtr;
 };
 
 inline DebugManager& DM() { return DebugManager::GetDebugManager(); }

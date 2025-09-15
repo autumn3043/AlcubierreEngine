@@ -1,4 +1,5 @@
 #include "core/DebugManager/public.h"
+#include "core/DebugManager/private.h"
 
 #include <iostream>
 #include <utility>
@@ -11,46 +12,68 @@ DebugManager& DebugManager::GetDebugManager() {
     return Instance;
 }
 
-DebugManager::DebugManager() {}
-
-DebugManager::~DebugManager() {}
-
-// Public static methods for shorthand interfacing
-
-void DebugManager::Log(std::string Message, bool Write) { 
-    DebugReport Report(Message);
-    DebugManager::GetDebugManager().InternalLog(std::move(Report), Write);
+DebugManager::DebugManager() {
+    PrivatePtr = new DebugManagerImpl();
 }
 
-void DebugManager::Log(std::exception exception, bool Write) {
-    DebugReport Report(std::string(exception.what()));
-    DebugManager::GetDebugManager().InternalLog(std::move(Report), Write);
-} 
-
-void DebugManager::Log(AlcEngineException exception, bool Write) {
-    DebugManager::GetDebugManager().InternalLog(std::move(exception.Get()), Write);
+DebugManager::~DebugManager() {
+    delete PrivatePtr;
 }
 
-void DebugManager::Log(DebugReport Report, bool Write) {
-    DebugManager::GetDebugManager().InternalLog(std::move(Report), Write);
+// Public methods for shorthand interfacing
+    void DebugManager::Log(std::string Message, bool Write) {
+        DebugReport* Report = new DebugReport(Message);
+        PrivatePtr->InternalLog(Report, Write);
+        delete Report;
+    }
+
+    void DebugManager::Log(std::exception exception, bool Write) {
+        DebugReport* Report = new DebugReport(std::string(exception.what()));
+        PrivatePtr->InternalLog(Report, Write);
+        delete Report;
+    } 
+
+    void DebugManager::Log(AlcEngineException exception, bool Write) {
+        DebugReport* Report = new DebugReport(exception.Get());
+        PrivatePtr->InternalLog(Report, Write);
+        delete Report;
+    }
+
+    void DebugManager::Log(DebugReport Report, bool Write) {
+    PrivatePtr->InternalLog(&Report, Write);
+    }
+
+DebugManagerImpl::DebugManagerImpl() {
+    logfile.open("program.log", std::ios::app);
+    logfile << "<--DebugManager Instance Created-->" << std::endl;
 }
 
-//Private management of demystified inpui
+DebugManagerImpl::~DebugManagerImpl() {
+    logfile << std::endl;
+    logfile.close();
+}
 
-void DebugManager::InternalLog(DebugReport Report, bool Write) {
-
-    tm _time = *localtime(&Report.Time);
+void DebugManagerImpl::InternalLog(DebugReport* Report, bool Write) {
     std::ostringstream oss;
-    oss << "@["
-        << std::setw(2) << std::setfill('0') << _time.tm_hour << ":"
-        << std::setw(2) << std::setfill('0') << _time.tm_min << ":"
-        << std::setw(2) << std::setfill('0') << _time.tm_sec << "]: ";
 
-    std::string timeHold = oss.str();
+    if(Report->Time) {
+        tm _time = *localtime(&Report->Time);
+        oss << "@["
+            << std::setw(2) << std::setfill('0') << _time.tm_hour << ":"
+            << std::setw(2) << std::setfill('0') << _time.tm_min << ":"
+            << std::setw(2) << std::setfill('0') << _time.tm_sec << "]: ";
+    }
 
-    std::string invokeHold = "";
-    if(Report.Invoker != "") std::string invokeHold = "[" + Report.Invoker + "]: ";
+    if(Report->Invoker != "") {
+        oss << "["
+            << Report->Invoker
+            << "]: ";
+    }
 
-    std::string DebugMessage = timeHold + invokeHold + Report.Message;
+    oss << Report->Message;
+
+    std::string DebugMessage = oss.str();
+
+    if(Write && logfile.is_open()) logfile << DebugMessage << std::endl;
     std::cout << DebugMessage << std::endl;
 }

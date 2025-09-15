@@ -6,19 +6,21 @@ BASE_DIR = src/core
 MODULE_DIR = src/module
 
 BASE_SRCS = $(shell find $(BASE_DIR) -name source.cpp)
-BASE_OBJS = $(patsubst $(BASE_DIR)/%/source.cpp,$(BASE_DIR)/%/build.o,$(BASE_SRCS))
 MODULE_SRCS = $(shell find $(MODULE_DIR) -name source.cpp)
-MODULE_OBJS = $(patsubst $(MODULE_DIR)/%/source.cpp,$(MODULE_DIR)/%/build.o,$(MODULE_SRCS))
+
+BASE_OBJS = $(BASE_SRCS:.cpp=.o)
+MODULE_OBJS = $(MODULE_SRCS:.cpp=.o)
 ALL_OBJS = $(BASE_OBJS) $(MODULE_OBJS)
 
-default: clean engine
+default: $(OUTPUT)
 
-engine: $(ALL_OBJS)
-	rm build/$(OUTPUT)
-	ar rcs build/$(OUTPUT) $(shell find src -name '*.o')
-	cp $(BASE_DIR)/PublicInterface/public.h build/AlcubierreEngine.h
+full: clean $(OUTPUT)
 
-%/build.o: %/source.cpp
+$(OUTPUT): $(ALL_OBJS)
+	ar rcs build/$@ $^
+	@cp -u $(BASE_DIR)/PublicInterface/public.h build/AlcubierreEngine.h
+
+%.o: %.cpp
 	g++ $(FLAGS) -o $@ -c $< > makelog 2>&1
 
 %: $(BASE_DIR)/%/source.cpp
@@ -30,4 +32,4 @@ engine: $(ALL_OBJS)
 	g++ $(FLAGS) -o $(MODULE_DIR)/$@/build.o -c $< > makelog 2>&1
 
 clean:
-	rm $(shell find src -name '*.o') build/$(OUTPUT)
+	rm $(shell find src -name '*.o') build/$(OUTPUT) build/AlcubierreEngine.h
