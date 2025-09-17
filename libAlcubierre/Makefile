@@ -24,12 +24,12 @@ $(OUTPUT): $(ALL_OBJS)
 	g++ $(FLAGS) -o $@ -c $< > makelog 2>&1
 
 %: $(BASE_DIR)/%/source.cpp
-	rm $(BASE_DIR)/$@/build.o
-	g++ $(FLAGS) -o $(BASE_DIR)/$@/build.o -c $< > makelog 2>&1
+	rm $(BASE_DIR)/$@/source.o
+	g++ $(FLAGS) -o $(BASE_DIR)/$@/source.o -c $< > makelog 2>&1
 
 %: $(MODULE_DIR)/%/source.cpp
-	rm $(MODULE_DIR)/$@/build.o
-	g++ $(FLAGS) -o $(MODULE_DIR)/$@/build.o -c $< > makelog 2>&1
+	rm $(MODULE_DIR)/$@/source.o
+	g++ $(FLAGS) -o $(MODULE_DIR)/$@/source.o -c $< > makelog 2>&1
 
 clean:
 	rm $(shell find src -name '*.o') build/$(OUTPUT) build/AlcubierreEngine.h

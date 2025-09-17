@@ -3,7 +3,10 @@
 
 #include "core/Registry/public.h"
 
+#include "core/DebugManager/public.h"
+
 //Services
+#include "core/Registry/interface/IWindowSurfaceBridge.h"
 #include "core/Registry/interface/IConfigManager.h"
 #include "core/Registry/interface/IWindowManager.h"
 #include "core/Registry/interface/IGraphicsBackend.h"

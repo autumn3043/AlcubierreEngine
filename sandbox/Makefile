@@ -9,5 +9,8 @@ TARGET = ./main.cpp
 build:
 	g++ $(COMPILEFLAGS) -o $(OUTPUT) $(TARGET) -Wl,--whole-archive $(BUILD_DIR)/libAlcubierre.a -Wl,--no-whole-archive $(LINKFLAGS) > makelog 2>&1
 
+test: build
+	./$(OUTPUT)
+
 clean:
 	rm $(OUTPUT)

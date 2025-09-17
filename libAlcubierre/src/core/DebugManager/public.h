@@ -44,7 +44,7 @@ class DebugManager {
     public:
         static DebugManager& GetDebugManager();
 
-        void Log(std::string, bool Write = true);
+        void Log(std::string, int Level = 0, bool Write = true);
         void Log(std::exception, bool Write = true);
         void Log(DebugReport, bool Write = true);
         void Log(AlcEngineException, bool Write = true);

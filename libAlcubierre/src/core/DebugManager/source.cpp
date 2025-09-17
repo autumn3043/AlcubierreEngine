@@ -13,16 +13,16 @@ DebugManager& DebugManager::GetDebugManager() {
 }
 
 DebugManager::DebugManager() {
-    PrivatePtr = new DebugManagerImpl();
+    if(!PrivatePtr) PrivatePtr = new DebugManagerImpl();
 }
 
 DebugManager::~DebugManager() {
-    delete PrivatePtr;
+    if(PrivatePtr) delete PrivatePtr;
 }
 
 // Public methods for shorthand interfacing
-    void DebugManager::Log(std::string Message, bool Write) {
-        DebugReport* Report = new DebugReport(Message);
+    void DebugManager::Log(std::string Message, int Level, bool Write) {
+        DebugReport* Report = new DebugReport(Message, Level);
         PrivatePtr->InternalLog(Report, Write);
         delete Report;
     }
@@ -44,7 +44,7 @@ DebugManager::~DebugManager() {
     }
 
 DebugManagerImpl::DebugManagerImpl() {
-    logfile.open("program.log", std::ios::app);
+    logfile.open("program.log", std::ios::trunc);
     logfile << "<--DebugManager Instance Created-->" << std::endl;
 }
 
@@ -74,6 +74,16 @@ void DebugManagerImpl::InternalLog(DebugReport* Report, bool Write) {
 
     std::string DebugMessage = oss.str();
 
-    if(Write && logfile.is_open()) logfile << DebugMessage << std::endl;
-    std::cout << DebugMessage << std::endl;
+    if(Report->Level >= WRITE_MIN_VERBOSITY) {
+        //TEMPORARY BODGE FIX THE DI STUFF U DUMBY DUMB DUMB
+        if(!logfile.is_open()) {
+            logfile.open("program.log", std::ios::app);
+            logfile << DebugMessage << std::endl;
+            logfile.close();
+        } else {
+            logfile << DebugMessage << std::endl;
+        }
+    }
+
+    if(Report->Level >= PRINT_MIN_VERBOSITY) std::cout << DebugMessage << std::endl;
 }

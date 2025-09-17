@@ -13,9 +13,13 @@ class VulkanHandlerIMPL {
     private:
         VkInstance Instance;
         VkDebugUtilsMessengerEXT DebugMessenger;
-        VkDevice Device;
-        VkQueue Queue;
         VkSurfaceKHR Surface;
+        VkDevice Device; //Logical dev, not physical
+        struct AlcQueueList {
+            VkQueue GraphicsQueue;
+            VkQueue SurfacePresentQueue;
+        };
+        AlcQueueList Q_List;
 
         int Init();
 
@@ -33,16 +37,15 @@ class VulkanHandlerIMPL {
                 const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
                 void* pUserData);
 
-        int CreateLogicalDevice(int);
-            std::vector<std::pair<int, VkPhysicalDevice>> SelectPhysicalDevice();
+        int CreateSurface();
+
+        int CreateLogicalDevice();
+            VkPhysicalDevice SelectPhysicalDevice();
             int ScoreDevice(VkPhysicalDevice _PhysicalDevice);
 
             void FetchDeviceInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceCreateInfo& ReturnBundle);
-            void FetchQueueInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceQueueCreateInfo& ReturnBundle);
+            void FetchQueueArray(VkPhysicalDevice _PhysicalDevice, std::vector<VkDeviceQueueCreateInfo>& ReturnArray);
 
-            std::vector<uint32_t> GetDeviceIndices(VkPhysicalDevice _PhysicalDevice);
-
-        int CreateSurface();
 };
 
 #endif

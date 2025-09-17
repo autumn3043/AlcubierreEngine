@@ -5,15 +5,21 @@
 
 #include <type_traits>
 #include <cstdint>
+#include <vector>
+#include <variant>
 
 class IConfigManager : public InterfaceBaseClass {
     public:
         std::string token() override { return "IConfigManager"; }
 
         template <typename T>
-        T Get(const std::string& key, T defaultValue) {
-            //Pass the Container and ask the implementation to fill it out. If it detects a type mismatch, it will handle logging the issue, our job is simply to cast the pointer on success and then delete it.
-            //If the implementation fails, one of two things happen: if we have a default value, we use that. Hunky dory. If we don't though, we need to throw some kind of error to be handled upstream but without including <exception>
+        const T Get(std::string key, T defaultValue) {
+            const std::vector<std::string> key_ = {key};
+            return Get<T>(key_, defaultValue);
+        }
+
+        template <typename T>
+        const T Get(const std::vector<std::string> key, T defaultValue) {
             T hold;
             TypeDescriptor* descriptor = new TypeDescriptor(std::type_identity<T>{});
 
@@ -42,7 +48,10 @@ class IConfigManager : public InterfaceBaseClass {
         T Extract(void* ptr) {
             T hold;
 
-            if constexpr (is_vector<T>::value) {
+            if constexpr (std::is_same_v<T, std::monostate>) {
+                return {};
+                
+            } else if constexpr (is_vector<T>::value) {
                 std::vector<void*>* vector = static_cast<std::vector<void*>*>(ptr);
 
                 for(void* element : *vector) {
@@ -60,13 +69,21 @@ class IConfigManager : public InterfaceBaseClass {
         }
 
         template <typename T>
-        void Set(std::string key, std::string value) {
+        int Set(std::string key, std::string value) {
+            const std::vector<std::string> key_ = {key};
+            return Set<T>(key_, value);
+        }
+
+        template <typename T>
+        int Set(const std::vector<std::string> key, std::string value) {
             TypeDescriptor* descriptor = new TypeDescriptor(std::type_identity<T>{});
 
             Container item = Container(key, &value, descriptor);
-            SetInternal(item);
+            int hold = SetInternal(item);
 
             delete descriptor;
+
+            return hold;
         }
 
         struct TypeDescriptor{
@@ -103,6 +120,27 @@ class IConfigManager : public InterfaceBaseClass {
                 }
             }
 
+            std::string ChildType() {
+                if(nested) {
+                    return nested->ChildType();
+
+                } else {
+                    return type;
+                }
+            }
+
+            bool operator==(const TypeDescriptor& other) const {
+                if(type == "void" || other.type == "void") return true; // T = void
+                else if(nested && other.nested) return *nested == *other.nested; //vector<T> == Vector<U>
+                else if(nested || other.nested) return false; //vector<T> != U
+                else if(type == other.type) return true; //T = T
+                else return false;
+            }
+
+            bool operator!=(const TypeDescriptor& other) const {
+                return !(*this == other);
+            }
+
             TypeDescriptor* nested;
             std::string type;
         };
@@ -120,7 +158,8 @@ class IConfigManager : public InterfaceBaseClass {
             else if constexpr (std::is_same_v<T, double>) return "double";
             else if constexpr (std::is_same_v<T, std::string>) return "string";
             else if constexpr (std::is_same_v<T, std::nullptr_t>) return "nullptr";
-            else if constexpr (std::is_same_v<T, void>) return "void";
+            else if constexpr (std::is_same_v<T, void*>) return "void*";
+            else if constexpr (std::is_same_v<T, std::monostate>) return "void";
             else return "FAILED_GET_TYPE";
             //Congratulations, you have assigned a config value to a primitive type that *is* specified by templates, but that I forgot to account for. Amazing job. Dipshit.
             //"Why is this manually accounting" because typeid().name() is buns and im not pulling in a regex library to demangle it.
@@ -128,11 +167,11 @@ class IConfigManager : public InterfaceBaseClass {
         }
 
         struct Container {
-            const std::string key;
+            const std::vector<std::string>& key;
             void* ptr;
             TypeDescriptor* t_info;
             
-            Container(const std::string& _key, void* value, TypeDescriptor* _t_info) : key(_key), ptr(value), t_info(_t_info) {}
+            Container(const std::vector<std::string>& _key, void* value, TypeDescriptor* _t_info) : key(_key), ptr(value), t_info(_t_info) {}
         };
 
         virtual int GetInternal(Container& v_out) = 0; //Implementation reports status via int and fills out the ptr. Because the container is owned by the interface we can handle deletion smoothly. 

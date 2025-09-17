@@ -12,6 +12,10 @@ class DebugManagerImpl {
 
         void InternalLog(DebugReport* Report, bool Write = true);
 
+    private:
+        const int PRINT_MIN_VERBOSITY = 0;
+        const int WRITE_MIN_VERBOSITY = 0;
+
         std::ofstream logfile;
 };
 

@@ -1,0 +1,27 @@
+<--DebugManager Instance Created-->
+@[10:29:18]: Registered module 'MODULE_GLFWHANDLER_GLFWSURFACEBRIDGE'
+@[10:29:18]: Registered module 'MODULE_GLFWHANDLER'
+@[10:29:18]: Registered module 'MODULE_VULKANHANDLER'
+@[10:29:18]: Registered module 'MODULE_CONFIGMANAGER'
+@[10:29:18]: Registered service 'IWindowSurfaceBridge'
+@[10:29:18]: Registered service 'IWindowManager'
+@[10:29:18]: Registered service 'IGraphicsBackend'
+@[10:29:18]: Registered service 'IConfigManager'
+@[10:29:19]: [ConfigManager]: Failed to get value at key 'glfw_window_hints' because it did not exist
+@[10:29:19]: Dumped GLFW-Vulkan bridge hints to cfg
+@[10:29:19]: Dumped GLFW-Vulkan bridge extensions to cfg
+@[10:29:19]: [ConfigManager]: Failed to get value at key 'engine_name' because it did not exist
+@[10:29:19]: [ConfigManager]: Failed to get value at key 'engine_version' because it did not exist
+@[10:29:19]: [ConfigManager]: Failed to get value at key 'application_name' because it did not exist
+@[10:29:19]: [ConfigManager]: Failed to get value at key 'application_version' because it did not exist
+@[10:29:19]: Successfully constructed Vulkan instance
+@[10:29:19]: Successfully established debug link
+@[10:29:19]: Window hint implemented: 139265, Value: 0
+@[10:29:19]: [ConfigManager]: Failed to get value at key 'application_name' because it did not exist
+@[10:29:19]: [ConfigManager]: Failed to get value at key 'window_height' because it did not exist
+@[10:29:19]: Successfully constructed GLFW window
+@[10:29:19]: Successfully established Vulkan window surface bridge link
+@[10:29:19]: [ConfigManager]: Failed to get value at key 'required_graphics_queues/0/surface_support' because it did not exist
+@[10:29:19]: [ConfigManager]: Failed to get value at key 'required_graphics_queues/1/flags' because it did not exist
+@[10:29:19]: Successfully instantiated Vulkan logical device
+

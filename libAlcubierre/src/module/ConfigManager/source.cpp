@@ -41,17 +41,22 @@ int ConfigManager::Set_Impl(IConfigManager::Container& v_in) {
 
 int ConfigManagerImpl::get_impl(IConfigManager::Container& v_out) {
     //Does a value exist at this key?
-    if(!RawConfig.contains(v_out.key)) {
-        return 1;
+    nlohmann::json* json = &RawConfig;
+    for(int i = 0; i < v_out.key.size(); i++) {
+        if(!json->contains(v_out.key[i])) {
+            loc_Log("Failed to get value at key '" + fullkey(v_out.key) +"' because it did not exist");
+            return 1;
+        } else json = &((*json)[v_out.key[i]]);
     }
 
     //Does its type match the expected return type?
-    if(v_out.t_info->Type() != GetDescriptorFromJson(RawConfig[v_out.key]).Type()) {
+    if((*v_out.t_info != GetDescriptorFromJson(*json))) {
+        loc_Log("Stored value at key '" + fullkey(v_out.key) + "' was: " + GetDescriptorFromJson(*json).Type() + " which did not match the requested type: " + v_out.t_info->Type(), 1);
         return 1;
     }
 
     //If yes to both, get, return and move a pointer to it.
-    v_out.ptr = std::move(GetPointerToJson(RawConfig[v_out.key]));
+    v_out.ptr = std::move(GetPointerToJson(*json));
     return 0;
 }
 
@@ -79,6 +84,7 @@ IConfigManager::TypeDescriptor ConfigManagerImpl::GetDescriptorFromJson(const nl
             desc = IConfigManager::TypeDescriptor(std::type_identity<std::string>{});
         break;
 
+        case nlohmann::json::value_t::object:
         case nlohmann::json::value_t::array:
             if(json.empty()) {
                 desc = IConfigManager::TypeDescriptor(std::type_identity<void>{});
@@ -86,12 +92,10 @@ IConfigManager::TypeDescriptor ConfigManagerImpl::GetDescriptorFromJson(const nl
             } else {
                 desc.nested = new IConfigManager::TypeDescriptor(ConfigManagerImpl::GetDescriptorFromJson(json.front()));
             }
-
         break;
 
-        //Because we're using templates, we can't handle for nlohmann::json native or binary_t types. If the user chooses to use them anyway, they are passed without type checking and we trust that the user isn't dumb.
         default:
-            desc.type = "unknown";
+            desc = IConfigManager::TypeDescriptor(std::type_identity<void>{});
         break;
     }
 
@@ -122,6 +126,7 @@ void* ConfigManagerImpl::GetPointerToJson(const nlohmann::json& json) {
             hold = new std::string(json.get<std::string>());
         break;
 
+        case nlohmann::json::value_t::object:
         case nlohmann::json::value_t::array:
             std::vector<void*>* array = new std::vector<void*>();
 
@@ -137,26 +142,57 @@ void* ConfigManagerImpl::GetPointerToJson(const nlohmann::json& json) {
 }
 
 int ConfigManagerImpl::set_impl(IConfigManager::Container& v_in) {
+    // DM().Log("Inserting " + fullkey(v_in.key) + "\nState prior: " + RawConfig.dump());
     std::string input = *static_cast<std::string*>(v_in.ptr);
     nlohmann::json parsed;
 
     try {
         parsed = nlohmann::json::parse(input);
-    } catch (nlohmann::json::parse_error E) {
-        DM().Log("Failed to parse string:\n" + input + "\nJson error message:" + E.what());
+    } catch (const nlohmann::json::parse_error& E) {
+        loc_Log("Failed to parse string: '" + input + "'\nVerbose error: " + E.what(), 5);
         return 1;
     } 
 
-    if(RawConfig.contains(v_in.key)) {
-        if(v_in.t_info->Type() == GetDescriptorFromJson(RawConfig[v_in.key]).Type()) {
-            RawConfig[v_in.key].swap(parsed);
-            return 0;
-        } else {
-            return 1;
-        }
+    try {
+        nlohmann::json* json = &RawConfig;
 
-    } else {
-        RawConfig.push_back(nlohmann::json::object_t::value_type(v_in.key, parsed));
-        return 0;
+        for(int i = 0; i < v_in.key.size(); i++) {
+            const std::string& notch = v_in.key[i];
+
+            if(i + 1 < v_in.key.size()) {
+                if(!json->contains(notch)) {
+                    (*json)[notch] = nlohmann::json::object();
+                }
+                json = &((*json)[notch]);
+
+            } else {
+                if(!json->contains(notch)) {
+                    (*json)[notch] = parsed;
+                    return 0;
+                }
+                
+                if(*v_in.t_info == GetDescriptorFromJson((*json)[notch])) {
+                    (*json)[notch].swap(parsed);
+                    return 0;
+                } 
+
+                loc_Log("Failed to insert key '" + fullkey(v_in.key) + "' of type: " + v_in.t_info->Type() + " due to mismatch with stored type: " + GetDescriptorFromJson((*json)[notch]).Type(), 1);
+                return 1;
+            }
+        }
+    } catch (const std::exception& E) {
+        loc_Log("Failed to insert key '" + fullkey(v_in.key) + "' of type: " + v_in.t_info->Type() + "\nVerbose error: " + E.what() + "\n" + RawConfig.dump(), 5);
+        return 1;
     }
+
+    return -1;
+}
+
+std::string ConfigManagerImpl::fullkey(const std::vector<std::string>& key) {
+    std::string hold;
+    for(int i = 0; i < key.size(); i++) {
+        hold += key[i];
+        if(i + 1 < key.size()) hold += "/";
+    }
+    return hold;
 }

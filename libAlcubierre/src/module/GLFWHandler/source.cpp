@@ -48,15 +48,13 @@ GLFWImpl::~GLFWImpl() {
 
 #include <cstring>
 
-int GLFWImpl::CreateWindow() {
-    Registry::GetRegistry().FetchService("IWindowSurfaceBridge");
-    
+int GLFWImpl::CreateWindow() {    
     IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
 
     std::vector<std::vector<int>> hints = CM->Get<std::vector<std::vector<int>>>("glfw_window_hints", {});
     for(std::vector<int> hint : hints) {
         glfwWindowHint(hint[0], hint[1]);
-        DM().Log("Window hint executed: " + std::to_string(hint[0]) + ", Value: " + std::to_string(hint[1]));
+        DM().Log("Window hint implemented: " + std::to_string(hint[0]) + ", Value: " + std::to_string(hint[1]));
     }
 
     Window = glfwCreateWindow(CM->Get<int>("window_height", 800), CM->Get<int>("window_width", 600), CM->Get<std::string>("application_name", "default").c_str(), nullptr, nullptr);

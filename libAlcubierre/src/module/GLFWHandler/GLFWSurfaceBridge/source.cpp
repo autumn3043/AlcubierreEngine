@@ -31,44 +31,53 @@ int GLFWSurfaceBridge::CreateWindowSurfaceImpl(void* TargetInstance, void* Targe
 }
 
 GLFWSurfaceBridgeImpl::GLFWSurfaceBridgeImpl() {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+    glfwInit();
 
-    //GLFW window hint to not create VK window cuz we do that here
-        std::vector<std::vector<int>> hints = CM->Get<std::vector<std::vector<int>>>("glfw_window_hints", {});
+    try {
+        IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
 
-        hints.push_back({GLFW_CLIENT_API, GLFW_NO_API});
+        //GLFW window hint to not create VK window cuz we do that here
+            std::vector<std::vector<int>> hints = CM->Get<std::vector<std::vector<int>>>("glfw_window_hints", {});
 
-        std::string hintsStr = "[";
-        for(int i = 0; i < hints.size(); i++) {
-            hintsStr += "[" + std::to_string(hints[i][0]) + "," + std::to_string(hints[i][1]) + "]";
-            if(i + 1 < hints.size()) hintsStr += ",";
-        }
-        hintsStr += "]";
+            hints.push_back({GLFW_CLIENT_API, GLFW_NO_API});
 
-        DM().Log("Dumped hints to cfg");
+            std::string hintsStr = "[";
+            for(int i = 0; i < hints.size(); i++) {
+                hintsStr += "[" + std::to_string(hints[i][0]) + "," + std::to_string(hints[i][1]) + "]";
+                if(i + 1 < hints.size()) hintsStr += ",";
+            }
+            hintsStr += "]";
 
-        CM->Set<std::vector<std::vector<int>>>("glfw_window_hints", hintsStr);
+            CM->Set<std::vector<std::vector<int>>>("glfw_window_hints", hintsStr);
 
-    //VK extensions needed for GLFW
-        std::vector<std::string> extensions = CM->Get<std::vector<std::string>>("extensions", {});
+            DM().Log("Dumped GLFW-Vulkan bridge hints to cfg");
 
-        uint32_t extensionsCount = 0;
-        const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionsCount);
+        //VK extensions needed for GLFW
+            std::vector<std::string> extensions = CM->Get<std::vector<std::string>>("extensions", {});
 
-        for(uint32_t i = 0; i < extensionsCount; i++) {
-            extensions.push_back(glfwExtensions[i]);
-        }
+            uint32_t extensionsCount = 0;
+            const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionsCount);
 
-        std::string extensionsStr = "[";
-        for(int i = 0; i < extensions.size(); i++) {
-            extensionsStr += "\"" + extensions[i] + "\"";
-            if (i + 1 < extensions.size()) extensionsStr += ",";
-        }
-        extensionsStr += "]";
+            for(uint32_t i = 0; i < extensionsCount; i++) {
+                extensions.push_back(glfwExtensions[i]);
+            }
 
-        CM->Set<std::vector<std::string>>("extensions", extensionsStr);
+            std::string extensionsStr = "[";
+            for(int i = 0; i < extensions.size(); i++) {
+                extensionsStr += "\"" + extensions[i] + "\"";
+                if (i + 1 < extensions.size()) extensionsStr += ",";
+            }
+            extensionsStr += "]";
 
-        DM().Log("Dumped GLFW-Vulkan bridge requirements to cfg");
+            CM->Set<std::vector<std::string>>("extensions", extensionsStr);
+
+            DM().Log("Dumped GLFW-Vulkan bridge extensions to cfg");
+    } catch (...) {
+        glfwTerminate();
+        throw;
+    }
+
+    glfwTerminate();
 }
 
 GLFWSurfaceBridgeImpl::~GLFWSurfaceBridgeImpl() {}

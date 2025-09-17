@@ -116,7 +116,7 @@ class AlcDeviceCreateInfo {
     private:
         VkDeviceCreateInfo DeviceCreateInfo;
 
-        VkDeviceQueueCreateInfo QueueCreateInfos_;
+        VkDeviceQueueCreateInfo QueueCreateInfos_; //needs to be an array
         VkPhysicalDeviceFeatures EnabledFeatures_;
 
 };

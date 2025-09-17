@@ -2,7 +2,8 @@
 #include "module/VulkanHandler/private.h"
 
 #include <utility>
-#include <algorithm>
+#include <unordered_map>
+#include <variant>
 
 ModuleRegistryBundle VulkanHandlerWrapper::bundle(
     []() -> WrapperBaseClass* { return new VulkanHandlerWrapper(); },
@@ -31,8 +32,8 @@ void* VulkanHandler::GetBackendObjectImpl() {
 VulkanHandlerIMPL::VulkanHandlerIMPL() {
     CreateVulkanInstance();
     CreateDebugLink();
-    CreateLogicalDevice(0);
     CreateSurface();
+    CreateLogicalDevice();
 }
 
 VulkanHandlerIMPL::~VulkanHandlerIMPL() {
@@ -173,69 +174,74 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandlerIMPL::VulkanDebugCallback(
     return VK_FALSE;
 }
 
-int VulkanHandlerIMPL::CreateLogicalDevice(int overrideIndice) {
-    try {
-        std::vector<std::pair<int, VkPhysicalDevice>> PhysicalDeviceCandidates = SelectPhysicalDevice();
-        VkPhysicalDevice PhysicalDevice = std::get<1>(PhysicalDeviceCandidates[overrideIndice]);  
+int VulkanHandlerIMPL::CreateSurface() {
+    IWindowSurfaceBridge* WSB = dynamic_cast<IWindowSurfaceBridge*>(Registry::GetRegistry().FetchService("IWindowSurfaceBridge"));
 
-        AlcDeviceCreateInfo DeviceInitInfo;
-        FetchDeviceInfo(PhysicalDevice, DeviceInitInfo);
+    int hold = WSB->CreateWindowSurface(&Instance, &Surface);
 
-        VkResult CreateEcho = vkCreateDevice(PhysicalDevice, DeviceInitInfo.Get(), nullptr, &Device);
+    if(hold == 0) {
+        DM().Log("Successfully established Vulkan window surface bridge link");
+    } else {
+        throw VulkanException("Failed to establish Vulkan wsb link");
+    }
 
-        if(CreateEcho != VK_SUCCESS) {
-            switch(CreateEcho) {
-                case VK_ERROR_EXTENSION_NOT_PRESENT:
-                    throw VulkanException("Requested extension not present in device marked compatible.");
-                break;
+    return hold;
+}
 
-                case VK_ERROR_FEATURE_NOT_PRESENT:
-                    throw VulkanException("Requested feature not present in device marked compatible.");
-                break;
+int VulkanHandlerIMPL::CreateLogicalDevice() {
+    VkPhysicalDevice PhysicalDevice = SelectPhysicalDevice();
 
-                default:
-                    throw VulkanException("Failed to intialise logical device.");
-                break;
-            }
+    AlcDeviceCreateInfo DeviceInitInfo;
+    FetchDeviceInfo(PhysicalDevice, DeviceInitInfo);
 
-            return 1;
-        } else {
-            DM().Log("Successfully instantiated Vulkan logical device");
+    VkResult CreateEcho = vkCreateDevice(PhysicalDevice, DeviceInitInfo.Get(), nullptr, &Device);
 
-            vkGetDeviceQueue(Device, GetDeviceIndices(PhysicalDevice)[0], 0, &Queue);
-            
-            return 0;
+    if(CreateEcho != VK_SUCCESS) {
+        switch(CreateEcho) {
+            case VK_ERROR_EXTENSION_NOT_PRESENT:
+                throw VulkanException("Requested extension not present in device marked compatible.");
+            break;
+
+            case VK_ERROR_FEATURE_NOT_PRESENT:
+                throw VulkanException("Requested feature not present in device marked compatible.");
+            break;
+
+            default:
+                throw VulkanException("Failed to intialise logical device.");
+            break;
         }
 
-    } catch(...) {
-        throw;
+        return 1;
+    } else {
+        DM().Log("Successfully instantiated Vulkan logical device");
+
+        const VkDeviceQueueCreateInfo* queues = DeviceInitInfo.Get()->pQueueCreateInfos;
+        vkGetDeviceQueue(Device, queues[0].queueFamilyIndex, 0, &Q_List.GraphicsQueue);
+        vkGetDeviceQueue(Device, queues[1].queueFamilyIndex, 0, &Q_List.SurfacePresentQueue);
+        
+        return 0;
     }
 }
 
-std::vector<std::pair<int, VkPhysicalDevice>> VulkanHandlerIMPL::SelectPhysicalDevice() {
+VkPhysicalDevice VulkanHandlerIMPL::SelectPhysicalDevice() {
+
     uint32_t CompatibleDeviceCount = 0;
     vkEnumeratePhysicalDevices(Instance, &CompatibleDeviceCount, nullptr);
-    if(CompatibleDeviceCount == 0) {
-        throw std::runtime_error("No detected GPU devices support Vulkan.");
-    }
-
+    if(CompatibleDeviceCount == 0) throw std::runtime_error("No detected GPU devices support Vulkan.");
     std::vector<VkPhysicalDevice> CompatibleDevices(CompatibleDeviceCount);
     vkEnumeratePhysicalDevices(Instance, &CompatibleDeviceCount, CompatibleDevices.data());
 
-    //The double call here firstly checks a compatible device exists, before getting a list of all these compatible devices. There is no point scoring devices if none exist.
-
-    std::vector<std::pair<int, VkPhysicalDevice>> Candidates;
-
+    int u = 0;
+    VkPhysicalDevice hold;
     for(const VkPhysicalDevice& device : CompatibleDevices) {
         int score = ScoreDevice(device);
-        if(score > 0) Candidates.emplace_back(std::make_pair(score, device));
+        if(score > u) {
+            u = score;
+            hold = device;
+        }
     }
 
-    std::sort(Candidates.begin(), Candidates.end(), [](const auto& a, const auto& b) {
-        return a.first > b.first;
-    });
-
-    return Candidates;
+    return hold;
 }
 
 int VulkanHandlerIMPL::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {    
@@ -248,12 +254,13 @@ int VulkanHandlerIMPL::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {
 
     int hold = 0;
 
-    //Same deal for properties
+
+    //Required and preferred properties go here. Required = return 0 if not present. Preferred = add to score.
     if(DeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
         hold += 1000;
     }
 
-    //Required and preferred features go here. Required = return 0 if not present. Preferred = add to score.
+    //Same deal for features.
     if(!AvailableFeatures.geometryShader) {
         return 0;
     }
@@ -285,10 +292,10 @@ void VulkanHandlerIMPL::FetchDeviceInfo(VkPhysicalDevice _PhysicalDevice, AlcDev
     VkDeviceCreateInfo hold{};
     hold.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
-    AlcDeviceQueueCreateInfo GraphicsQueueCreateInfo;
-    FetchQueueInfo(_PhysicalDevice, GraphicsQueueCreateInfo);
-    hold.pQueueCreateInfos = GraphicsQueueCreateInfo.Get();
-    hold.queueCreateInfoCount = 1;
+    std::vector<VkDeviceQueueCreateInfo> QueueArray;
+    FetchQueueArray(_PhysicalDevice, QueueArray);
+    hold.pQueueCreateInfos = QueueArray.data(); //An array of queue create infos (pointer to first element)
+    hold.queueCreateInfoCount = QueueArray.size(); //Count
 
     VkPhysicalDeviceFeatures DeviceFeatures{};
     hold.pEnabledFeatures = &DeviceFeatures;
@@ -298,50 +305,48 @@ void VulkanHandlerIMPL::FetchDeviceInfo(VkPhysicalDevice _PhysicalDevice, AlcDev
     ReturnBundle.Set(hold);
 }
 
-void VulkanHandlerIMPL::FetchQueueInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceQueueCreateInfo& ReturnBundle) {
-    VkDeviceQueueCreateInfo hold {};
-    hold.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+void VulkanHandlerIMPL::FetchQueueArray(VkPhysicalDevice _PhysicalDevice, std::vector<VkDeviceQueueCreateInfo>& ReturnArray) {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+    int RequestedQueues = CM->Get<std::vector<std::monostate>>("required_graphics_queues", {}).size();
 
-    hold.queueFamilyIndex = GetDeviceIndices(_PhysicalDevice)[0];
-    hold.queueCount = 1;
-
-    float QueuePriority = 1.0f;
-    hold.pQueuePriorities = &QueuePriority;
-
-    ReturnBundle.Set(hold);
-}
-
-std::vector<uint32_t> VulkanHandlerIMPL::GetDeviceIndices(VkPhysicalDevice _PhysicalDevice) {
-    std::vector<uint32_t> hold;
-
+    std::unordered_map<uint32_t, VkQueueFlags> AvailableQueues;
+    
     uint32_t QueueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(_PhysicalDevice, &QueueFamilyCount, nullptr);
-
     std::vector<VkQueueFamilyProperties> QueueFamilies(QueueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(_PhysicalDevice, &QueueFamilyCount, QueueFamilies.data());
 
-    int i = 0;
-    for (const auto& QueueFamily : QueueFamilies) {
-        if(QueueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            hold.push_back(i);
+    for (int i = 0; i < RequestedQueues; i++) {
+        VkDeviceQueueCreateInfo hold{};
+        hold.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+
+        int UsableQueue = -1;
+        std::vector<int> RequiredFlags = CM->Get<std::vector<int>>({"required_graphics_queues", std::to_string(i), "flags"}, {});
+        bool SurfaceRequirement = CM->Get<bool>({"required_graphics_queues", std::to_string(i), "surface_support"}, false);
+        for(int j = 0; j < QueueFamilies.size(); j++) {
+            bool validQueue = true;
+
+            for(int flag : RequiredFlags) {
+                if(!(QueueFamilies[j].queueFlags & flag)) validQueue = false;
+            }
+
+            if(SurfaceRequirement) {
+                VkBool32 SurfaceSupport;
+                vkGetPhysicalDeviceSurfaceSupportKHR(_PhysicalDevice, j, Surface, &SurfaceSupport);
+                if(!SurfaceSupport) validQueue = false;
+            }
+
+            if(validQueue) UsableQueue = j;
         }
 
-        i++;    
+        if(UsableQueue == -1) throw VulkanException("No available graphics queue fulfilled all requirements for queue: " + std::to_string(i + 1));
+        hold.queueFamilyIndex = static_cast<uint32_t>(UsableQueue);
+
+        hold.queueCount = static_cast<uint32_t>(CM->Get<int>({"required_graphics_queues", std::to_string(i), "count"}, 1));
+
+        float QueuePriority = static_cast<float>(CM->Get<int>({"required_graphics_queues", std::to_string(i), "priority"}, 1));
+        hold.pQueuePriorities = &QueuePriority;
+
+        ReturnArray.push_back(hold);
     }
-
-    return hold;
-}
-
-int VulkanHandlerIMPL::CreateSurface() {
-    IWindowSurfaceBridge* WSB = dynamic_cast<IWindowSurfaceBridge*>(Registry::GetRegistry().FetchService("IWindowSurfaceBridge"));
-
-    int hold = WSB->CreateWindowSurface(&Instance, &Surface);
-
-    if(hold == 0) {
-        DM().Log("Successfully established Vulkan window surface bridge link");
-    } else {
-        DM().Log("Failed to establish Vulkan wsb link");
-    }
-
-    return hold;
 }
