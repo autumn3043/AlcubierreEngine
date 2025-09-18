@@ -142,7 +142,6 @@ void* ConfigManagerImpl::GetPointerToJson(const nlohmann::json& json) {
 }
 
 int ConfigManagerImpl::set_impl(IConfigManager::Container& v_in) {
-    // DM().Log("Inserting " + fullkey(v_in.key) + "\nState prior: " + RawConfig.dump());
     std::string input = *static_cast<std::string*>(v_in.ptr);
     nlohmann::json parsed;
 
@@ -195,4 +194,18 @@ std::string ConfigManagerImpl::fullkey(const std::vector<std::string>& key) {
         if(i + 1 < key.size()) hold += "/";
     }
     return hold;
+}
+
+int ConfigManager::SetFromFile_Impl(const std::string& value) {
+    nlohmann::json parsed;
+
+    try {
+        parsed = nlohmann::json::parse(value);
+    } catch (const nlohmann::json::parse_error& E) {
+        DM().Log("Failed to parse string: '" + value + "'\nVerbose error: " + E.what(), 5);
+        return 1;
+    } 
+
+    PrivatePtr->RawConfig += parsed;
+    return 0;
 }

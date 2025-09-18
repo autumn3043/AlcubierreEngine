@@ -7,6 +7,9 @@
 #include <sstream>
 #include <iomanip>
 
+const int PRINT_MIN_VERBOSITY = 0;
+const int WRITE_MIN_VERBOSITY = 0;
+
 DebugManager& DebugManager::GetDebugManager() {
     static DebugManager Instance;
     return Instance;
@@ -49,7 +52,6 @@ DebugManagerImpl::DebugManagerImpl() {
 }
 
 DebugManagerImpl::~DebugManagerImpl() {
-    logfile << std::endl;
     logfile.close();
 }
 
@@ -77,9 +79,10 @@ void DebugManagerImpl::InternalLog(DebugReport* Report, bool Write) {
     if(Report->Level >= WRITE_MIN_VERBOSITY) {
         //TEMPORARY BODGE FIX THE DI STUFF U DUMBY DUMB DUMB
         if(!logfile.is_open()) {
-            logfile.open("program.log", std::ios::app);
-            logfile << DebugMessage << std::endl;
-            logfile.close();
+            std::ofstream logfileTROUBLE;
+            logfileTROUBLE.open("program.log", std::ios::app);
+            logfileTROUBLE << ":: TROUBLE :: " + DebugMessage << std::endl;
+            logfileTROUBLE.close();
         } else {
             logfile << DebugMessage << std::endl;
         }

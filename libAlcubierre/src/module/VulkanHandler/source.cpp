@@ -34,13 +34,29 @@ VulkanHandlerIMPL::VulkanHandlerIMPL() {
     CreateDebugLink();
     CreateSurface();
     CreateLogicalDevice();
+    CreateSwapChain();
 }
 
 VulkanHandlerIMPL::~VulkanHandlerIMPL() {
-    try {
+    vkDeviceWaitIdle(Device);
+
+    if(Device && Swapchain) {
+        vkDestroySwapchainKHR(Device, Swapchain, nullptr);
+        Swapchain = VK_NULL_HANDLE;
+        DM().Log("Successfully destroyed Vulkan surface");
+    }
+
+    if(Device) {
         vkDestroyDevice(Device, nullptr);
+        Device = VK_NULL_HANDLE;
         DM().Log("Successfully destroyed Vulkan logical device");
-    } catch (...) {/*Do nothing for now*/}
+    }
+
+    if(Surface) {
+        vkDestroySurfaceKHR(Instance, Surface, nullptr);
+        Surface = VK_NULL_HANDLE;
+        DM().Log("Successfully destroyed Vulkan surface");
+    }
 
     try {
         PFN_vkDestroyDebugUtilsMessengerEXT DestroyFunction = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(Instance, "vkDestroyDebugUtilsMessengerEXT");
@@ -50,11 +66,10 @@ VulkanHandlerIMPL::~VulkanHandlerIMPL() {
         }
     } catch (...) {/*Do nothing for now*/}
 
-    try {
+    if(Instance) {
         vkDestroyInstance(Instance, nullptr);
+        Instance = VK_NULL_HANDLE;
         DM().Log("Successfully destroyed Vulkan instance");
-    } catch (...) {
-        DM().Log("Failed to destroy Vulkan instance");
     }
 }
 
@@ -62,15 +77,9 @@ int VulkanHandlerIMPL::CreateVulkanInstance() {
     AlcInstanceCreateInfo CreateInfo{};
     FetchCreateData(CreateInfo);
 
-        //Local addendums to CreateInfo because passing around a copy of this is a pain in the ass and well beyond the scope of the struct bundle system.
-        AlcEnabledExtensions EnabledExtensions;
-        FetchExtensionData(EnabledExtensions);
-        CreateInfo.Get()->enabledExtensionCount = static_cast<uint32_t>(EnabledExtensions.Get()->size());
-        CreateInfo.Get()->ppEnabledExtensionNames = EnabledExtensions.Get()->data();
-
-        AlcDebugUtilsMessengerCreateInfoEXT DebugLinkCreateInfo{};
-        FetchDebugData(DebugLinkCreateInfo);
-        CreateInfo.Get()->pNext = (VkDebugUtilsMessengerCreateInfoEXT*) DebugLinkCreateInfo.Get();
+    AlcDebugUtilsMessengerCreateInfoEXT DebugLinkCreateInfo{};
+    FetchDebugData(DebugLinkCreateInfo);
+    CreateInfo.Get()->pNext = (VkDebugUtilsMessengerCreateInfoEXT*) DebugLinkCreateInfo.Get();
 
     VkResult hold = vkCreateInstance(CreateInfo.Get(), nullptr, &Instance);
     if(hold != VK_SUCCESS) {
@@ -83,21 +92,30 @@ int VulkanHandlerIMPL::CreateVulkanInstance() {
 }
 
 void VulkanHandlerIMPL::FetchCreateData(AlcInstanceCreateInfo& ReturnBundle) {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+
     VkInstanceCreateInfo hold{};
     hold.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 
     AlcApplicationInfo VkAppData;
     FetchAppData(VkAppData);
     hold.pApplicationInfo = VkAppData.Get();
+
+    std::vector<std::string> InstanceExtensions = CM->Get<std::vector<std::string>>("extensions", {"VK_EXT_debug_utils"});
+    hold.enabledExtensionCount = InstanceExtensions.size();
+    std::vector<const char*> pInstanceExtensions;
+    for(const std::string& str : InstanceExtensions) pInstanceExtensions.push_back(str.c_str());
+    hold.ppEnabledExtensionNames = pInstanceExtensions.data();
+
+    if(CM->Get<bool>("debug", false)) {
+        std::vector<std::string> ValidationLayers = CM->Get<std::vector<std::string>>("debug_layers", {});
+        hold.enabledLayerCount = ValidationLayers.size();
+        std::vector<const char*> pValidationLayers;
+        for(const std::string& str : ValidationLayers) pValidationLayers.push_back(str.c_str());
+        hold.ppEnabledLayerNames = pValidationLayers.data();
+    }
     
     ReturnBundle.Set(hold);
-}
-
-void VulkanHandlerIMPL::FetchExtensionData(AlcEnabledExtensions& ReturnBundle) {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
-    std::vector<std::string> EnabledExtensionsStr = CM->Get<std::vector<std::string>>("extensions", {"VK_EXT_debug_utils"});
-
-    ReturnBundle.Set(EnabledExtensionsStr);
 }
 
 void VulkanHandlerIMPL::FetchAppData(AlcApplicationInfo& ReturnBundle) {
@@ -132,7 +150,7 @@ int VulkanHandlerIMPL::CreateDebugLink() {
         if(CreateStatus != VK_SUCCESS) {
             throw VulkanException("Issue creating debug callback loop"); 
         } else {
-            DM().Log("Successfully established debug link");
+            DM().Log("Successfully established Vulkan debug link");
             return 0;
         }
     } else {
@@ -163,13 +181,14 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandlerIMPL::VulkanDebugCallback(
 
     std::string CallbackMessage(pCallbackData->pMessage);
 
-
     DebugReport Report(
         CallbackMessage,
         1,
         "Vulkan Debug Callback",
         std::time(nullptr)
     );
+
+    DM().Log(Report);
 
     return VK_FALSE;
 }
@@ -189,10 +208,10 @@ int VulkanHandlerIMPL::CreateSurface() {
 }
 
 int VulkanHandlerIMPL::CreateLogicalDevice() {
-    VkPhysicalDevice PhysicalDevice = SelectPhysicalDevice();
+    PhysicalDevice = SelectPhysicalDevice();
 
     AlcDeviceCreateInfo DeviceInitInfo;
-    FetchDeviceInfo(PhysicalDevice, DeviceInitInfo);
+    FetchDeviceInfo(DeviceInitInfo);
 
     VkResult CreateEcho = vkCreateDevice(PhysicalDevice, DeviceInitInfo.Get(), nullptr, &Device);
 
@@ -273,48 +292,68 @@ int VulkanHandlerIMPL::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {
 
     //We need to confirm, firstly, that a device *has* all the features we need to begin with. If it doesn't exclude it. If it does we can score it based on the quantity of supporting queues.
     bool _hasGraphics = false;
+    bool _hasSurfaceSupport = false;
 
-    for(const VkQueueFamilyProperties& QueueFamily : DeviceQueueFamilies) {
-        if(QueueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            hold += 100 * QueueFamily.queueCount;
+    for(int i = 0; i < DeviceQueueFamilies.size(); i++) {
+        if(DeviceQueueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            hold += 100 * DeviceQueueFamilies[i].queueCount;
             _hasGraphics = true;
         }
+
+        VkBool32 SurfaceSupport;
+        vkGetPhysicalDeviceSurfaceSupportKHR(_PhysicalDevice, i, Surface, &SurfaceSupport);
+        if(SurfaceSupport) _hasSurfaceSupport = true;
     }
 
-    if(!(_hasGraphics)) {
+    if(!(_hasGraphics && _hasSurfaceSupport)) {
         return 0;
     }
 
     return hold;
 }
 
-void VulkanHandlerIMPL::FetchDeviceInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceCreateInfo& ReturnBundle) {
+void VulkanHandlerIMPL::FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle) {
     VkDeviceCreateInfo hold{};
     hold.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-
-    std::vector<VkDeviceQueueCreateInfo> QueueArray;
-    FetchQueueArray(_PhysicalDevice, QueueArray);
-    hold.pQueueCreateInfos = QueueArray.data(); //An array of queue create infos (pointer to first element)
-    hold.queueCreateInfoCount = QueueArray.size(); //Count
 
     VkPhysicalDeviceFeatures DeviceFeatures{};
     hold.pEnabledFeatures = &DeviceFeatures;
 
-    hold.enabledExtensionCount = 0;
+    std::vector<std::string> DeviceExtensions;
+    FetchDeviceExtensionArray(DeviceExtensions);
+    hold.enabledExtensionCount = DeviceExtensions.size();
+    std::vector<const char*> pDeviceExtensions;
+    for(const std::string& str : DeviceExtensions) pDeviceExtensions.push_back(str.c_str());
+    hold.ppEnabledExtensionNames = pDeviceExtensions.data();
+
+    std::vector<VkDeviceQueueCreateInfo> QueueArray;
+    FetchQueueArray(QueueArray);
+    hold.pQueueCreateInfos = QueueArray.data();
+    hold.queueCreateInfoCount = QueueArray.size();
 
     ReturnBundle.Set(hold);
 }
 
-void VulkanHandlerIMPL::FetchQueueArray(VkPhysicalDevice _PhysicalDevice, std::vector<VkDeviceQueueCreateInfo>& ReturnArray) {
+void VulkanHandlerIMPL::FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray) {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+
+    std::vector<std::string> requestedExtensions = CM->Get<std::vector<std::string>>("required_device_extensions", {VK_KHR_SWAPCHAIN_EXTENSION_NAME});
+
+    for(std::string extension : requestedExtensions) {
+        ReturnArray.emplace_back(extension);
+    }
+}
+
+void VulkanHandlerIMPL::FetchQueueArray(std::vector<VkDeviceQueueCreateInfo>& ReturnArray) {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
     int RequestedQueues = CM->Get<std::vector<std::monostate>>("required_graphics_queues", {}).size();
 
     std::unordered_map<uint32_t, VkQueueFlags> AvailableQueues;
     
     uint32_t QueueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(_PhysicalDevice, &QueueFamilyCount, nullptr);
+    vkGetPhysicalDeviceQueueFamilyProperties(PhysicalDevice, &QueueFamilyCount, nullptr);
     std::vector<VkQueueFamilyProperties> QueueFamilies(QueueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(_PhysicalDevice, &QueueFamilyCount, QueueFamilies.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(PhysicalDevice, &QueueFamilyCount, QueueFamilies.data());
 
     for (int i = 0; i < RequestedQueues; i++) {
         VkDeviceQueueCreateInfo hold{};
@@ -332,7 +371,7 @@ void VulkanHandlerIMPL::FetchQueueArray(VkPhysicalDevice _PhysicalDevice, std::v
 
             if(SurfaceRequirement) {
                 VkBool32 SurfaceSupport;
-                vkGetPhysicalDeviceSurfaceSupportKHR(_PhysicalDevice, j, Surface, &SurfaceSupport);
+                vkGetPhysicalDeviceSurfaceSupportKHR(PhysicalDevice, j, Surface, &SurfaceSupport);
                 if(!SurfaceSupport) validQueue = false;
             }
 
@@ -349,4 +388,72 @@ void VulkanHandlerIMPL::FetchQueueArray(VkPhysicalDevice _PhysicalDevice, std::v
 
         ReturnArray.push_back(hold);
     }
+}
+
+int VulkanHandlerIMPL::CreateSwapChain() {
+    VkSwapchainCreateInfoKHR ChainInitInfo {};
+    ChainInitInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+
+    VkSurfaceCapabilitiesKHR surfaceCapabilities;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(PhysicalDevice, Surface, &surfaceCapabilities);
+
+    FetchSwapMode(ChainInitInfo.presentMode);
+    FetchSwapSurfaceFormat(ChainInitInfo.imageFormat, ChainInitInfo.imageColorSpace);
+
+    ChainInitInfo.surface = Surface;
+
+    VkResult hold = vkCreateSwapchainKHR(Device, &ChainInitInfo, nullptr, &Swapchain);
+
+    if(hold == VK_SUCCESS) {
+        DM().Log("Successfully created Vulkan swapchain");
+        return 0;
+    } else {
+        throw VulkanException("Failed to create Vulkan swapchain due to VK error: " + std::to_string(hold));
+    }
+}
+
+void VulkanHandlerIMPL::FetchSwapMode(VkPresentModeKHR& ReturnMode) {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+    
+    uint32_t presentModeCount;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(PhysicalDevice, Surface, &presentModeCount, nullptr);
+    std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(PhysicalDevice, Surface, &presentModeCount, presentModes.data());
+
+    std::vector<int> PreferredMode = CM->Get<std::vector<int>>(std::vector<std::string>{"graphics", "presentation_mode"}, std::vector<int>{VK_PRESENT_MODE_FIFO_KHR});
+    for(int i = 0; i < PreferredMode.size(); i++) {
+        for(const VkPresentModeKHR& mode : presentModes) {
+            if(PreferredMode[i] == mode) {
+                ReturnMode = mode;
+                return;
+            }
+        }
+    }
+
+    throw VulkanException("No available present mode was suitable.");
+}
+
+void VulkanHandlerIMPL::FetchSwapSurfaceFormat(VkFormat& ReturnFormat, VkColorSpaceKHR& ReturnColor) {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+
+    uint32_t surfaceFormatCount;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(PhysicalDevice, Surface, &surfaceFormatCount, nullptr);
+    std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(PhysicalDevice, Surface, &surfaceFormatCount, surfaceFormats.data());
+
+    std::vector<int> PreferredFormat = CM->Get<std::vector<int>>(std::vector<std::string>{"graphics", "image_format"}, std::vector<int>{VK_FORMAT_B8G8R8A8_SRGB});
+    for(int i = 0; i < PreferredFormat.size(); i++) {
+        for(const VkSurfaceFormatKHR& imageFormat : surfaceFormats) {
+            if(PreferredFormat[i] == imageFormat.format) {
+                ReturnFormat = imageFormat.format;
+                ReturnColor = imageFormat.colorSpace;
+                return;
+            }
+        }
+    }
+
+    //Just use any format
+    ReturnFormat = surfaceFormats[0].format;
+    ReturnColor = surfaceFormats[0].colorSpace;
+    DM().Log("No requested image format was available");
 }

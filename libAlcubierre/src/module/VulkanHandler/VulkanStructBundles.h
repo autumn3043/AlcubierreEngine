@@ -15,6 +15,20 @@ class AlcInstanceCreateInfo {
 
             pApplicationInfo_ = *_InstanceCreateInfo.pApplicationInfo;
             InstanceCreateInfo.pApplicationInfo = &pApplicationInfo_;
+
+            for(int i = 0; i < _InstanceCreateInfo.enabledExtensionCount; i++) {
+                EnabledExtensionsStrs_.emplace_back(_InstanceCreateInfo.ppEnabledExtensionNames[i]);
+            }
+            for(const std::string& str : EnabledExtensionsStrs_) EnabledExtensions_.push_back(str.c_str());
+            InstanceCreateInfo.ppEnabledExtensionNames = EnabledExtensions_.data();
+            InstanceCreateInfo.enabledExtensionCount = EnabledExtensions_.size();
+
+            for(int i = 0; i < _InstanceCreateInfo.enabledLayerCount; i++) {
+                EnabledLayersStrs_.emplace_back(_InstanceCreateInfo.ppEnabledLayerNames[i]);
+            }
+            for(const std::string& str : EnabledLayersStrs_) EnabledLayers_.push_back(str.c_str());
+            InstanceCreateInfo.ppEnabledLayerNames = EnabledLayers_.data();
+            InstanceCreateInfo.enabledLayerCount = EnabledLayers_.size();
         }
 
         VkInstanceCreateInfo* Get() {
@@ -25,6 +39,11 @@ class AlcInstanceCreateInfo {
         VkInstanceCreateInfo InstanceCreateInfo;
 
         VkApplicationInfo pApplicationInfo_;
+
+        std::vector<std::string> EnabledExtensionsStrs_;
+        std::vector<const char*> EnabledExtensions_;
+        std::vector<std::string> EnabledLayersStrs_;
+        std::vector<const char*> EnabledLayers_;
 };
 
 class AlcEnabledExtensions {
@@ -102,11 +121,21 @@ class AlcDeviceCreateInfo {
         void Set(VkDeviceCreateInfo _DeviceCreateInfo) {
             DeviceCreateInfo = _DeviceCreateInfo;
 
-            QueueCreateInfos_ = *_DeviceCreateInfo.pQueueCreateInfos;
-            DeviceCreateInfo.pQueueCreateInfos = &QueueCreateInfos_;
-
             EnabledFeatures_ = *_DeviceCreateInfo.pEnabledFeatures;
             DeviceCreateInfo.pEnabledFeatures = &EnabledFeatures_;
+
+            for(int i = 0; i < _DeviceCreateInfo.enabledExtensionCount; i++) {
+                EnabledExtensionsStrs_.emplace_back(_DeviceCreateInfo.ppEnabledExtensionNames[i]);
+            }
+            for(const std::string& str : EnabledExtensionsStrs_) EnabledExtensions_.push_back(str.c_str());
+            DeviceCreateInfo.ppEnabledExtensionNames = EnabledExtensions_.data();
+            DeviceCreateInfo.enabledExtensionCount = EnabledExtensions_.size();
+
+            for(int i = 0; i < _DeviceCreateInfo.queueCreateInfoCount; i++) {
+                QueueCreateInfos_.emplace_back(_DeviceCreateInfo.pQueueCreateInfos[i]);
+            }
+            DeviceCreateInfo.pQueueCreateInfos = QueueCreateInfos_.data();
+            DeviceCreateInfo.queueCreateInfoCount = QueueCreateInfos_.size();
         }
 
         const VkDeviceCreateInfo* Get() const {
@@ -116,8 +145,10 @@ class AlcDeviceCreateInfo {
     private:
         VkDeviceCreateInfo DeviceCreateInfo;
 
-        VkDeviceQueueCreateInfo QueueCreateInfos_; //needs to be an array
+        std::vector<VkDeviceQueueCreateInfo> QueueCreateInfos_;
         VkPhysicalDeviceFeatures EnabledFeatures_;
+        std::vector<std::string> EnabledExtensionsStrs_;
+        std::vector<const char*> EnabledExtensions_;
 
 };
 

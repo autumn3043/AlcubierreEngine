@@ -73,7 +73,6 @@ GLFWSurfaceBridgeImpl::GLFWSurfaceBridgeImpl() {
 
             DM().Log("Dumped GLFW-Vulkan bridge extensions to cfg");
     } catch (...) {
-        glfwTerminate();
         throw;
     }
 

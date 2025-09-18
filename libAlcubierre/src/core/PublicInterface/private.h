@@ -15,7 +15,7 @@ class AlcubierreEngineImpl {
     public:
         AlcubierreEngineImpl();
         ~AlcubierreEngineImpl();
-    
+
     private:
 };
 

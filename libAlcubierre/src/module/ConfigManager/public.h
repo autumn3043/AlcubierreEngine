@@ -13,6 +13,7 @@ class ConfigManager {
         int WakeImpl();
         int Get_Impl(IConfigManager::Container& v_out);
         int Set_Impl(IConfigManager::Container& v_in);
+        int SetFromFile_Impl(const std::string& value);
 
         class IConfigManagerImpl : public IConfigManager {
             public:
@@ -24,6 +25,7 @@ class ConfigManager {
 
                 int GetInternal(IConfigManager::Container& v_out) override { return Parent->Get_Impl(v_out); }
                 int SetInternal(IConfigManager::Container& v_in) override { return Parent->Set_Impl(v_in); }
+                int SetFromFile(const std::string& value) override { return Parent->SetFromFile_Impl(value); }
         };
 
         ConfigManager();

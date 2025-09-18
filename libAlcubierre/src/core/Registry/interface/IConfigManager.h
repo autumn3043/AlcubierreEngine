@@ -176,6 +176,7 @@ class IConfigManager : public InterfaceBaseClass {
 
         virtual int GetInternal(Container& v_out) = 0; //Implementation reports status via int and fills out the ptr. Because the container is owned by the interface we can handle deletion smoothly. 
         virtual int SetInternal(Container& v_in) = 0;
+        virtual int SetFromFile(const std::string& value) = 0;
 };
 
 #endif

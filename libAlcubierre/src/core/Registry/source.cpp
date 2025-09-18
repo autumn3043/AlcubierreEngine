@@ -17,14 +17,32 @@ Registry::~Registry() {
     delete PrivatePtr;
 }
 
-void Registry::RegisterModule(std::function<WrapperBaseClass*()> _constructor, std::string& moduleID) {
-    PrivatePtr->Constructors.push_back(_constructor);
+RegistryImpl::~RegistryImpl() {
+    const std::vector<std::string> DeconstructOrder = {
+        "MODULE_VULKANHANDLER",
+        "MODULE_GLFWHANDLER_GLFWSURFACEBRIDGE",
+        "MODULE_GLFWHANDLER",
+        "MODULE_CONFIGMANAGER"
+    };
+
+    for (int i = 0; i < DeconstructOrder.size(); i++) {
+        if(Modules.contains(DeconstructOrder[i])) {
+            Modules.at(DeconstructOrder[i]).reset();
+        }
+    }
+}
+
+void Registry::RegisterModule(std::function<WrapperBaseClass*()> _constructor, const std::string& moduleID) {
+    PrivatePtr->Constructors[moduleID] = std::move(_constructor);
     DM().Log("Registered module '" + moduleID + "'");
 }
 
 void Registry::Init() {
-    for (std::function<WrapperBaseClass*()>& constructor : PrivatePtr->Constructors) {
-        PrivatePtr->Modules.emplace_back(std::unique_ptr<WrapperBaseClass>(constructor())); //RegisterService is called here.
+    for (std::unordered_map<std::string, std::function<WrapperBaseClass*()>>::iterator it = PrivatePtr->Constructors.begin(); it != PrivatePtr->Constructors.end(); it++) {
+        const std::string& id = it->first;
+        std::function<WrapperBaseClass*()>& constructor = it->second;
+
+        PrivatePtr->Modules[id] = std::unique_ptr<WrapperBaseClass>(constructor()); // RegisterService is called here
     }
 }
 

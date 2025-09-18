@@ -14,18 +14,20 @@ class VulkanHandlerIMPL {
         VkInstance Instance;
         VkDebugUtilsMessengerEXT DebugMessenger;
         VkSurfaceKHR Surface;
-        VkDevice Device; //Logical dev, not physical
+        VkPhysicalDevice PhysicalDevice;
+        VkDevice Device;
         struct AlcQueueList {
             VkQueue GraphicsQueue;
             VkQueue SurfacePresentQueue;
         };
         AlcQueueList Q_List;
+        VkSwapchainKHR Swapchain;
 
         int Init();
 
         int CreateVulkanInstance();
             void FetchCreateData(AlcInstanceCreateInfo& ReturnBundle);
-            void FetchExtensionData(AlcEnabledExtensions& ReturnBundle);
+            void FetchInstanceExtensionData(AlcEnabledExtensions& ReturnBundle);
             void FetchAppData(AlcApplicationInfo& ReturnBundle);
 
         int CreateDebugLink();
@@ -43,8 +45,13 @@ class VulkanHandlerIMPL {
             VkPhysicalDevice SelectPhysicalDevice();
             int ScoreDevice(VkPhysicalDevice _PhysicalDevice);
 
-            void FetchDeviceInfo(VkPhysicalDevice _PhysicalDevice, AlcDeviceCreateInfo& ReturnBundle);
-            void FetchQueueArray(VkPhysicalDevice _PhysicalDevice, std::vector<VkDeviceQueueCreateInfo>& ReturnArray);
+            void FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle);
+            void FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray);
+            void FetchQueueArray(std::vector<VkDeviceQueueCreateInfo>& ReturnArray);
+
+        int CreateSwapChain();
+            void FetchSwapMode(VkPresentModeKHR& ReturnMode);
+            void FetchSwapSurfaceFormat(VkFormat& ReturnFormat, VkColorSpaceKHR& ReturnColor);
 
 };
 

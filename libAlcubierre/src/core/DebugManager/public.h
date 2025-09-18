@@ -57,5 +57,6 @@ class DebugManager {
 };
 
 inline DebugManager& DM() { return DebugManager::GetDebugManager(); }
+#define QEM "The sparrow flies south for the winter"
 
 #endif

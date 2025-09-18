@@ -11,9 +11,11 @@
 
 class RegistryImpl {
    public:
-      std::vector<std::function<WrapperBaseClass*()>> Constructors;
-      std::vector<std::unique_ptr<WrapperBaseClass>> Modules;
+      std::unordered_map<std::string, std::function<WrapperBaseClass*()>> Constructors;
+      std::unordered_map<std::string, std::unique_ptr<WrapperBaseClass>> Modules;
       std::unordered_map<std::string, InterfaceBaseClass*> Services;
+
+      ~RegistryImpl();
 };
 
 #endif

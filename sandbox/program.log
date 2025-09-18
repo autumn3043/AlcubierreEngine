@@ -1,27 +1,43 @@
 <--DebugManager Instance Created-->
-@[10:29:18]: Registered module 'MODULE_GLFWHANDLER_GLFWSURFACEBRIDGE'
-@[10:29:18]: Registered module 'MODULE_GLFWHANDLER'
-@[10:29:18]: Registered module 'MODULE_VULKANHANDLER'
-@[10:29:18]: Registered module 'MODULE_CONFIGMANAGER'
-@[10:29:18]: Registered service 'IWindowSurfaceBridge'
-@[10:29:18]: Registered service 'IWindowManager'
-@[10:29:18]: Registered service 'IGraphicsBackend'
-@[10:29:18]: Registered service 'IConfigManager'
-@[10:29:19]: [ConfigManager]: Failed to get value at key 'glfw_window_hints' because it did not exist
-@[10:29:19]: Dumped GLFW-Vulkan bridge hints to cfg
-@[10:29:19]: Dumped GLFW-Vulkan bridge extensions to cfg
-@[10:29:19]: [ConfigManager]: Failed to get value at key 'engine_name' because it did not exist
-@[10:29:19]: [ConfigManager]: Failed to get value at key 'engine_version' because it did not exist
-@[10:29:19]: [ConfigManager]: Failed to get value at key 'application_name' because it did not exist
-@[10:29:19]: [ConfigManager]: Failed to get value at key 'application_version' because it did not exist
-@[10:29:19]: Successfully constructed Vulkan instance
-@[10:29:19]: Successfully established debug link
-@[10:29:19]: Window hint implemented: 139265, Value: 0
-@[10:29:19]: [ConfigManager]: Failed to get value at key 'application_name' because it did not exist
-@[10:29:19]: [ConfigManager]: Failed to get value at key 'window_height' because it did not exist
-@[10:29:19]: Successfully constructed GLFW window
-@[10:29:19]: Successfully established Vulkan window surface bridge link
-@[10:29:19]: [ConfigManager]: Failed to get value at key 'required_graphics_queues/0/surface_support' because it did not exist
-@[10:29:19]: [ConfigManager]: Failed to get value at key 'required_graphics_queues/1/flags' because it did not exist
-@[10:29:19]: Successfully instantiated Vulkan logical device
-
+@[19:06:09]: Registered module 'MODULE_GLFWHANDLER_GLFWSURFACEBRIDGE'
+@[19:06:09]: Registered module 'MODULE_GLFWHANDLER'
+@[19:06:09]: Registered module 'MODULE_VULKANHANDLER'
+@[19:06:09]: Registered module 'MODULE_CONFIGMANAGER'
+@[19:06:09]: Registered service 'IConfigManager'
+@[19:06:09]: Registered service 'IGraphicsBackend'
+@[19:06:09]: Registered service 'IWindowManager'
+@[19:06:09]: Registered service 'IWindowSurfaceBridge'
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'glfw_window_hints' because it did not exist
+@[19:06:09]: Dumped GLFW-Vulkan bridge hints to cfg
+@[19:06:09]: Dumped GLFW-Vulkan bridge extensions to cfg
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'engine_name' because it did not exist
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'engine_version' because it did not exist
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'application_name' because it did not exist
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'application_version' because it did not exist
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'debug' because it did not exist
+@[19:06:09]: [Vulkan Debug Callback]: Searching for ICD drivers named /usr/lib32/amdvlkpro32.so
+@[19:06:09]: [Vulkan Debug Callback]: Searching for ICD drivers named /usr/lib/libvulkan_radeon.so
+@[19:06:09]: [Vulkan Debug Callback]: Searching for ICD drivers named /usr/lib32/libvulkan_radeon.so
+@[19:06:09]: [Vulkan Debug Callback]: Searching for ICD drivers named /usr/lib/amdvlkpro64.so
+@[19:06:09]: Successfully constructed Vulkan instance
+@[19:06:09]: Successfully established Vulkan debug link
+@[19:06:09]: Window hint implemented: 139265, Value: 0
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'application_name' because it did not exist
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'window_height' because it did not exist
+@[19:06:09]: Successfully constructed GLFW window
+@[19:06:09]: Successfully established Vulkan window surface bridge link
+@[19:06:09]: [Vulkan Debug Callback]: Copying old device 0 into new device 0
+@[19:06:09]: [Vulkan Debug Callback]: Copying old device 1 into new device 1
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'required_device_extensions' because it did not exist
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'required_graphics_queues/0/surface_support' because it did not exist
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'required_graphics_queues/1/flags' because it did not exist
+@[19:06:09]: Successfully instantiated Vulkan logical device
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'graphics/presentation_mode' because it did not exist
+@[19:06:09]: [ConfigManager]: Failed to get value at key 'graphics/image_format' because it did not exist
+@[19:06:09]: Successfully created Vulkan swapchain
+:: TROUBLE :: @[19:06:09]: Successfully destroyed Vulkan surface
+:: TROUBLE :: @[19:06:09]: Successfully destroyed Vulkan logical device
+:: TROUBLE :: @[19:06:09]: Successfully destroyed Vulkan surface
+:: TROUBLE :: @[19:06:09]: Successfully destroyed Vulkan debug link
+:: TROUBLE :: @[19:06:09]: Successfully destroyed Vulkan instance
+:: TROUBLE :: @[19:06:09]: Successfully destroyed GLFW window
