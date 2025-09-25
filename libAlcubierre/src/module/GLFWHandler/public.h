@@ -18,6 +18,7 @@ class GLFWHandler {
 
         int WakeImpl();
         void* GetWindowObjectImpl();
+        IWindowManager::WindowInfo* GetWindowInfoImpl();
 
         class IWindowManagerImpl : public IWindowManager {
             public:
@@ -27,11 +28,12 @@ class GLFWHandler {
 
                 int Wake() override { return Parent->WakeImpl(); }
                 void* GetWindowObject() override { return Parent->GetWindowObjectImpl(); }
+                IWindowManager::WindowInfo* GetWindowInfo() override { return Parent->GetWindowInfoImpl(); }
         };
 
         IWindowManagerImpl IWindowManager_GLFWHandler;
         
-        GLFWImpl* PrivatePtr;
+        GLFWImpl* PrivatePtr = nullptr;
 };
 
 class GLFWHandlerWrapper : public WrapperBaseClass{

@@ -27,6 +27,10 @@ void* GLFWHandler::GetWindowObjectImpl() {
     return PrivatePtr->Window;
 }
 
+IWindowManager::WindowInfo* GLFWHandler::GetWindowInfoImpl() {
+    return PrivatePtr->GetWindowInfoIMPL();
+}
+
 GLFWImpl::GLFWImpl() {
     glfwInit();
 
@@ -57,7 +61,13 @@ int GLFWImpl::CreateWindow() {
         DM().Log("Window hint implemented: " + std::to_string(hint[0]) + ", Value: " + std::to_string(hint[1]));
     }
 
-    Window = glfwCreateWindow(CM->Get<int>("window_height", 800), CM->Get<int>("window_width", 600), CM->Get<std::string>("application_name", "default").c_str(), nullptr, nullptr);
+    WindowInfo = new IWindowManager::WindowInfo {};
+    WindowInfo->name = CM->Get<std::string>("application_name", "default");
+    WindowInfo->width = CM->Get<int>("window_height", 800);
+    WindowInfo->height = CM->Get<int>("window_width", 600);
+    
+    Window = glfwCreateWindow(WindowInfo->height, WindowInfo->width, WindowInfo->name.c_str(), nullptr, nullptr);
+    glfwGetFramebufferSize(Window, &WindowInfo->width_pix, &WindowInfo->height_pix);
     
     if(!Window) {
         return 1;
@@ -65,3 +75,5 @@ int GLFWImpl::CreateWindow() {
         return 0;
     }
 }
+
+IWindowManager::WindowInfo* GLFWImpl::GetWindowInfoIMPL() { return WindowInfo; }

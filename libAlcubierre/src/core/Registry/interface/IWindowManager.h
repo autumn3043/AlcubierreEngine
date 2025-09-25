@@ -8,6 +8,16 @@ class IWindowManager : public InterfaceBaseClass {
         std::string token() override { return "IWindowManager"; }
 
         virtual void* GetWindowObject() = 0;
+
+        struct WindowInfo {
+            std::string name;
+            int width;
+            int height;
+            int width_pix;
+            int height_pix;
+        };
+
+        virtual WindowInfo* GetWindowInfo() = 0;
 };
 
 #endif

@@ -75,8 +75,6 @@ GLFWSurfaceBridgeImpl::GLFWSurfaceBridgeImpl() {
     } catch (...) {
         throw;
     }
-
-    glfwTerminate();
 }
 
 GLFWSurfaceBridgeImpl::~GLFWSurfaceBridgeImpl() {}

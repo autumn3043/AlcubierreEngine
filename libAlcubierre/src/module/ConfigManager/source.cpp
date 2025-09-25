@@ -24,7 +24,7 @@ int ConfigManager::WakeImpl() {
 }
 
 ConfigManagerImpl::ConfigManagerImpl() {
-    RawConfig = nlohmann::json();
+    RawConfig = nlohmann::json::object();
 }
 
 ConfigManagerImpl::~ConfigManagerImpl() {

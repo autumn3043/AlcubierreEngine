@@ -7,6 +7,7 @@
 //Depends
 #include "core/Registry/interface/IConfigManager.h"
 #include "core/Registry/interface/IWindowSurfaceBridge.h"
+#include "core/Registry/interface/IWindowManager.h"
 //Provides
 #include "core/Registry/interface/IGraphicsBackend.h"
 
@@ -39,7 +40,7 @@ class VulkanHandler {
 
         IGraphicsBackendImpl IGraphicsBackend_VulkanHandler;
 
-        VulkanHandlerIMPL* PrivatePtr;
+        VulkanHandlerIMPL* PrivatePtr = nullptr;
 };
 
 class VulkanHandlerWrapper : public WrapperBaseClass{

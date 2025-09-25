@@ -3,14 +3,18 @@
 
 #include <GLFW/glfw3.h>
 
+// struct IWindowManager::WindowInfo;
+
 class GLFWImpl {
     public:
         GLFWImpl();
         ~GLFWImpl();
 
         int CreateWindow();
+        IWindowManager::WindowInfo* GetWindowInfoIMPL();
 
         GLFWwindow* Window;
+        IWindowManager::WindowInfo* WindowInfo;
 };
 
 #endif

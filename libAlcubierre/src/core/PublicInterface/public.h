@@ -9,7 +9,7 @@ class AlcubierreEngine {
         ~AlcubierreEngine();
     
     private:
-        AlcubierreEngineImpl* PrivatePtr;
+        AlcubierreEngineImpl* PrivatePtr = nullptr;
 };
 
 #endif

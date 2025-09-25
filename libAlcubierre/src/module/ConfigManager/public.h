@@ -34,7 +34,7 @@ class ConfigManager {
         IConfigManagerImpl IConfigManager_ConfigManager;
         
     private:
-        ConfigManagerImpl* PrivatePtr;
+        ConfigManagerImpl* PrivatePtr = nullptr;
 };
 
 class ConfigManagerWrapper : public WrapperBaseClass{

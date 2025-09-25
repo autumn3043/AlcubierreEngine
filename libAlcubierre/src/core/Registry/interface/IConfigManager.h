@@ -13,6 +13,17 @@ class IConfigManager : public InterfaceBaseClass {
         std::string token() override { return "IConfigManager"; }
 
         template <typename T>
+        const T Get(std::string key) {
+            const std::vector<std::string> key_ = {key};
+            return Get<T>(key_, T());
+        }
+
+        template <typename T>
+        const T Get(const std::vector<std::string> key) {
+            return Get<T>(key, T());
+        }
+
+        template <typename T>
         const T Get(std::string key, T defaultValue) {
             const std::vector<std::string> key_ = {key};
             return Get<T>(key_, defaultValue);
@@ -58,11 +69,11 @@ class IConfigManager : public InterfaceBaseClass {
                     hold.emplace_back(Extract<typename T::value_type>(element));
                 }
 
-                delete static_cast<std::vector<void*>*>(ptr);
+                delete static_cast<void*>(ptr);
 
             } else {
                 hold = *static_cast<T*>(ptr);
-                delete static_cast<T*>(ptr);
+                delete static_cast<void*>(ptr);
             }
 
             return hold;

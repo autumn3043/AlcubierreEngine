@@ -53,7 +53,7 @@ class DebugManager {
         DebugManager();
         ~DebugManager();
 
-        DebugManagerImpl* PrivatePtr;
+        DebugManagerImpl* PrivatePtr = nullptr;
 };
 
 inline DebugManager& DM() { return DebugManager::GetDebugManager(); }

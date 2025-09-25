@@ -22,7 +22,7 @@ class Registry {
         Registry();
         ~Registry();
 
-        RegistryImpl* PrivatePtr;
+        RegistryImpl* PrivatePtr = nullptr;
 };
 
 struct ModuleRegistryBundle {

@@ -1,6 +1,6 @@
 BUILD_DIR = ../libAlcubierre/build
 
-COMPILEFLAGS = -std=c++23 -g -O0 -I$(BUILD_DIR)
+COMPILEFLAGS = -fsanitize=address -std=c++23 -g -O0 -I$(BUILD_DIR)
 LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lwayland-client -lwayland-cursor -lwayland-egl 
 
 OUTPUT = Sandbox

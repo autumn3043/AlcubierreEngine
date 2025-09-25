@@ -2,7 +2,6 @@
 #include "module/VulkanHandler/private.h"
 
 #include <utility>
-#include <unordered_map>
 #include <variant>
 
 ModuleRegistryBundle VulkanHandlerWrapper::bundle(
@@ -35,24 +34,30 @@ VulkanHandlerIMPL::VulkanHandlerIMPL() {
     CreateSurface();
     CreateLogicalDevice();
     CreateSwapChain();
+    CreateGraphicsPipeline();
 }
 
 VulkanHandlerIMPL::~VulkanHandlerIMPL() {
-    vkDeviceWaitIdle(Device);
+    if(Device != VK_NULL_HANDLE) vkDeviceWaitIdle(Device);
 
-    if(Device && Swapchain) {
-        vkDestroySwapchainKHR(Device, Swapchain, nullptr);
-        Swapchain = VK_NULL_HANDLE;
-        DM().Log("Successfully destroyed Vulkan surface");
+    if(Pipeline != VK_NULL_HANDLE) {
+        // delete Pipeline;
+        // DM().Log("Successfully destroyed graphics pipeline");
     }
 
-    if(Device) {
+    if((Device != VK_NULL_HANDLE) && (Swapchain != VK_NULL_HANDLE)) {
+        vkDestroySwapchainKHR(Device, Swapchain, nullptr);
+        Swapchain = VK_NULL_HANDLE;
+        DM().Log("Successfully destroyed Vulkan swapchain");
+    }
+
+    if(Device != VK_NULL_HANDLE) {
         vkDestroyDevice(Device, nullptr);
         Device = VK_NULL_HANDLE;
         DM().Log("Successfully destroyed Vulkan logical device");
     }
 
-    if(Surface) {
+    if(Surface != VK_NULL_HANDLE) {
         vkDestroySurfaceKHR(Instance, Surface, nullptr);
         Surface = VK_NULL_HANDLE;
         DM().Log("Successfully destroyed Vulkan surface");
@@ -66,7 +71,7 @@ VulkanHandlerIMPL::~VulkanHandlerIMPL() {
         }
     } catch (...) {/*Do nothing for now*/}
 
-    if(Instance) {
+    if(Instance != VK_NULL_HANDLE) {
         vkDestroyInstance(Instance, nullptr);
         Instance = VK_NULL_HANDLE;
         DM().Log("Successfully destroyed Vulkan instance");
@@ -76,10 +81,6 @@ VulkanHandlerIMPL::~VulkanHandlerIMPL() {
 int VulkanHandlerIMPL::CreateVulkanInstance() {
     AlcInstanceCreateInfo CreateInfo{};
     FetchCreateData(CreateInfo);
-
-    AlcDebugUtilsMessengerCreateInfoEXT DebugLinkCreateInfo{};
-    FetchDebugData(DebugLinkCreateInfo);
-    CreateInfo.Get()->pNext = (VkDebugUtilsMessengerCreateInfoEXT*) DebugLinkCreateInfo.Get();
 
     VkResult hold = vkCreateInstance(CreateInfo.Get(), nullptr, &Instance);
     if(hold != VK_SUCCESS) {
@@ -94,50 +95,28 @@ int VulkanHandlerIMPL::CreateVulkanInstance() {
 void VulkanHandlerIMPL::FetchCreateData(AlcInstanceCreateInfo& ReturnBundle) {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
 
-    VkInstanceCreateInfo hold{};
-    hold.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-
-    AlcApplicationInfo VkAppData;
-    FetchAppData(VkAppData);
-    hold.pApplicationInfo = VkAppData.Get();
-
-    std::vector<std::string> InstanceExtensions = CM->Get<std::vector<std::string>>("extensions", {"VK_EXT_debug_utils"});
-    hold.enabledExtensionCount = InstanceExtensions.size();
-    std::vector<const char*> pInstanceExtensions;
-    for(const std::string& str : InstanceExtensions) pInstanceExtensions.push_back(str.c_str());
-    hold.ppEnabledExtensionNames = pInstanceExtensions.data();
-
+    FetchDebugData(ReturnBundle._pNext);
+    ReturnBundle._flags = 0;
+    FetchAppData(ReturnBundle._pApplicationInfo);
     if(CM->Get<bool>("debug", false)) {
-        std::vector<std::string> ValidationLayers = CM->Get<std::vector<std::string>>("debug_layers", {});
-        hold.enabledLayerCount = ValidationLayers.size();
-        std::vector<const char*> pValidationLayers;
-        for(const std::string& str : ValidationLayers) pValidationLayers.push_back(str.c_str());
-        hold.ppEnabledLayerNames = pValidationLayers.data();
+        ReturnBundle._ppEnabledLayerNames = CM->Get<std::vector<std::string>>("debug_layers", {"VK_LAYER_KHRONOS_validation"});
+    } else {
+        ReturnBundle._ppEnabledLayerNames;
     }
-    
-    ReturnBundle.Set(hold);
+    ReturnBundle._ppEnabledExtensionNames = CM->Get<std::vector<std::string>>("extensions", {"VK_EXT_debug_utils"});
 }
 
 void VulkanHandlerIMPL::FetchAppData(AlcApplicationInfo& ReturnBundle) {
-    VkApplicationInfo hold{};
-    hold.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-
     IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
 
-    hold.pEngineName = CM->Get<std::string>("engine_name", "Alcubierre Engine").c_str();
-
-    std::vector<int> engineversion = CM->Get<std::vector<int>>("engine_version", {0, 0, 0});
-    hold.engineVersion = VK_MAKE_VERSION(static_cast<uint32_t>(engineversion[0]), static_cast<uint32_t>(engineversion[1]), static_cast<uint32_t>(engineversion[2]));
-
-    hold.pApplicationName = CM->Get<std::string>("application_name", "Default Application").c_str();
+    ReturnBundle._apiVersion = VK_API_VERSION_1_4;
+    ReturnBundle._pApplicationName = CM->Get<std::string>("application_name", "Default Application");
+    ReturnBundle._pEngineName = CM->Get<std::string>("engine_name", "Alcubierre Engine");
 
     std::vector<int> appversion = CM->Get<std::vector<int>>("application_version", {0, 0, 0});
-    hold.applicationVersion = VK_MAKE_VERSION(static_cast<uint32_t>(appversion[0]), static_cast<uint32_t>(appversion[1]), static_cast<uint32_t>(appversion[2]));
-
-
-    hold.apiVersion = VK_API_VERSION_1_0;
-
-    ReturnBundle.Set(hold);
+    ReturnBundle._applicationVersion = VK_MAKE_VERSION(static_cast<uint32_t>(appversion[0]), static_cast<uint32_t>(appversion[1]), static_cast<uint32_t>(appversion[2]));
+    std::vector<int> engineversion = CM->Get<std::vector<int>>("engine_version", {0, 0, 0});
+    ReturnBundle._engineVersion = VK_MAKE_VERSION(static_cast<uint32_t>(engineversion[0]), static_cast<uint32_t>(engineversion[1]), static_cast<uint32_t>(engineversion[2]));
 }
 
 int VulkanHandlerIMPL::CreateDebugLink() {
@@ -160,17 +139,10 @@ int VulkanHandlerIMPL::CreateDebugLink() {
 }
 
 void VulkanHandlerIMPL::FetchDebugData(AlcDebugUtilsMessengerCreateInfoEXT& ReturnBundle) {
-    VkDebugUtilsMessengerCreateInfoEXT hold{};
-
-    hold.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-
-    hold.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    hold.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-
-    hold.pfnUserCallback = VulkanDebugCallback;
-    hold.pUserData = nullptr;
-
-    ReturnBundle.Set(hold);
+    ReturnBundle._messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    ReturnBundle._messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    ReturnBundle._pfnUserCallback = VulkanDebugCallback;
+    ReturnBundle._pUserData = nullptr;
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandlerIMPL::VulkanDebugCallback(
@@ -273,13 +245,13 @@ int VulkanHandlerIMPL::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {
 
     int hold = 0;
 
-
     //Required and preferred properties go here. Required = return 0 if not present. Preferred = add to score.
     if(DeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-        hold += 1000;
+        hold += 10000;
     }
 
-    //Same deal for features.
+    hold += DeviceProperties.apiVersion;
+
     if(!AvailableFeatures.geometryShader) {
         return 0;
     }
@@ -313,35 +285,10 @@ int VulkanHandlerIMPL::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {
 }
 
 void VulkanHandlerIMPL::FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle) {
-    VkDeviceCreateInfo hold{};
-    hold.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-
-    VkPhysicalDeviceFeatures DeviceFeatures{};
-    hold.pEnabledFeatures = &DeviceFeatures;
-
-    std::vector<std::string> DeviceExtensions;
-    FetchDeviceExtensionArray(DeviceExtensions);
-    hold.enabledExtensionCount = DeviceExtensions.size();
-    std::vector<const char*> pDeviceExtensions;
-    for(const std::string& str : DeviceExtensions) pDeviceExtensions.push_back(str.c_str());
-    hold.ppEnabledExtensionNames = pDeviceExtensions.data();
-
-    std::vector<VkDeviceQueueCreateInfo> QueueArray;
-    FetchQueueArray(QueueArray);
-    hold.pQueueCreateInfos = QueueArray.data();
-    hold.queueCreateInfoCount = QueueArray.size();
-
-    ReturnBundle.Set(hold);
-}
-
-void VulkanHandlerIMPL::FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray) {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
-
-    std::vector<std::string> requestedExtensions = CM->Get<std::vector<std::string>>("required_device_extensions", {VK_KHR_SWAPCHAIN_EXTENSION_NAME});
-
-    for(std::string extension : requestedExtensions) {
-        ReturnArray.emplace_back(extension);
-    }
+    ReturnBundle._flags = 0;
+    FetchQueueArray(ReturnBundle._pQueueCreateInfos);
+    FetchDeviceExtensionArray(ReturnBundle._ppEnabledExtensionNames);
+    ReturnBundle._pEnabledFeatures;
 }
 
 void VulkanHandlerIMPL::FetchQueueArray(std::vector<VkDeviceQueueCreateInfo>& ReturnArray) {
@@ -390,12 +337,40 @@ void VulkanHandlerIMPL::FetchQueueArray(std::vector<VkDeviceQueueCreateInfo>& Re
     }
 }
 
+void VulkanHandlerIMPL::FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray) {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+
+    //Stuff other modules need.
+    std::vector<std::string> requestedExtensions = CM->Get<std::vector<std::string>>("required_device_extensions", {});
+
+    //Stuff Vulkan needs.
+    requestedExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    requestedExtensions.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+    requestedExtensions.push_back(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME);
+
+    //Duplicates are gracefully ignored. Source: I made it the fuck up, shit man I really hope they are.
+    for(std::string extension : requestedExtensions) {
+        ReturnArray.emplace_back(extension);
+    }
+}
+
 int VulkanHandlerIMPL::CreateSwapChain() {
     VkSwapchainCreateInfoKHR ChainInitInfo {};
     ChainInitInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 
     VkSurfaceCapabilitiesKHR surfaceCapabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(PhysicalDevice, Surface, &surfaceCapabilities);
+
+    IWindowManager* WM = dynamic_cast<IWindowManager*>(Registry::GetRegistry().FetchService("IWindowManager"));
+    uint32_t width = std::clamp<uint32_t>(static_cast<uint32_t>(WM->GetWindowInfo()->width_pix), surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width);
+    uint32_t height = std::clamp<uint32_t>(static_cast<uint32_t>(WM->GetWindowInfo()->height_pix), surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height);
+    ChainInitInfo.imageExtent = {width, height};
+
+    ChainInitInfo.imageArrayLayers = 1;
+    ChainInitInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    ChainInitInfo.minImageCount = surfaceCapabilities.minImageCount + 1;
+    ChainInitInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    ChainInitInfo.preTransform = surfaceCapabilities.currentTransform;
 
     FetchSwapMode(ChainInitInfo.presentMode);
     FetchSwapSurfaceFormat(ChainInitInfo.imageFormat, ChainInitInfo.imageColorSpace);
@@ -406,6 +381,27 @@ int VulkanHandlerIMPL::CreateSwapChain() {
 
     if(hold == VK_SUCCESS) {
         DM().Log("Successfully created Vulkan swapchain");
+
+        ChainFormat = ChainInitInfo.imageFormat;
+        ChainExtent = ChainInitInfo.imageExtent;
+        uint32_t i;
+        vkGetSwapchainImagesKHR(Device, Swapchain, &i, nullptr);
+        ChainImages.reserve(i);
+        vkGetSwapchainImagesKHR(Device, Swapchain, &i, ChainImages.data());
+
+        for(int i = 0; i < ChainImages.size(); i++) {
+            ChainImageViews.push_back(new VkImageView());
+
+            VkImageViewCreateInfo ImageViewCreateInfo {};
+            ImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+
+            ImageViewCreateInfo.image = ChainImages[i];
+            ImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            ImageViewCreateInfo.format = ChainFormat;
+
+            vkCreateImageView(Device, &ImageViewCreateInfo, nullptr, ChainImageViews[i]);
+        }
+
         return 0;
     } else {
         throw VulkanException("Failed to create Vulkan swapchain due to VK error: " + std::to_string(hold));
@@ -456,4 +452,133 @@ void VulkanHandlerIMPL::FetchSwapSurfaceFormat(VkFormat& ReturnFormat, VkColorSp
     ReturnFormat = surfaceFormats[0].format;
     ReturnColor = surfaceFormats[0].colorSpace;
     DM().Log("No requested image format was available");
+}
+
+#include <fstream>
+
+int VulkanHandlerIMPL::CreateGraphicsPipeline() {
+    std::ifstream file("basic_shader.spv", std::ios::ate | std::ios::binary);
+    if(!file.is_open()) throw VulkanException("Failed to open shader file");
+    size_t fileSize = static_cast<size_t>(file.tellg());
+    file.seekg(0, std::ios::beg);
+    std::vector<uint32_t> shader(fileSize / sizeof(uint32_t));
+    if (!file.read(reinterpret_cast<char*>(shader.data()), static_cast<std::streamsize>(fileSize))) {
+        throw VulkanException("Failed to read shader");
+    }
+    file.close();
+
+    VkShaderModuleCreateInfo shaderCreateInfo {};
+    shaderCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+
+    shaderCreateInfo.codeSize = shader.size() * sizeof(uint32_t);
+    shaderCreateInfo.pCode = shader.data();
+
+    VkShaderModule basicShader;
+    vkCreateShaderModule(Device, &shaderCreateInfo, nullptr, &basicShader);
+
+    VkGraphicsPipelineCreateInfo pipeCreateInfo {};
+    pipeCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+
+    VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo {};
+    pipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    pipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    pipelineRenderingCreateInfo.pColorAttachmentFormats = &ChainFormat;
+    pipeCreateInfo.pNext = &pipelineRenderingCreateInfo;
+
+    std::vector<AlcPipelineShaderStageCreateInfo> shaderStageCreateInfos_arr; 
+    FetchShaderStageCreateInfos(shaderStageCreateInfos_arr, basicShader);
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStageCreateInfos(shaderStageCreateInfos_arr.size());
+    for(AlcPipelineShaderStageCreateInfo& shaderStage : shaderStageCreateInfos_arr) {
+        shaderStageCreateInfos.push_back(VkPipelineShaderStageCreateInfo(*shaderStage.Get()));
+    }
+    pipeCreateInfo.stageCount = static_cast<uint32_t>(shaderStageCreateInfos.size());
+    pipeCreateInfo.pStages = shaderStageCreateInfos.data();
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo {};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    pipeCreateInfo.pVertexInputState = &vertexInputInfo;
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo {};
+    inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    pipeCreateInfo.pInputAssemblyState = &inputAssemblyInfo;
+
+    VkPipelineViewportStateCreateInfo viewportInfo {};
+    viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportInfo.viewportCount = 1;
+    viewportInfo.scissorCount = 1;
+    pipeCreateInfo.pViewportState = &viewportInfo;
+
+    VkPipelineRasterizationStateCreateInfo rasterizationInfo {};
+    rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizationInfo.depthClampEnable = VK_FALSE;
+    rasterizationInfo.rasterizerDiscardEnable = VK_FALSE;
+    rasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizationInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizationInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizationInfo.depthBiasEnable = VK_FALSE;
+    rasterizationInfo.depthBiasSlopeFactor = 1.0f;
+    rasterizationInfo.lineWidth = 1.0f;
+    pipeCreateInfo.pRasterizationState = &rasterizationInfo;
+
+    VkPipelineMultisampleStateCreateInfo multisampleInfo {};
+    multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampleInfo.sampleShadingEnable = VK_FALSE;
+    pipeCreateInfo.pMultisampleState = &multisampleInfo;
+
+    VkPipelineColorBlendStateCreateInfo colorBlendInfo {};
+    colorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlendInfo.attachmentCount = 1;
+    pipeCreateInfo.pColorBlendState = &colorBlendInfo;
+
+    VkPipelineDynamicStateCreateInfo dynamicStateInfo {};
+    dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    std::vector<VkDynamicState> dynamicStates = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
+    dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+    dynamicStateInfo.pDynamicStates = dynamicStates.data();
+    pipeCreateInfo.pDynamicState = &dynamicStateInfo;
+
+    VkPipelineLayoutCreateInfo layoutInfo {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    layoutInfo.setLayoutCount = 0;
+    layoutInfo.pushConstantRangeCount = 0;
+    vkCreatePipelineLayout(Device, &layoutInfo, nullptr, &pipeCreateInfo.layout);
+
+    pipeCreateInfo.renderPass = nullptr;
+
+    VkResult hold = vkCreateGraphicsPipelines(Device, nullptr, 1, &pipeCreateInfo, nullptr, &Pipeline);
+
+    if(hold == VK_SUCCESS) {
+        DM().Log("Successfully created graphics pipeline");
+        return 0;
+    } else {
+        DM().Log("Failed to create Vulkan graphics pipeline due to error: " + std::to_string(hold));
+        return 1;
+    }
+}
+
+void VulkanHandlerIMPL::FetchShaderStageCreateInfos(std::vector<AlcPipelineShaderStageCreateInfo>& ReturnBundlesArray, VkShaderModule& shaderModule) {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+
+        //Hacky stuff until I set it up proper
+        CM->Set<int>({"shaders", "stages", "1", "bit"}, std::to_string(VK_SHADER_STAGE_VERTEX_BIT));
+        CM->Set<std::string>({"shaders", "stages", "1", "name"}, "\"vertMain\"");
+        CM->Set<int>({"shaders", "stages", "2", "bit"}, std::to_string(VK_SHADER_STAGE_FRAGMENT_BIT));
+        CM->Set<std::string>({"shaders", "stages", "2", "name"}, "\"fragMain\"");
+
+    int requiredShaderStages = CM->Get<std::vector<std::monostate>>(std::vector<std::string>{"shaders", "stages"}, {std::monostate{}}).size();
+    ReturnBundlesArray.reserve(requiredShaderStages);
+
+    for(int i = 0; i < requiredShaderStages; i++) {
+        AlcPipelineShaderStageCreateInfo shaderStage {};
+        shaderStage._flags = 0;
+        shaderStage._stage = static_cast<VkShaderStageFlagBits>(CM->Get<int>({"shaders", "stages", std::to_string(i + 1), "bit"}, VK_SHADER_STAGE_VERTEX_BIT));
+        shaderStage._module = shaderModule;
+        shaderStage._pName = CM->Get<std::string>({"shaders", "stages", std::to_string(i + 1), "name"}, "ERR");
+        ReturnBundlesArray.push_back(AlcPipelineShaderStageCreateInfo(shaderStage));
+    }
 }

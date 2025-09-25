@@ -5,29 +5,35 @@
 
 #include "module/VulkanHandler/VulkanStructBundles.h"
 
+#include <unordered_map>
+
 class VulkanHandlerIMPL {
     public:
         VulkanHandlerIMPL();
         ~VulkanHandlerIMPL();
 
     private:
-        VkInstance Instance;
+        VkInstance Instance = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT DebugMessenger;
-        VkSurfaceKHR Surface;
-        VkPhysicalDevice PhysicalDevice;
-        VkDevice Device;
+        VkSurfaceKHR Surface = VK_NULL_HANDLE;
+        VkPhysicalDevice PhysicalDevice = VK_NULL_HANDLE;
+        VkDevice Device = VK_NULL_HANDLE;
         struct AlcQueueList {
             VkQueue GraphicsQueue;
             VkQueue SurfacePresentQueue;
         };
         AlcQueueList Q_List;
-        VkSwapchainKHR Swapchain;
+        VkSwapchainKHR Swapchain = VK_NULL_HANDLE;
+            std::vector<VkImage> ChainImages;
+            std::vector<VkImageView*> ChainImageViews;
+            VkFormat ChainFormat;
+            VkExtent2D ChainExtent;
+        VkPipeline Pipeline = VK_NULL_HANDLE;
 
         int Init();
 
         int CreateVulkanInstance();
             void FetchCreateData(AlcInstanceCreateInfo& ReturnBundle);
-            void FetchInstanceExtensionData(AlcEnabledExtensions& ReturnBundle);
             void FetchAppData(AlcApplicationInfo& ReturnBundle);
 
         int CreateDebugLink();
@@ -46,12 +52,15 @@ class VulkanHandlerIMPL {
             int ScoreDevice(VkPhysicalDevice _PhysicalDevice);
 
             void FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle);
-            void FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray);
             void FetchQueueArray(std::vector<VkDeviceQueueCreateInfo>& ReturnArray);
+            void FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray);
 
         int CreateSwapChain();
             void FetchSwapMode(VkPresentModeKHR& ReturnMode);
             void FetchSwapSurfaceFormat(VkFormat& ReturnFormat, VkColorSpaceKHR& ReturnColor);
+
+        int CreateGraphicsPipeline();
+            void FetchShaderStageCreateInfos(std::vector<AlcPipelineShaderStageCreateInfo>& ReturnBundlesArray, VkShaderModule& shaderModule);
 
 };
 
