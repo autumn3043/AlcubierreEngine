@@ -40,9 +40,9 @@ VulkanHandlerIMPL::VulkanHandlerIMPL() {
 VulkanHandlerIMPL::~VulkanHandlerIMPL() {
     if(Device != VK_NULL_HANDLE) vkDeviceWaitIdle(Device);
 
-    if(Pipeline != VK_NULL_HANDLE) {
-        // delete Pipeline;
-        // DM().Log("Successfully destroyed graphics pipeline");
+    if((Device != VK_NULL_HANDLE) && (Pipeline != VK_NULL_HANDLE)) {
+        vkDestroyPipeline(Device, Pipeline, nullptr);
+        DM().Log("Successfully destroyed graphics pipeline");
     }
 
     if((Device != VK_NULL_HANDLE) && (Swapchain != VK_NULL_HANDLE)) {
@@ -240,9 +240,6 @@ int VulkanHandlerIMPL::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {
     VkPhysicalDeviceProperties DeviceProperties;
     vkGetPhysicalDeviceProperties(_PhysicalDevice, &DeviceProperties);
 
-    VkPhysicalDeviceFeatures AvailableFeatures;
-    vkGetPhysicalDeviceFeatures(_PhysicalDevice, &AvailableFeatures);
-
     int hold = 0;
 
     //Required and preferred properties go here. Required = return 0 if not present. Preferred = add to score.
@@ -252,13 +249,11 @@ int VulkanHandlerIMPL::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {
 
     hold += DeviceProperties.apiVersion;
 
-    if(!AvailableFeatures.geometryShader) {
-        return 0;
-    }
+    VkPhysicalDeviceFeatures AvailableFeatures;
+    vkGetPhysicalDeviceFeatures(_PhysicalDevice, &AvailableFeatures);
 
     uint32_t DeviceQueueFamiliesCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(_PhysicalDevice, &DeviceQueueFamiliesCount, nullptr);
-
     std::vector<VkQueueFamilyProperties> DeviceQueueFamilies(DeviceQueueFamiliesCount);
     vkGetPhysicalDeviceQueueFamilyProperties(_PhysicalDevice, &DeviceQueueFamiliesCount, DeviceQueueFamilies.data());
 
@@ -288,12 +283,12 @@ void VulkanHandlerIMPL::FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle) {
     ReturnBundle._flags = 0;
     FetchQueueArray(ReturnBundle._pQueueCreateInfos);
     FetchDeviceExtensionArray(ReturnBundle._ppEnabledExtensionNames);
-    ReturnBundle._pEnabledFeatures;
+    FetchDeviceFeatures(ReturnBundle._features);
 }
 
 void VulkanHandlerIMPL::FetchQueueArray(std::vector<VkDeviceQueueCreateInfo>& ReturnArray) {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
-    int RequestedQueues = CM->Get<std::vector<std::monostate>>("required_graphics_queues", {}).size();
+    int RequestedQueues = CM->Get<int>(std::vector<std::string>{"required_graphics_queues", "SIZE_T"}, 0);
 
     std::unordered_map<uint32_t, VkQueueFlags> AvailableQueues;
     
@@ -352,6 +347,16 @@ void VulkanHandlerIMPL::FetchDeviceExtensionArray(std::vector<std::string>& Retu
     for(std::string extension : requestedExtensions) {
         ReturnArray.emplace_back(extension);
     }
+}
+
+void VulkanHandlerIMPL::FetchDeviceFeatures(AlcDeviceFeatures& ReturnBundle) {
+    // ReturnBundle.featuresBase.geometryShader = VK_TRUE;
+
+    ReturnBundle.featuresDynamicRendering.dynamicRendering = VK_TRUE;
+
+    ReturnBundle.featuresVk1_1.shaderDrawParameters = VK_TRUE;
+
+    ReturnBundle.featuresDynamicState.extendedDynamicState = VK_TRUE;
 }
 
 int VulkanHandlerIMPL::CreateSwapChain() {
@@ -487,10 +492,12 @@ int VulkanHandlerIMPL::CreateGraphicsPipeline() {
 
     std::vector<AlcPipelineShaderStageCreateInfo> shaderStageCreateInfos_arr; 
     FetchShaderStageCreateInfos(shaderStageCreateInfos_arr, basicShader);
-    std::vector<VkPipelineShaderStageCreateInfo> shaderStageCreateInfos(shaderStageCreateInfos_arr.size());
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStageCreateInfos;
+    shaderStageCreateInfos.reserve(shaderStageCreateInfos_arr.size());
     for(AlcPipelineShaderStageCreateInfo& shaderStage : shaderStageCreateInfos_arr) {
-        shaderStageCreateInfos.push_back(VkPipelineShaderStageCreateInfo(*shaderStage.Get()));
+        shaderStageCreateInfos.push_back(*shaderStage.Get());
     }
+
     pipeCreateInfo.stageCount = static_cast<uint32_t>(shaderStageCreateInfos.size());
     pipeCreateInfo.pStages = shaderStageCreateInfos.data();
 
@@ -527,9 +534,14 @@ int VulkanHandlerIMPL::CreateGraphicsPipeline() {
     multisampleInfo.sampleShadingEnable = VK_FALSE;
     pipeCreateInfo.pMultisampleState = &multisampleInfo;
 
+    VkPipelineColorBlendAttachmentState colorAttachment {};
+    colorAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorAttachment.blendEnable = VK_FALSE;
+
     VkPipelineColorBlendStateCreateInfo colorBlendInfo {};
     colorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlendInfo.attachmentCount = 1;
+    colorBlendInfo.pAttachments = &colorAttachment;
     pipeCreateInfo.pColorBlendState = &colorBlendInfo;
 
     VkPipelineDynamicStateCreateInfo dynamicStateInfo {};
@@ -548,7 +560,7 @@ int VulkanHandlerIMPL::CreateGraphicsPipeline() {
     layoutInfo.pushConstantRangeCount = 0;
     vkCreatePipelineLayout(Device, &layoutInfo, nullptr, &pipeCreateInfo.layout);
 
-    pipeCreateInfo.renderPass = nullptr;
+    pipeCreateInfo.renderPass = VK_NULL_HANDLE;
 
     VkResult hold = vkCreateGraphicsPipelines(Device, nullptr, 1, &pipeCreateInfo, nullptr, &Pipeline);
 
@@ -570,15 +582,14 @@ void VulkanHandlerIMPL::FetchShaderStageCreateInfos(std::vector<AlcPipelineShade
         CM->Set<int>({"shaders", "stages", "2", "bit"}, std::to_string(VK_SHADER_STAGE_FRAGMENT_BIT));
         CM->Set<std::string>({"shaders", "stages", "2", "name"}, "\"fragMain\"");
 
-    int requiredShaderStages = CM->Get<std::vector<std::monostate>>(std::vector<std::string>{"shaders", "stages"}, {std::monostate{}}).size();
+    int requiredShaderStages = CM->Get<int>(std::vector<std::string>{"shaders", "stages", "SIZE_T"}, 0);
     ReturnBundlesArray.reserve(requiredShaderStages);
 
     for(int i = 0; i < requiredShaderStages; i++) {
-        AlcPipelineShaderStageCreateInfo shaderStage {};
+        AlcPipelineShaderStageCreateInfo& shaderStage = ReturnBundlesArray.emplace_back(AlcPipelineShaderStageCreateInfo());
         shaderStage._flags = 0;
         shaderStage._stage = static_cast<VkShaderStageFlagBits>(CM->Get<int>({"shaders", "stages", std::to_string(i + 1), "bit"}, VK_SHADER_STAGE_VERTEX_BIT));
         shaderStage._module = shaderModule;
         shaderStage._pName = CM->Get<std::string>({"shaders", "stages", std::to_string(i + 1), "name"}, "ERR");
-        ReturnBundlesArray.push_back(AlcPipelineShaderStageCreateInfo(shaderStage));
     }
 }

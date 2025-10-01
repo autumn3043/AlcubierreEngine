@@ -37,7 +37,15 @@ class IConfigManager : public InterfaceBaseClass {
             Container item = Container(key, nullptr, descriptor);
 
             if(GetInternal(item) == 0) {
-                hold = Extract<T>(item.ptr);
+                if(key[key.size() - 1] == "SIZE_T") {
+                    if constexpr (std::is_same_v<T, int>) {
+                        hold = Extract<int>(item.ptr);
+                    } else {
+                        hold = defaultValue;
+                    }
+                } else {
+                    hold = Extract<T>(item.ptr);
+                }
 
             } else {
                 hold = defaultValue;
@@ -58,22 +66,19 @@ class IConfigManager : public InterfaceBaseClass {
         template <typename T>
         T Extract(void* ptr) {
             T hold;
-
-            if constexpr (std::is_same_v<T, std::monostate>) {
-                return {};
-                
-            } else if constexpr (is_vector<T>::value) {
+            
+            if constexpr (is_vector<T>::value) {
                 std::vector<void*>* vector = static_cast<std::vector<void*>*>(ptr);
 
                 for(void* element : *vector) {
                     hold.emplace_back(Extract<typename T::value_type>(element));
                 }
-
-                delete static_cast<void*>(ptr);
+            
+                delete vector;
 
             } else {
                 hold = *static_cast<T*>(ptr);
-                delete static_cast<void*>(ptr);
+                delete static_cast<T*>(ptr);
             }
 
             return hold;

@@ -100,25 +100,48 @@ struct AlcInstanceCreateInfo {
         VkInstanceCreateInfo InternalStruct;
 };
 
+struct AlcDeviceFeatures {
+    public:
+        VkPhysicalDeviceDynamicRenderingFeatures featuresDynamicRendering {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES,
+            .pNext = VK_NULL_HANDLE
+        };
+
+        VkPhysicalDeviceVulkan11Features featuresVk1_1 {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+            .pNext = &featuresDynamicRendering
+        };
+
+        VkPhysicalDeviceExtendedDynamicStateFeaturesEXT featuresDynamicState{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
+            .pNext = &featuresVk1_1
+        };
+
+        VkPhysicalDeviceFeatures2 featuresBase2 {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            .pNext = &featuresDynamicState
+        };
+};
+
 struct AlcDeviceCreateInfo {
     public:
         VkDeviceCreateFlags _flags;
         std::vector<VkDeviceQueueCreateInfo> _pQueueCreateInfos;
         std::vector<std::string> _ppEnabledExtensionNames; //const char* const*
-        std::vector<VkPhysicalDeviceFeatures> _pEnabledFeatures;
+        AlcDeviceFeatures _features;
 
-         VkDeviceCreateInfo* Get() {
+        VkDeviceCreateInfo* Get() {
             _ppEnabledExtensionNames_C = c_str_array(_ppEnabledExtensionNames);
 
-            InternalStruct = {
+            InternalStruct = VkDeviceCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-                .pNext = nullptr,
+                .pNext = &_features.featuresBase2,
                 .flags = _flags,
                 .queueCreateInfoCount = static_cast<uint32_t>(_pQueueCreateInfos.size()),
                 .pQueueCreateInfos = _pQueueCreateInfos.data(),
                 .enabledExtensionCount = static_cast<uint32_t>(_ppEnabledExtensionNames_C.size()),
                 .ppEnabledExtensionNames = _ppEnabledExtensionNames_C.data(),
-                .pEnabledFeatures = _pEnabledFeatures.data()
+                .pEnabledFeatures = VK_NULL_HANDLE
             };
 
             return &InternalStruct;

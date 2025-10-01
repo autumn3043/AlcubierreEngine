@@ -54,6 +54,7 @@ class VulkanHandlerIMPL {
             void FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle);
             void FetchQueueArray(std::vector<VkDeviceQueueCreateInfo>& ReturnArray);
             void FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray);
+            void FetchDeviceFeatures(AlcDeviceFeatures& ReturnBundle);
 
         int CreateSwapChain();
             void FetchSwapMode(VkPresentModeKHR& ReturnMode);

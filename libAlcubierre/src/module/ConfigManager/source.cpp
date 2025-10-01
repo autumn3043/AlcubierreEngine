@@ -43,7 +43,15 @@ int ConfigManagerImpl::get_impl(IConfigManager::Container& v_out) {
     //Does a value exist at this key?
     nlohmann::json* json = &RawConfig;
     for(int i = 0; i < v_out.key.size(); i++) {
-        if(!json->contains(v_out.key[i])) {
+        if(v_out.key[i] == "SIZE_T") {
+            if(json->is_primitive()) {
+                loc_Log("Stored value at key '" + fullkey(v_out.key) + "' was: " + GetDescriptorFromJson(*json).Type() + " which is not an array or object type", 1);
+                return 1;
+            } else {
+                v_out.ptr = new int(json->size());
+                return 0;
+            }
+        } else if(!json->contains(v_out.key[i])) {
             loc_Log("Failed to get value at key '" + fullkey(v_out.key) +"' because it did not exist");
             return 1;
         } else json = &((*json)[v_out.key[i]]);
@@ -111,15 +119,15 @@ void* ConfigManagerImpl::GetPointerToJson(const nlohmann::json& json) {
         break;
         
         case nlohmann::json::value_t::number_integer:
-            hold = new int64_t(json.get<int64_t>());
+            hold = new int(json.get<int64_t>());
         break;
 
         case nlohmann::json::value_t::number_unsigned:
-            hold = new uint64_t(json.get<uint64_t>());
+            hold = new int(json.get<uint64_t>());
         break;
 
         case nlohmann::json::value_t::number_float:
-            hold = new double(json.get<double>());
+            hold = new float(json.get<double>());
         break;
 
         case nlohmann::json::value_t::string:
@@ -138,7 +146,7 @@ void* ConfigManagerImpl::GetPointerToJson(const nlohmann::json& json) {
         break;
     }
 
-    return hold;
+    return std::move(hold);
 }
 
 int ConfigManagerImpl::set_impl(IConfigManager::Container& v_in) {

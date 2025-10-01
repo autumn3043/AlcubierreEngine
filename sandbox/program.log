@@ -1,72 +1,45 @@
 <--DebugManager Instance Created-->
-@[21:21:35]: Registered module 'MODULE_GLFWHANDLER_GLFWSURFACEBRIDGE'
-@[21:21:35]: Registered module 'MODULE_GLFWHANDLER'
-@[21:21:35]: Registered module 'MODULE_VULKANHANDLER'
-@[21:21:35]: Registered module 'MODULE_CONFIGMANAGER'
-@[21:21:35]: Registered service 'IConfigManager'
-@[21:21:35]: Registered service 'IGraphicsBackend'
-@[21:21:35]: Registered service 'IWindowManager'
-@[21:21:35]: Registered service 'IWindowSurfaceBridge'
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'glfw_window_hints' because it did not exist
-@[21:21:35]: Dumped GLFW-Vulkan bridge hints to cfg
-@[21:21:35]: Dumped GLFW-Vulkan bridge extensions to cfg
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'application_name' because it did not exist
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'engine_name' because it did not exist
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'application_version' because it did not exist
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'engine_version' because it did not exist
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'debug_layers' because it did not exist
-@[21:21:35]: [Vulkan Debug Callback]: Searching for ICD drivers named /usr/lib32/amdvlkpro32.so
-@[21:21:35]: [Vulkan Debug Callback]: Searching for ICD drivers named /usr/lib/libvulkan_radeon.so
-@[21:21:35]: [Vulkan Debug Callback]: Searching for ICD drivers named /usr/lib32/libvulkan_radeon.so
-@[21:21:35]: [Vulkan Debug Callback]: Searching for ICD drivers named /usr/lib/amdvlkpro64.so
-@[21:21:35]: [Vulkan Debug Callback]: Loading layer library libVkLayer_khronos_validation.so
-@[21:21:35]: [Vulkan Debug Callback]: Copying old device 0 into new device 0
-@[21:21:35]: [Vulkan Debug Callback]: Copying old device 1 into new device 1
-@[21:21:35]: Successfully constructed Vulkan instance
-@[21:21:35]: Successfully established Vulkan debug link
-@[21:21:35]: Window hint implemented: 139265, Value: 0
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'application_name' because it did not exist
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'window_height' because it did not exist
-@[21:21:35]: Successfully constructed GLFW window
-@[21:21:35]: Successfully established Vulkan window surface bridge link
-@[21:21:35]: [Vulkan Debug Callback]: Copying old device 0 into new device 0
-@[21:21:35]: [Vulkan Debug Callback]: Copying old device 1 into new device 1
-@[21:21:35]: [Vulkan Debug Callback]: Copying old device 0 into new device 0
-@[21:21:35]: [Vulkan Debug Callback]: Copying old device 1 into new device 1
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'required_graphics_queues/0/surface_support' because it did not exist
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'required_graphics_queues/1/flags' because it did not exist
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'required_device_extensions' because it did not exist
-@[21:21:35]: Successfully instantiated Vulkan logical device
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'graphics/presentation_mode' because it did not exist
-@[21:21:35]: [ConfigManager]: Failed to get value at key 'graphics/image_format' because it did not exist
-@[21:21:35]: Successfully created Vulkan swapchain
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateShaderModule(): SPIR-V Capability DrawParameters was declared, but one of the following requirements is required (VkPhysicalDeviceVulkan11Features::shaderDrawParameters OR VK_KHR_shader_draw_parameters).
-The Vulkan spec states: If pCode is a pointer to SPIR-V code, and pCode declares any of the capabilities listed in the SPIR-V Environment appendix, one of the corresponding requirements must be satisfied (https://docs.vulkan.org/spec/latest/chapters/shaders.html#VUID-VkShaderModuleCreateInfo-pCode-08740)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[0].sType must be VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO.
-The Vulkan spec states: sType must be VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkPipelineShaderStageCreateInfo-sType-sType)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1].sType must be VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO.
-The Vulkan spec states: sType must be VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkPipelineShaderStageCreateInfo-sType-sType)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[0].sType must be VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO.
-The Vulkan spec states: sType must be VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkPipelineShaderStageCreateInfo-sType-sType)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[0].stage is zero.
-The Vulkan spec states: stage must be a valid VkShaderStageFlagBits value (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkPipelineShaderStageCreateInfo-stage-parameter)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[0].pName is NULL.
-The Vulkan spec states: pName must be a null-terminated UTF-8 string (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkPipelineShaderStageCreateInfo-pName-parameter)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1].sType must be VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO.
-The Vulkan spec states: sType must be VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkPipelineShaderStageCreateInfo-sType-sType)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1].stage is zero.
-The Vulkan spec states: stage must be a valid VkShaderStageFlagBits value (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkPipelineShaderStageCreateInfo-stage-parameter)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1].pName is NULL.
-The Vulkan spec states: pName must be a null-terminated UTF-8 string (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkPipelineShaderStageCreateInfo-pName-parameter)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0].renderPass is NULL, but the dynamicRendering feature was not enabled.
-The Vulkan spec states: If the dynamicRendering feature is not enabled and the pipeline requires pre-rasterization shader state, fragment shader state, or fragment output interface state, renderPass must not be VK_NULL_HANDLE (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-dynamicRendering-06576)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0] (SPIR-V Interface) starting at Location 0 Component 0 the Output (VK_SHADER_STAGE_FRAGMENT_BIT) has a Vec4 while Input (VK_SHADER_STAGE_FRAGMENT_BIT) as a Vec3. Enable VK_KHR_maintenance4 device extension to allow relaxed interface matching between input and output vectors.
-The Vulkan spec states: If the maintenance4 feature is not enabled, any OpTypeVector output interface variables must not have a higher Component Count than a matching OpTypeVector input interface variable (https://docs.vulkan.org/spec/latest/appendices/spirvenv.html#VUID-RuntimeSpirv-maintenance4-06817)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0] (SPIR-V Interface) starting at Location 0 Component 0 the Output (VK_SHADER_STAGE_FRAGMENT_BIT) has a Vec4 while Input (VK_SHADER_STAGE_FRAGMENT_BIT) as a Vec3. Enable VK_KHR_maintenance4 device extension to allow relaxed interface matching between input and output vectors.
-The Vulkan spec states: If the maintenance4 feature is not enabled, any OpTypeVector output interface variables must not have a higher Component Count than a matching OpTypeVector input interface variable (https://docs.vulkan.org/spec/latest/appendices/spirvenv.html#VUID-RuntimeSpirv-maintenance4-06817)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1] and pStages[0] both have Unhandled VkShaderStageFlagBits.
-The Vulkan spec states: If the pipeline requires fragment shader state and/or pre-rasterization shader state, any value of stage must not be set in more than one element of pStages (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-stage-06897)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[0].module is VK_NULL_HANDLE and both the graphicsPipelineLibrary and maintenance5 features were not enabled. (stage Unhandled VkShaderStageFlagBits).
-The Vulkan spec states: If a shader module identifier is not specified for this stage, module must be a valid VkShaderModule , or the pNext chain of the parent Vk*CreateInfo structure must set VkPipelineBinaryInfoKHR::binaryCount to a value greater than 0, if none of the following features are enabled: graphicsPipelineLibrary maintenance5 (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkPipelineShaderStageCreateInfo-stage-08771)
-@[21:21:35]: [Vulkan Debug Callback]: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[1].module is VK_NULL_HANDLE and both the graphicsPipelineLibrary and maintenance5 features were not enabled. (stage Unhandled VkShaderStageFlagBits).
-The Vulkan spec states: If a shader module identifier is not specified for this stage, module must be a valid VkShaderModule , or the pNext chain of the parent Vk*CreateInfo structure must set VkPipelineBinaryInfoKHR::binaryCount to a value greater than 0, if none of the following features are enabled: graphicsPipelineLibrary maintenance5 (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkPipelineShaderStageCreateInfo-stage-08771)
+@[18:35:21]: Registered module 'MODULE_GLFWHANDLER_GLFWSURFACEBRIDGE'
+@[18:35:21]: Registered module 'MODULE_GLFWHANDLER'
+@[18:35:21]: Registered module 'MODULE_VULKANHANDLER'
+@[18:35:21]: Registered module 'MODULE_CONFIGMANAGER'
+@[18:35:21]: Registered service 'IConfigManager'
+@[18:35:21]: Registered service 'IGraphicsBackend'
+@[18:35:21]: Registered service 'IWindowManager'
+@[18:35:21]: Registered service 'IWindowSurfaceBridge'
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'glfw_window_hints' because it did not exist
+@[18:35:21]: Dumped GLFW-Vulkan bridge hints to cfg
+@[18:35:21]: Dumped GLFW-Vulkan bridge extensions to cfg
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'application_name' because it did not exist
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'engine_name' because it did not exist
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'application_version' because it did not exist
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'engine_version' because it did not exist
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'debug' because it did not exist
+@[18:35:21]: [Vulkan Debug Callback]: Searching for ICD drivers named /usr/lib32/amdvlkpro32.so
+@[18:35:21]: [Vulkan Debug Callback]: Searching for ICD drivers named /usr/lib/libvulkan_radeon.so
+@[18:35:21]: [Vulkan Debug Callback]: Searching for ICD drivers named /usr/lib32/libvulkan_radeon.so
+@[18:35:21]: [Vulkan Debug Callback]: Searching for ICD drivers named /usr/lib/amdvlkpro64.so
+@[18:35:21]: Successfully constructed Vulkan instance
+@[18:35:21]: Successfully established Vulkan debug link
+@[18:35:21]: Window hint implemented: 139265, Value: 0
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'application_name' because it did not exist
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'window_height' because it did not exist
+@[18:35:21]: Successfully constructed GLFW window
+@[18:35:21]: Successfully established Vulkan window surface bridge link
+@[18:35:21]: [Vulkan Debug Callback]: Copying old device 0 into new device 0
+@[18:35:21]: [Vulkan Debug Callback]: Copying old device 1 into new device 1
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'required_graphics_queues/0/surface_support' because it did not exist
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'required_graphics_queues/1/flags' because it did not exist
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'required_device_extensions' because it did not exist
+@[18:35:21]: Successfully instantiated Vulkan logical device
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'graphics/presentation_mode' because it did not exist
+@[18:35:21]: [ConfigManager]: Failed to get value at key 'graphics/image_format' because it did not exist
+@[18:35:21]: Successfully created Vulkan swapchain
+@[18:35:21]: Successfully created graphics pipeline
+:: TROUBLE :: @[18:35:21]: Successfully destroyed graphics pipeline
+:: TROUBLE :: @[18:35:21]: Successfully destroyed Vulkan swapchain
+:: TROUBLE :: @[18:35:21]: Successfully destroyed Vulkan logical device
+:: TROUBLE :: @[18:35:21]: Successfully destroyed Vulkan surface
+:: TROUBLE :: @[18:35:21]: Successfully destroyed Vulkan debug link
+:: TROUBLE :: @[18:35:21]: Successfully destroyed Vulkan instance
+:: TROUBLE :: @[18:35:21]: Successfully destroyed GLFW window

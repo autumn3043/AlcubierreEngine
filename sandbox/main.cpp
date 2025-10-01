@@ -5,5 +5,7 @@
 int main() {
     AlcubierreEngine app;
 
+    // while(true);
+
     return 0;
 }

@@ -1,0 +1,9 @@
+leak:libgtk-3
+leak:libglfw
+leak:libc
+leak:libglfw.so
+leak:libgdk-3.so
+leak:libdecor-0.so
+leak:libpangocairo-1.0.so
+leak:libglib-2.0.so
+leak:libvulkan.so

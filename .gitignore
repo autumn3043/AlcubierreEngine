@@ -35,5 +35,5 @@ makelog
 Sandbox
 Progress\ Notes.txt
 libAlcubierre/build/*
-program.log
+*.log
 *.spv
