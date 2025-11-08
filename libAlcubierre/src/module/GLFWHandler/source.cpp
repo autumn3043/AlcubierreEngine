@@ -3,36 +3,41 @@
 
 #include "core/DebugManager/public.h"
 
-ModuleRegistryBundle GLFWHandlerWrapper::bundle(
-    []() -> WrapperBaseClass* { return new GLFWHandlerWrapper(); },
-    "MODULE_GLFWHANDLER"
+ModuleRegistryBundle GLFWHandler::bundle(
+    [](void* registry) -> WrapperBaseClass* { return new GLFWHandler(registry); },
+    {WINDOW_MANAGER},
+    {},
+    "GLFWHandler"
 );
 
-GLFWHandler::GLFWHandler() : IWindowManager_GLFWHandler(this) {}
+GLFWHandler::GLFWHandler(void* registry) 
+    :   IWindowManager_GLFWHandler(this),
+        registry_ptr(static_cast<Registry*>(registry))
+    {
+        //We construct our Pimpl here because this constructor will not be invoked until registry requests this module.
+        PrivatePtr = new GLFWImpl(registry_ptr);
+        //Inserting service pointers into WrapperBaseClass unordered map, which is where registry expects the services to be when we promise them in the bundle.
+        Services = {{WINDOW_MANAGER, &IWindowManager_GLFWHandler}};
+    }
 
 GLFWHandler::~GLFWHandler() {
     if(PrivatePtr) delete PrivatePtr;
-}
-
-int GLFWHandler::WakeImpl() {
-    if(!PrivatePtr) {
-        PrivatePtr = new GLFWImpl();
-        return 1;
-    } else {
-        return 0;
-    }
 }
 
 void* GLFWHandler::GetWindowObjectImpl() {
     return PrivatePtr->Window;
 }
 
+bool GLFWHandler::TouchSurfaceApiImpl() {
+    return PrivatePtr->TouchSurfaceApi();
+}
+
 IWindowManager::WindowInfo* GLFWHandler::GetWindowInfoImpl() {
     return PrivatePtr->GetWindowInfoIMPL();
 }
 
-GLFWImpl::GLFWImpl() {
-    glfwInit();
+GLFWImpl::GLFWImpl(Registry* registry) : registry_ptr(registry) {
+    TouchSurfaceApi();
 
     if(CreateWindow() == 1) {
         throw std::runtime_error("Failed to create GLFW window");
@@ -47,13 +52,13 @@ GLFWImpl::~GLFWImpl() {
         DM().Log("Successfully destroyed GLFW window");
     }
 
-    glfwTerminate();
+    if(apiStatus) glfwTerminate();
 }
 
 #include <cstring>
 
 int GLFWImpl::CreateWindow() {    
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
     std::vector<std::vector<int>> hints = CM->Get<std::vector<std::vector<int>>>("glfw_window_hints", {});
     for(std::vector<int> hint : hints) {
@@ -77,3 +82,11 @@ int GLFWImpl::CreateWindow() {
 }
 
 IWindowManager::WindowInfo* GLFWImpl::GetWindowInfoIMPL() { return WindowInfo; }
+
+bool GLFWImpl::TouchSurfaceApi() {
+    if(!apiStatus) {
+        glfwInit();
+        apiStatus = true;
+    }
+    return apiStatus; 
+}

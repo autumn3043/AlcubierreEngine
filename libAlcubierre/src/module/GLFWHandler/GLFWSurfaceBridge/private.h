@@ -3,7 +3,8 @@
 
 class GLFWSurfaceBridgeImpl {
     public:
-        GLFWSurfaceBridgeImpl();
+        Registry* registry_ptr = nullptr;
+        GLFWSurfaceBridgeImpl(Registry* registry);
         ~GLFWSurfaceBridgeImpl();
 
         int createwindowsurface(void* TargetInstance, void* TargetSurfaceObject);

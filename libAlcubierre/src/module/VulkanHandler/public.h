@@ -20,12 +20,12 @@ class VulkanException : public AlcEngineException {
 
 class VulkanHandlerIMPL;
 
-class VulkanHandler {
+class VulkanHandler : public WrapperBaseClass {
     public:
-        VulkanHandler();
+        Registry* registry_ptr = nullptr;
+        VulkanHandler(void* registry);
         ~VulkanHandler();
 
-        int WakeImpl();
         void* GetBackendObjectImpl();
 
         class IGraphicsBackendImpl : public IGraphicsBackend {
@@ -34,29 +34,14 @@ class VulkanHandler {
 
                 IGraphicsBackendImpl(VulkanHandler* _parent) : Parent(_parent) {}
 
-                int Wake() override { return Parent->WakeImpl(); }
                 void* GetBackendObject() override { return Parent->GetBackendObjectImpl(); }
         };
 
         IGraphicsBackendImpl IGraphicsBackend_VulkanHandler;
 
         VulkanHandlerIMPL* PrivatePtr = nullptr;
-};
-
-class VulkanHandlerWrapper : public WrapperBaseClass{
-    public:
-        VulkanHandlerWrapper() {
-            native = new VulkanHandler();
-            Registry::GetRegistry().RegisterService(native->IGraphicsBackend_VulkanHandler);
-        }
-
-        ~VulkanHandlerWrapper() {
-            delete native;
-        }
-
+    
     private:
-        VulkanHandler* native = nullptr;
-
         static ModuleRegistryBundle bundle;
 };
 

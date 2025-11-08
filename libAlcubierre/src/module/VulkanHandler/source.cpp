@@ -4,31 +4,32 @@
 #include <utility>
 #include <variant>
 
-ModuleRegistryBundle VulkanHandlerWrapper::bundle(
-    []() -> WrapperBaseClass* { return new VulkanHandlerWrapper(); },
-    "MODULE_VULKANHANDLER"
+ModuleRegistryBundle VulkanHandler::bundle(
+    [](void* registry) -> WrapperBaseClass* { return new VulkanHandler(registry); },
+    {GRAPHICS_BACKEND},
+    {WINDOW_SURFACE}, //Swapchain images point to window surface elements which must remain valid during shutdown to avoid a segmentation fault
+    "VulkanHandler"
 );
 
-VulkanHandler::VulkanHandler() : IGraphicsBackend_VulkanHandler(this) {}
+VulkanHandler::VulkanHandler(void* registry) 
+    :   IGraphicsBackend_VulkanHandler(this),
+        registry_ptr(static_cast<Registry*>(registry))
+    {
+        //We construct our Pimpl here because this constructor will not be invoked until registry requests this module.
+        PrivatePtr = new VulkanHandlerIMPL(registry_ptr);
+        //Inserting service pointers into WrapperBaseClass unordered map, which is where registry expects the services to be when we promise them in the bundle.
+        Services = {{GRAPHICS_BACKEND, &IGraphicsBackend_VulkanHandler}};
+    }
 
 VulkanHandler::~VulkanHandler() {
     if(PrivatePtr) delete PrivatePtr;
-}
-
-int VulkanHandler::WakeImpl() {
-    if(!PrivatePtr) {
-        PrivatePtr = new VulkanHandlerIMPL();
-        return 1;
-    } else {
-        return 0;
-    }
 }
 
 void* VulkanHandler::GetBackendObjectImpl() {
     return PrivatePtr;
 }
 
-VulkanHandlerIMPL::VulkanHandlerIMPL() {
+VulkanHandlerIMPL::VulkanHandlerIMPL(Registry* registry) : registry_ptr(registry) {
     CreateVulkanInstance();
     CreateDebugLink();
     CreateSurface();
@@ -46,6 +47,11 @@ VulkanHandlerIMPL::~VulkanHandlerIMPL() {
     }
 
     if((Device != VK_NULL_HANDLE) && (Swapchain != VK_NULL_HANDLE)) {
+        for(VkImageView view : ChainImageViews) {
+            vkDestroyImageView(Device, view, nullptr);
+            view = VK_NULL_HANDLE;
+        }
+        ChainImages.clear();
         vkDestroySwapchainKHR(Device, Swapchain, nullptr);
         Swapchain = VK_NULL_HANDLE;
         DM().Log("Successfully destroyed Vulkan swapchain");
@@ -84,7 +90,7 @@ int VulkanHandlerIMPL::CreateVulkanInstance() {
 
     VkResult hold = vkCreateInstance(CreateInfo.Get(), nullptr, &Instance);
     if(hold != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create Vulkan instance! " + std::to_string(hold));
+        throw AlcEngineException("Failed to create Vulkan instance! " + std::to_string(hold));
         
     } else {
         DM().Log("Successfully constructed Vulkan instance");
@@ -93,7 +99,7 @@ int VulkanHandlerIMPL::CreateVulkanInstance() {
 }
 
 void VulkanHandlerIMPL::FetchCreateData(AlcInstanceCreateInfo& ReturnBundle) {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
     FetchDebugData(ReturnBundle._pNext);
     ReturnBundle._flags = 0;
@@ -107,7 +113,7 @@ void VulkanHandlerIMPL::FetchCreateData(AlcInstanceCreateInfo& ReturnBundle) {
 }
 
 void VulkanHandlerIMPL::FetchAppData(AlcApplicationInfo& ReturnBundle) {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
     ReturnBundle._apiVersion = VK_API_VERSION_1_4;
     ReturnBundle._pApplicationName = CM->Get<std::string>("application_name", "Default Application");
@@ -166,7 +172,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanHandlerIMPL::VulkanDebugCallback(
 }
 
 int VulkanHandlerIMPL::CreateSurface() {
-    IWindowSurfaceBridge* WSB = dynamic_cast<IWindowSurfaceBridge*>(Registry::GetRegistry().FetchService("IWindowSurfaceBridge"));
+    IWindowSurfaceBridge* WSB = dynamic_cast<IWindowSurfaceBridge*>(registry_ptr->FetchService(WINDOW_SURFACE));
 
     int hold = WSB->CreateWindowSurface(&Instance, &Surface);
 
@@ -281,13 +287,13 @@ int VulkanHandlerIMPL::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {
 
 void VulkanHandlerIMPL::FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle) {
     ReturnBundle._flags = 0;
-    FetchQueueArray(ReturnBundle._pQueueCreateInfos);
+    FetchQueueArray(ReturnBundle.queueCreateInfos);
     FetchDeviceExtensionArray(ReturnBundle._ppEnabledExtensionNames);
     FetchDeviceFeatures(ReturnBundle._features);
 }
 
-void VulkanHandlerIMPL::FetchQueueArray(std::vector<VkDeviceQueueCreateInfo>& ReturnArray) {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+void VulkanHandlerIMPL::FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo>& ReturnArray) {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
     int RequestedQueues = CM->Get<int>(std::vector<std::string>{"required_graphics_queues", "SIZE_T"}, 0);
 
     std::unordered_map<uint32_t, VkQueueFlags> AvailableQueues;
@@ -298,8 +304,7 @@ void VulkanHandlerIMPL::FetchQueueArray(std::vector<VkDeviceQueueCreateInfo>& Re
     vkGetPhysicalDeviceQueueFamilyProperties(PhysicalDevice, &QueueFamilyCount, QueueFamilies.data());
 
     for (int i = 0; i < RequestedQueues; i++) {
-        VkDeviceQueueCreateInfo hold{};
-        hold.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        AlcDeviceQueueCreateInfo& queueCreateInfo = ReturnArray.emplace_back(AlcDeviceQueueCreateInfo());
 
         int UsableQueue = -1;
         std::vector<int> RequiredFlags = CM->Get<std::vector<int>>({"required_graphics_queues", std::to_string(i), "flags"}, {});
@@ -321,19 +326,15 @@ void VulkanHandlerIMPL::FetchQueueArray(std::vector<VkDeviceQueueCreateInfo>& Re
         }
 
         if(UsableQueue == -1) throw VulkanException("No available graphics queue fulfilled all requirements for queue: " + std::to_string(i + 1));
-        hold.queueFamilyIndex = static_cast<uint32_t>(UsableQueue);
 
-        hold.queueCount = static_cast<uint32_t>(CM->Get<int>({"required_graphics_queues", std::to_string(i), "count"}, 1));
-
-        float QueuePriority = static_cast<float>(CM->Get<int>({"required_graphics_queues", std::to_string(i), "priority"}, 1));
-        hold.pQueuePriorities = &QueuePriority;
-
-        ReturnArray.push_back(hold);
+        queueCreateInfo._queueFamilyIndex = static_cast<uint32_t>(UsableQueue);
+        queueCreateInfo._queueCount = static_cast<uint32_t>(CM->Get<int>({"required_graphics_queues", std::to_string(i), "count"}, 1));
+        queueCreateInfo._pQueuePriorities = static_cast<float>(CM->Get<int>({"required_graphics_queues", std::to_string(i), "priority"}, 1));
     }
 }
 
 void VulkanHandlerIMPL::FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray) {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
     //Stuff other modules need.
     std::vector<std::string> requestedExtensions = CM->Get<std::vector<std::string>>("required_device_extensions", {});
@@ -366,7 +367,7 @@ int VulkanHandlerIMPL::CreateSwapChain() {
     VkSurfaceCapabilitiesKHR surfaceCapabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(PhysicalDevice, Surface, &surfaceCapabilities);
 
-    IWindowManager* WM = dynamic_cast<IWindowManager*>(Registry::GetRegistry().FetchService("IWindowManager"));
+    IWindowManager* WM = dynamic_cast<IWindowManager*>(registry_ptr->FetchService(WINDOW_MANAGER));
     uint32_t width = std::clamp<uint32_t>(static_cast<uint32_t>(WM->GetWindowInfo()->width_pix), surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width);
     uint32_t height = std::clamp<uint32_t>(static_cast<uint32_t>(WM->GetWindowInfo()->height_pix), surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height);
     ChainInitInfo.imageExtent = {width, height};
@@ -386,35 +387,51 @@ int VulkanHandlerIMPL::CreateSwapChain() {
 
     if(hold == VK_SUCCESS) {
         DM().Log("Successfully created Vulkan swapchain");
-
-        ChainFormat = ChainInitInfo.imageFormat;
-        ChainExtent = ChainInitInfo.imageExtent;
-        uint32_t i;
-        vkGetSwapchainImagesKHR(Device, Swapchain, &i, nullptr);
-        ChainImages.reserve(i);
-        vkGetSwapchainImagesKHR(Device, Swapchain, &i, ChainImages.data());
-
-        for(int i = 0; i < ChainImages.size(); i++) {
-            ChainImageViews.push_back(new VkImageView());
-
-            VkImageViewCreateInfo ImageViewCreateInfo {};
-            ImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-
-            ImageViewCreateInfo.image = ChainImages[i];
-            ImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            ImageViewCreateInfo.format = ChainFormat;
-
-            vkCreateImageView(Device, &ImageViewCreateInfo, nullptr, ChainImageViews[i]);
-        }
-
-        return 0;
+        return FillSwapchainImages(ChainInitInfo);
     } else {
         throw VulkanException("Failed to create Vulkan swapchain due to VK error: " + std::to_string(hold));
     }
 }
 
+int VulkanHandlerIMPL::FillSwapchainImages(VkSwapchainCreateInfoKHR& ChainInitInfo) {
+    ChainFormat = ChainInitInfo.imageFormat;
+    ChainExtent = ChainInitInfo.imageExtent;
+    uint32_t s;
+    vkGetSwapchainImagesKHR(Device, Swapchain, &s, nullptr);
+    ChainImages.resize(s);
+    vkGetSwapchainImagesKHR(Device, Swapchain, &s, ChainImages.data());
+
+    VkImageSubresourceRange ImageSubresourceRange {};
+    ImageSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    ImageSubresourceRange.baseMipLevel = 0;
+    ImageSubresourceRange.levelCount = 1;
+    ImageSubresourceRange.baseArrayLayer = 0;
+    ImageSubresourceRange.layerCount = 1;
+
+    int successes = 0;
+    for(int i = 0; i < ChainImages.size(); i++) {
+        ChainImageViews.push_back(VkImageView());
+
+        VkImageViewCreateInfo ImageViewCreateInfo {};
+        ImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+
+        ImageViewCreateInfo.image = ChainImages[i];
+        ImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        ImageViewCreateInfo.format = ChainFormat;
+        ImageViewCreateInfo.subresourceRange = ImageSubresourceRange;
+
+        VkResult hold = vkCreateImageView(Device, &ImageViewCreateInfo, nullptr, &ChainImageViews[i]);
+
+        if(hold != VK_SUCCESS) DM().Log("Failed to acquire image view on index [" + std::to_string(i) + "]");
+        else successes++;
+    }
+
+    if(successes > 0) return 0;
+    else throw VulkanException("No image views were able to be acquired.");
+}
+
 void VulkanHandlerIMPL::FetchSwapMode(VkPresentModeKHR& ReturnMode) {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
     
     uint32_t presentModeCount;
     vkGetPhysicalDeviceSurfacePresentModesKHR(PhysicalDevice, Surface, &presentModeCount, nullptr);
@@ -435,7 +452,7 @@ void VulkanHandlerIMPL::FetchSwapMode(VkPresentModeKHR& ReturnMode) {
 }
 
 void VulkanHandlerIMPL::FetchSwapSurfaceFormat(VkFormat& ReturnFormat, VkColorSpaceKHR& ReturnColor) {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
     uint32_t surfaceFormatCount;
     vkGetPhysicalDeviceSurfaceFormatsKHR(PhysicalDevice, Surface, &surfaceFormatCount, nullptr);
@@ -574,7 +591,7 @@ int VulkanHandlerIMPL::CreateGraphicsPipeline() {
 }
 
 void VulkanHandlerIMPL::FetchShaderStageCreateInfos(std::vector<AlcPipelineShaderStageCreateInfo>& ReturnBundlesArray, VkShaderModule& shaderModule) {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
         //Hacky stuff until I set it up proper
         CM->Set<int>({"shaders", "stages", "1", "bit"}, std::to_string(VK_SHADER_STAGE_VERTEX_BIT));

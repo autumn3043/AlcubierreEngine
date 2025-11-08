@@ -6,35 +6,36 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-ModuleRegistryBundle GLFWSurfaceBridgeWrapper::bundle(
-    []() -> WrapperBaseClass* { return new GLFWSurfaceBridgeWrapper(); },
-    "MODULE_GLFWHANDLER_GLFWSURFACEBRIDGE"
+ModuleRegistryBundle GLFWSurfaceBridge::bundle(
+    [](void* registry) -> WrapperBaseClass* { return new GLFWSurfaceBridge(registry); },
+    {WINDOW_SURFACE},
+    {WINDOW_MANAGER}, //glfwTerminate is delegated to the parent service, which should always be GLFW when this module is being used
+    "GLFWSurfaceBridge"
 );
 
-GLFWSurfaceBridge::GLFWSurfaceBridge() : IWindowSurfaceBridge_GLFWSurfaceBridge(this) {}
+GLFWSurfaceBridge::GLFWSurfaceBridge(void* registry) 
+    :   IWindowSurfaceBridge_GLFWSurfaceBridge(this),
+        registry_ptr(static_cast<Registry*>(registry)) 
+    {   
+        //We construct our Pimpl here because this constructor will not be invoked until registry requests this module.
+        PrivatePtr = new GLFWSurfaceBridgeImpl(registry_ptr);
+        //Inserting service pointers into WrapperBaseClass unordered map, which is where registry expects the services to be when we promise them in the bundle.
+        Services = {{WINDOW_SURFACE, &IWindowSurfaceBridge_GLFWSurfaceBridge}};
+    }
 
 GLFWSurfaceBridge::~GLFWSurfaceBridge() {
     if(PrivatePtr) delete PrivatePtr;
-}
-
-int GLFWSurfaceBridge::WakeImpl() {
-    if(!PrivatePtr) {
-        PrivatePtr = new GLFWSurfaceBridgeImpl();
-        return 1;
-    } else {
-        return 0;
-    }
 }
 
 int GLFWSurfaceBridge::CreateWindowSurfaceImpl(void* TargetInstance, void* TargetSurfaceObject) {
     return PrivatePtr->createwindowsurface(TargetInstance, TargetSurfaceObject);
 }
 
-GLFWSurfaceBridgeImpl::GLFWSurfaceBridgeImpl() {
+GLFWSurfaceBridgeImpl::GLFWSurfaceBridgeImpl(Registry* registry) : registry_ptr(registry) {
     glfwInit();
 
     try {
-        IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+        IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
         //GLFW window hint to not create VK window cuz we do that here
             std::vector<std::vector<int>> hints = CM->Get<std::vector<std::vector<int>>>("glfw_window_hints", {});
@@ -80,7 +81,7 @@ GLFWSurfaceBridgeImpl::GLFWSurfaceBridgeImpl() {
 GLFWSurfaceBridgeImpl::~GLFWSurfaceBridgeImpl() {}
 
 int GLFWSurfaceBridgeImpl::createwindowsurface(void* TargetInstance, void* TargetSurfaceObject) {
-    IWindowManager* WM = dynamic_cast<IWindowManager*>(Registry::GetRegistry().FetchService("IWindowManager"));
+    IWindowManager* WM = dynamic_cast<IWindowManager*>(registry_ptr->FetchService(WINDOW_MANAGER));
 
     VkInstance instance = *static_cast<VkInstance*>(TargetInstance);
     GLFWwindow* window = static_cast<GLFWwindow*>(WM->GetWindowObject());

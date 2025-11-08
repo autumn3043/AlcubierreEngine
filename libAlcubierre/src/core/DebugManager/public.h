@@ -30,9 +30,7 @@ class AlcEngineException : public std::exception {
         AlcEngineException(DebugReport report_) : Report(std::move(report_)) {}
 
         DebugReport Get() const {return Report;}
-        const char* what() const noexcept override {
-            return Report.Message.c_str();
-            }
+        const char* what() const noexcept override { return Report.Message.c_str(); }
 
     private:
         DebugReport Report;
@@ -40,7 +38,7 @@ class AlcEngineException : public std::exception {
 
 class DebugManagerImpl;
 
-class DebugManager {
+class DebugManager{
     public:
         static DebugManager& GetDebugManager();
 

@@ -13,7 +13,8 @@ class ConfigManagerException : public AlcEngineException {
 
 class ConfigManagerImpl {
     public:
-        ConfigManagerImpl();
+        Registry* registry_ptr = nullptr;
+        ConfigManagerImpl(Registry* registry);
         ~ConfigManagerImpl();
 
         nlohmann::json RawConfig;

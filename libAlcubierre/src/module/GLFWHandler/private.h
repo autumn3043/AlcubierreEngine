@@ -3,15 +3,17 @@
 
 #include <GLFW/glfw3.h>
 
-// struct IWindowManager::WindowInfo;
-
 class GLFWImpl {
     public:
-        GLFWImpl();
+        Registry* registry_ptr = nullptr;
+        GLFWImpl(Registry* registry);
         ~GLFWImpl();
 
         int CreateWindow();
         IWindowManager::WindowInfo* GetWindowInfoIMPL();
+        bool TouchSurfaceApi();
+
+        bool apiStatus = false;
 
         GLFWwindow* Window;
         IWindowManager::WindowInfo* WindowInfo;

@@ -3,27 +3,28 @@
 
 #include <cstring>
 
-ModuleRegistryBundle ConfigManagerWrapper::bundle(
-    []() -> WrapperBaseClass* { return new ConfigManagerWrapper(); },
-    "MODULE_CONFIGMANAGER"
+ModuleRegistryBundle ConfigManager::bundle(
+    [](void* registry) -> WrapperBaseClass* { return new ConfigManager(registry); },
+    {CONFIGURATION_MANAGER},
+    {},
+    "ConfigManager"
 );
 
-ConfigManager::ConfigManager() : IConfigManager_ConfigManager(this) {}
+ConfigManager::ConfigManager(void* registry) 
+    :   IConfigManager_ConfigManager(this),
+        registry_ptr(static_cast<Registry*>(registry))
+    {   
+        //We construct our Pimpl here because this constructor will not be invoked until registry requests this module.
+        PrivatePtr = new ConfigManagerImpl(registry_ptr);
+        //Inserting service pointers into WrapperBaseClass unordered map, which is where registry expects the services to be when we promise them in the bundle.
+        Services.insert({CONFIGURATION_MANAGER, &IConfigManager_ConfigManager});
+    }
 
 ConfigManager::~ConfigManager() {
     if(PrivatePtr) delete PrivatePtr;
 }
 
-int ConfigManager::WakeImpl() {
-    if(!PrivatePtr) {
-        PrivatePtr = new ConfigManagerImpl();
-        return 1;
-    } else {
-        return 0;
-    }
-}
-
-ConfigManagerImpl::ConfigManagerImpl() {
+ConfigManagerImpl::ConfigManagerImpl(Registry* registry) : registry_ptr(registry) {
     RawConfig = nlohmann::json::object();
 }
 

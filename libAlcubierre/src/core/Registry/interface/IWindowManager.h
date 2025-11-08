@@ -18,6 +18,8 @@ class IWindowManager : public InterfaceBaseClass {
         };
 
         virtual WindowInfo* GetWindowInfo() = 0;
+
+        virtual bool TouchSurfaceApi() = 0;
 };
 
 #endif

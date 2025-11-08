@@ -123,15 +123,45 @@ struct AlcDeviceFeatures {
         };
 };
 
+struct AlcDeviceQueueCreateInfo {
+    public:
+        uint32_t _queueFamilyIndex;
+        uint32_t _queueCount;
+        float _pQueuePriorities;
+
+        VkDeviceQueueCreateInfo* Get() {
+            InternalStruct = VkDeviceQueueCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                .pNext = nullptr,
+                .queueFamilyIndex = _queueFamilyIndex,
+                .queueCount = _queueCount,
+                .pQueuePriorities = &_pQueuePriorities
+            };
+
+            return &InternalStruct;
+        }
+
+    private:
+        VkDeviceQueueCreateInfo InternalStruct;
+};
+
 struct AlcDeviceCreateInfo {
     public:
         VkDeviceCreateFlags _flags;
+        std::vector<AlcDeviceQueueCreateInfo> queueCreateInfos;
         std::vector<VkDeviceQueueCreateInfo> _pQueueCreateInfos;
         std::vector<std::string> _ppEnabledExtensionNames; //const char* const*
         AlcDeviceFeatures _features;
 
         VkDeviceCreateInfo* Get() {
             _ppEnabledExtensionNames_C = c_str_array(_ppEnabledExtensionNames);
+
+            _pQueueCreateInfos.clear();
+            _pQueueCreateInfos.reserve(queueCreateInfos.size());
+
+            for(AlcDeviceQueueCreateInfo& info : queueCreateInfos) {
+                _pQueueCreateInfos.push_back(*info.Get());
+            }
 
             InternalStruct = VkDeviceCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,

@@ -12,9 +12,14 @@
 
 class GLFWSurfaceBridgeImpl;
 
-class GLFWSurfaceBridge {
+class GLFWSurfaceBridge : public WrapperBaseClass{
     public:
-        int WakeImpl();
+        Registry* registry_ptr = nullptr;
+        GLFWSurfaceBridge(void* registry);
+        ~GLFWSurfaceBridge();
+
+        GLFWSurfaceBridgeImpl* PrivatePtr = nullptr;
+        
         int CreateWindowSurfaceImpl(void* TargetInstance, void* TargetSurfaceObject);
 
         class IWindowSurfaceBridgeImpl : public IWindowSurfaceBridge {
@@ -22,32 +27,10 @@ class GLFWSurfaceBridge {
                 GLFWSurfaceBridge* Parent;
 
                 IWindowSurfaceBridgeImpl(GLFWSurfaceBridge* _parent) : Parent(_parent) {}
-
-                int Wake() override { return Parent->WakeImpl(); }
                 int CreateWindowSurface(void* TargetInstance, void* TargetSurfaceObject) override { return Parent->CreateWindowSurfaceImpl(TargetInstance, TargetSurfaceObject); }
         };
 
-        GLFWSurfaceBridge();
-        ~GLFWSurfaceBridge();
-
-        GLFWSurfaceBridgeImpl* PrivatePtr = nullptr;
-        
         IWindowSurfaceBridgeImpl IWindowSurfaceBridge_GLFWSurfaceBridge;
-};
-
-class GLFWSurfaceBridgeWrapper : public WrapperBaseClass{
-    public:
-        GLFWSurfaceBridgeWrapper() {
-            native = new GLFWSurfaceBridge();
-            Registry::GetRegistry().RegisterService(native->IWindowSurfaceBridge_GLFWSurfaceBridge);
-        }
-
-        ~GLFWSurfaceBridgeWrapper() {
-            delete native;
-        }
-
-    private:
-        GLFWSurfaceBridge* native = nullptr;
 
         static ModuleRegistryBundle bundle;
 };

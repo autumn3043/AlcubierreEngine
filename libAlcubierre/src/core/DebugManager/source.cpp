@@ -20,6 +20,7 @@ DebugManager::DebugManager() {
 }
 
 DebugManager::~DebugManager() {
+    Log("Note static entity deconstruction.");
     if(PrivatePtr) delete PrivatePtr;
 }
 
@@ -77,11 +78,13 @@ void DebugManagerImpl::InternalLog(DebugReport* Report, bool Write) {
     std::string DebugMessage = oss.str();
 
     if(Report->Level >= WRITE_MIN_VERBOSITY) {
-        //TEMPORARY BODGE FIX THE DI STUFF U DUMBY DUMB DUMB
+
+        //To access DM globally it has to be static. This makes logfile static. If something tries to log during static deconstruction DM will exist but logfile will not - > segfault. 
+        //This is to be avoided. Handled deconstruct should finish BEFORE any static deconstruct.
         if(!logfile.is_open()) {
             std::ofstream logfileTROUBLE;
             logfileTROUBLE.open("program.log", std::ios::app);
-            logfileTROUBLE << ":: TROUBLE :: " + DebugMessage << std::endl;
+            logfileTROUBLE << "::TROUBLE:: " << DebugMessage << std::endl;
             logfileTROUBLE.close();
         } else {
             logfile << DebugMessage << std::endl;

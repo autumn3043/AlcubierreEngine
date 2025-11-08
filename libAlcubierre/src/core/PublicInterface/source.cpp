@@ -1,6 +1,8 @@
 #include "core/PublicInterface/private.h"
 #include "core/PublicInterface/public.h"
 
+#include "core/DebugManager/public.h"
+
 AlcubierreEngine::AlcubierreEngine() {
     PrivatePtr = new AlcubierreEngineImpl();
 }
@@ -10,11 +12,11 @@ AlcubierreEngine::~AlcubierreEngine() {
 }
 
 AlcubierreEngineImpl::AlcubierreEngineImpl() {
-    Registry::GetRegistry().Init();
+    Registry registry = Registry();
 
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(Registry::GetRegistry().FetchService("IConfigManager"));
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry.FetchService(CONFIGURATION_MANAGER));
 
-    // CM->Set<bool>("debug", "true");
+    CM->Set<bool>("debug", "true");
 
     CM->Set<std::vector<std::string>>("extensions", "[\"VK_EXT_debug_utils\"]");
     CM->Set<int>("window_width", "900");
@@ -29,8 +31,8 @@ AlcubierreEngineImpl::AlcubierreEngineImpl() {
     CM->Set<int>({"required_graphics_queues", "1", "count"}, "1");
     CM->Set<int>({"required_graphics_queues", "1", "priority"}, "1");
 
-    Registry::GetRegistry().FetchService("IWindowSurfaceBridge"); //Must come before Vulkan so it can dump to cfg.
-    Registry::GetRegistry().FetchService("IGraphicsBackend");
+    registry.FetchService(WINDOW_SURFACE); //Must come before Vulkan so it can dump to cfg.
+    registry.FetchService(GRAPHICS_BACKEND);
 }
 
 AlcubierreEngineImpl::~AlcubierreEngineImpl() {

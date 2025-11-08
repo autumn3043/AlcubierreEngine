@@ -8,9 +8,8 @@
 
 class ConfigManagerImpl;
 
-class ConfigManager {
+class ConfigManager : public WrapperBaseClass{
     public:
-        int WakeImpl();
         int Get_Impl(IConfigManager::Container& v_out);
         int Set_Impl(IConfigManager::Container& v_in);
         int SetFromFile_Impl(const std::string& value);
@@ -21,35 +20,19 @@ class ConfigManager {
 
                 IConfigManagerImpl(ConfigManager* _parent) : Parent(_parent) {}
 
-                int Wake() override { return Parent->WakeImpl(); }
-
                 int GetInternal(IConfigManager::Container& v_out) override { return Parent->Get_Impl(v_out); }
                 int SetInternal(IConfigManager::Container& v_in) override { return Parent->Set_Impl(v_in); }
                 int SetFromFile(const std::string& value) override { return Parent->SetFromFile_Impl(value); }
         };
 
-        ConfigManager();
+        Registry* registry_ptr = nullptr;
+        ConfigManager(void* registry);
         ~ConfigManager();
 
         IConfigManagerImpl IConfigManager_ConfigManager;
         
     private:
         ConfigManagerImpl* PrivatePtr = nullptr;
-};
-
-class ConfigManagerWrapper : public WrapperBaseClass{
-    public:
-        ConfigManagerWrapper() {
-            native = new ConfigManager();
-            Registry::GetRegistry().RegisterService(native->IConfigManager_ConfigManager);
-        }
-
-        ~ConfigManagerWrapper() {
-            delete native;
-        }
-
-    private:
-        ConfigManager* native = nullptr;
 
         static ModuleRegistryBundle bundle;
 };

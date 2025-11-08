@@ -9,10 +9,12 @@
 
 class VulkanHandlerIMPL {
     public:
-        VulkanHandlerIMPL();
+        VulkanHandlerIMPL(Registry* registry);
         ~VulkanHandlerIMPL();
 
     private:
+        Registry* registry_ptr = nullptr;
+
         VkInstance Instance = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT DebugMessenger;
         VkSurfaceKHR Surface = VK_NULL_HANDLE;
@@ -25,7 +27,7 @@ class VulkanHandlerIMPL {
         AlcQueueList Q_List;
         VkSwapchainKHR Swapchain = VK_NULL_HANDLE;
             std::vector<VkImage> ChainImages;
-            std::vector<VkImageView*> ChainImageViews;
+            std::vector<VkImageView> ChainImageViews;
             VkFormat ChainFormat;
             VkExtent2D ChainExtent;
         VkPipeline Pipeline = VK_NULL_HANDLE;
@@ -52,11 +54,12 @@ class VulkanHandlerIMPL {
             int ScoreDevice(VkPhysicalDevice _PhysicalDevice);
 
             void FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle);
-            void FetchQueueArray(std::vector<VkDeviceQueueCreateInfo>& ReturnArray);
+            void FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo>& ReturnArray);
             void FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray);
             void FetchDeviceFeatures(AlcDeviceFeatures& ReturnBundle);
 
         int CreateSwapChain();
+            int FillSwapchainImages(VkSwapchainCreateInfoKHR& ChainInitInfo);
             void FetchSwapMode(VkPresentModeKHR& ReturnMode);
             void FetchSwapSurfaceFormat(VkFormat& ReturnFormat, VkColorSpaceKHR& ReturnColor);
 

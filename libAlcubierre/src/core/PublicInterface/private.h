@@ -3,8 +3,6 @@
 
 #include "core/Registry/public.h"
 
-#include "core/DebugManager/public.h"
-
 //Services
 #include "core/Registry/interface/IWindowSurfaceBridge.h"
 #include "core/Registry/interface/IConfigManager.h"
@@ -17,6 +15,7 @@ class AlcubierreEngineImpl {
         ~AlcubierreEngineImpl();
 
     private:
+        // Registry registry;
 };
 
 #endif
