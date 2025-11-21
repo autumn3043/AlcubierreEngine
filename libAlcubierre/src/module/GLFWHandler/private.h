@@ -12,6 +12,8 @@ class GLFWImpl {
         int CreateWindow();
         IWindowManager::WindowInfo* GetWindowInfoIMPL();
         bool TouchSurfaceApi();
+        bool ShouldClose();
+        void pollEvents();
 
         bool apiStatus = false;
 

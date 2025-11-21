@@ -43,6 +43,7 @@ class DebugManager{
         static DebugManager& GetDebugManager();
 
         void Log(std::string, int Level = 0, bool Write = true);
+
         template <typename T>
         std::enable_if_t<std::is_arithmetic_v<T>, void>
         Log(T value, int Level = 0, bool Write = true) {
@@ -52,6 +53,16 @@ class DebugManager{
         void Log(std::exception, bool Write = true);
         void Log(DebugReport, bool Write = true);
         void Log(AlcEngineException, bool Write = true);
+
+        class Punchcard {
+            public:
+                void punch();
+                int delta();
+
+                Punchcard();
+            private:
+                int entry;
+        };
 
     private:
         DebugManager();

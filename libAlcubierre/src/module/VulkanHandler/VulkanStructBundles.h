@@ -102,14 +102,14 @@ struct AlcInstanceCreateInfo {
 
 struct AlcDeviceFeatures {
     public:
-        VkPhysicalDeviceDynamicRenderingFeatures featuresDynamicRendering {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES,
-            .pNext = VK_NULL_HANDLE
+        VkPhysicalDeviceVulkan13Features featuresVk1_3 {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+            .pNext = nullptr
         };
 
         VkPhysicalDeviceVulkan11Features featuresVk1_1 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
-            .pNext = &featuresDynamicRendering
+            .pNext = &featuresVk1_3
         };
 
         VkPhysicalDeviceExtendedDynamicStateFeaturesEXT featuresDynamicState{
@@ -206,6 +206,48 @@ struct AlcPipelineShaderStageCreateInfo {
 
     private:
         VkPipelineShaderStageCreateInfo InternalStruct;
+};
+
+struct AlcCommandPoolCreateInfo {
+    public:
+        VkCommandPoolCreateFlags _flags;
+        uint32_t _queueFamilyIndex;
+
+        VkCommandPoolCreateInfo* Get() {
+            InternalStruct = {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = _flags,
+                .queueFamilyIndex = _queueFamilyIndex
+            };
+
+            return &InternalStruct;
+        }
+
+    private:
+        VkCommandPoolCreateInfo InternalStruct;
+};
+
+struct AlcCommandBufferCreateInfo {
+    public:
+        VkCommandPool _commandPool;
+        VkCommandBufferLevel _level;
+        uint32_t _commandBufferCount;
+
+        VkCommandBufferAllocateInfo* Get() {
+            InternalStruct = {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                .pNext = nullptr,
+                .commandPool = _commandPool,
+                .level = _level,
+                .commandBufferCount = _commandBufferCount
+            };
+
+            return &InternalStruct;
+        }
+
+    private:
+        VkCommandBufferAllocateInfo InternalStruct;
 };
 
 #endif

@@ -80,7 +80,7 @@ void DebugManagerImpl::InternalLog(DebugReport* Report, bool Write) {
     if(Report->Level >= WRITE_MIN_VERBOSITY) {
 
         //To access DM globally it has to be static. This makes logfile static. If something tries to log during static deconstruction DM will exist but logfile will not - > segfault. 
-        //This is to be avoided. Handled deconstruct should finish BEFORE any static deconstruct.
+        //Below workaround avoids a segfault by creating new logfile object. This is to be avoided. Handled deconstruct should finish BEFORE any static deconstruct.
         if(!logfile.is_open()) {
             std::ofstream logfileTROUBLE;
             logfileTROUBLE.open("program.log", std::ios::app);
@@ -92,4 +92,18 @@ void DebugManagerImpl::InternalLog(DebugReport* Report, bool Write) {
     }
 
     if(Report->Level >= PRINT_MIN_VERBOSITY) std::cout << DebugMessage << std::endl;
+}
+
+DebugManager::Punchcard::Punchcard() {
+    punch();
+}
+
+#include <chrono>
+
+void DebugManager::Punchcard::punch() {
+    entry = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+int DebugManager::Punchcard::delta() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - entry;
 }

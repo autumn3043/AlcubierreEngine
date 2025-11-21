@@ -14,8 +14,12 @@ class AlcubierreEngineImpl {
         AlcubierreEngineImpl();
         ~AlcubierreEngineImpl();
 
+        bool ShouldCloseImpl();
+
+        void FrameImpl();
+
     private:
-        // Registry registry;
+        Registry registry;
 };
 
 #endif

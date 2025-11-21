@@ -27,6 +27,7 @@ class VulkanHandler : public WrapperBaseClass {
         ~VulkanHandler();
 
         void* GetBackendObjectImpl();
+        void drawFrameImpl();
 
         class IGraphicsBackendImpl : public IGraphicsBackend {
             public:
@@ -35,6 +36,7 @@ class VulkanHandler : public WrapperBaseClass {
                 IGraphicsBackendImpl(VulkanHandler* _parent) : Parent(_parent) {}
 
                 void* GetBackendObject() override { return Parent->GetBackendObjectImpl(); }
+                void drawFrame() override { return Parent->drawFrameImpl(); }
         };
 
         IGraphicsBackendImpl IGraphicsBackend_VulkanHandler;

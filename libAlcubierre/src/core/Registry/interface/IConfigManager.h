@@ -7,20 +7,27 @@
 #include <cstdint>
 #include <vector>
 #include <variant>
+#include <stdexcept>
 
 class IConfigManager : public InterfaceBaseClass {
     public:
         std::string token() override { return "IConfigManager"; }
 
         template <typename T>
+        struct is_vector : std::false_type {};
+
+        template <typename U, typename Alloc>
+        struct is_vector<std::vector<U, Alloc>> : std::true_type {};
+
+        template <typename T>
         const T Get(std::string key) {
             const std::vector<std::string> key_ = {key};
-            return Get<T>(key_, T());
+            return Get<T>(key_, T(), true);
         }
 
         template <typename T>
         const T Get(const std::vector<std::string> key) {
-            return Get<T>(key, T());
+            return Get<T>(key, T(), true);
         }
 
         template <typename T>
@@ -30,7 +37,7 @@ class IConfigManager : public InterfaceBaseClass {
         }
 
         template <typename T>
-        const T Get(const std::vector<std::string> key, T defaultValue) {
+        const T Get(const std::vector<std::string> key, T defaultValue, bool missingDefault = false) {
             T hold;
             TypeDescriptor* descriptor = new TypeDescriptor(std::type_identity<T>{});
 
@@ -48,20 +55,23 @@ class IConfigManager : public InterfaceBaseClass {
                 }
 
             } else {
-                hold = defaultValue;
                 //Implementation promises that pointer is nullptr in this case.
+                if(!missingDefault) {
+                    hold = defaultValue;
+                } else {
+                    std::string fullkey;
+                    for(int i = 0; i < key.size(); i++) {
+                        fullkey += key[i];
+                        if(i + 1 < key.size()) fullkey += "/";
+                    }
+                    throw std::runtime_error("Failed to get value at key " + fullkey + " because it did not exist. Because no default value was provided this is a FATAL error");
+                }
             }
             
             delete descriptor;
             return hold;
             
         }
-
-        template <typename T>
-        struct is_vector : std::false_type {};
-
-        template <typename U, typename Alloc>
-        struct is_vector<std::vector<U, Alloc>> : std::true_type {};
 
         template <typename T>
         T Extract(void* ptr) {
@@ -104,12 +114,6 @@ class IConfigManager : public InterfaceBaseClass {
 
         struct TypeDescriptor{
             TypeDescriptor() = default;
-
-            template <typename T>
-            struct is_vector : std::false_type {};
-
-            template <typename U, typename Alloc>
-            struct is_vector<std::vector<U, Alloc>> : std::true_type {};
 
             template <typename T>
             explicit TypeDescriptor(std::type_identity<T> = {}) {

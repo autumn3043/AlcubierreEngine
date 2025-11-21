@@ -9,6 +9,13 @@
 //Provides
 #include "core/Registry/interface/IWindowManager.h"
 
+#include "core/DebugManager/public.h"
+
+class GLFWException : public AlcEngineException {
+    public:
+        GLFWException(std::string message) : AlcEngineException(DebugReport(message)) {}
+};
+
 class GLFWImpl;
 
 class GLFWHandler : public WrapperBaseClass{
@@ -20,6 +27,8 @@ class GLFWHandler : public WrapperBaseClass{
         void* GetWindowObjectImpl();
         IWindowManager::WindowInfo* GetWindowInfoImpl();
         bool TouchSurfaceApiImpl();
+        bool ShouldCloseImpl();
+        void pollEventsImpl();
 
         class IWindowManagerImpl : public IWindowManager {
             public:
@@ -29,6 +38,8 @@ class GLFWHandler : public WrapperBaseClass{
                 void* GetWindowObject() override { return Parent->GetWindowObjectImpl(); }
                 IWindowManager::WindowInfo* GetWindowInfo() override { return Parent->GetWindowInfoImpl(); }
                 bool TouchSurfaceApi() override { return Parent->TouchSurfaceApiImpl(); }
+                bool ShouldClose() override { return Parent->ShouldCloseImpl(); }
+                void pollEvents() override { return Parent->pollEventsImpl(); }
         };
 
         IWindowManagerImpl IWindowManager_GLFWHandler;

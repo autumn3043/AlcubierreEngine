@@ -1,8 +1,0 @@
-{
-    "extensions" : [
-        "VK_EXT_debug_utils"
-    ],
-    "glfw_window_hints": [
-        [139265, 0]
-    ]
-}

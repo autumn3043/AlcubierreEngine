@@ -1,11 +1,14 @@
 #include "AlcubierreEngine.h"
 
-#include <iostream>
+#include <thread>
 
 int main() {
     AlcubierreEngine app;
 
-    // while(true);
+    while(!app.ShouldClose()) {
+        app.Frame();
+        // std::this_thread::sleep_for(std::chrono::milliseconds(16));
+    }
 
     return 0;
 }

@@ -61,6 +61,7 @@ InterfaceBaseClass*& RegistryImpl::FetchService(ServiceID id) {
         provider.instantiate();
 
         //When we create a module, we add a reference to it to the entries of each of its dependencies. When deconstructing said dependencies we then know to deconstruct this module first
+        //TODO: Let modules register hooks to indicate that they should be instantiated before a given service, such as to enable surface bridge to dump cfg values BEFORE it is requested by graphics backend
         for(const ServiceID& id : provider.dependsArr()) {
             Services[id].second.push_back(provider_index);
         }

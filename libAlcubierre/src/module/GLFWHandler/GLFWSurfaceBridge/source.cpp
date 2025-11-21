@@ -90,9 +90,9 @@ int GLFWSurfaceBridgeImpl::createwindowsurface(void* TargetInstance, void* Targe
     VkResult hold = glfwCreateWindowSurface(instance, window, nullptr, surface);
 
     if(hold == VK_SUCCESS) {
-        return 0;
+        return 1;
     } else {
         DM().Log("Failed to create WindowSurfaceBridge due to VK error: " + std::to_string(hold));
-        return 1;
+        return 2;
     }
 }

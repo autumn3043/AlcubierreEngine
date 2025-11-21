@@ -1,4 +1,4 @@
-FLAGS = -std=c++23 -I./ -I./src -g -O0
+FLAGS = -std=c++23 -I./ -I./src -g -O0 
 
 OUTPUT = libAlcubierre.a
 

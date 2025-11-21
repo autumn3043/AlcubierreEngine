@@ -1,8 +1,6 @@
 #include "module/GLFWHandler/public.h"
 #include "module/GLFWHandler/private.h"
 
-#include "core/DebugManager/public.h"
-
 ModuleRegistryBundle GLFWHandler::bundle(
     [](void* registry) -> WrapperBaseClass* { return new GLFWHandler(registry); },
     {WINDOW_MANAGER},
@@ -32,21 +30,26 @@ bool GLFWHandler::TouchSurfaceApiImpl() {
     return PrivatePtr->TouchSurfaceApi();
 }
 
+bool GLFWHandler::ShouldCloseImpl() {
+    return PrivatePtr->ShouldClose();
+}
+
+void GLFWHandler::pollEventsImpl() {
+    return PrivatePtr->pollEvents();
+}
+
 IWindowManager::WindowInfo* GLFWHandler::GetWindowInfoImpl() {
     return PrivatePtr->GetWindowInfoIMPL();
 }
 
 GLFWImpl::GLFWImpl(Registry* registry) : registry_ptr(registry) {
     TouchSurfaceApi();
-
-    if(CreateWindow() == 1) {
-        throw std::runtime_error("Failed to create GLFW window");
-    } else {
-        DM().Log("Successfully constructed GLFW window");
-    }
+    CreateWindow();
 }
 
 GLFWImpl::~GLFWImpl() {
+    if(WindowInfo) delete WindowInfo;
+
     if(Window) {
         glfwDestroyWindow(Window);
         DM().Log("Successfully destroyed GLFW window");
@@ -67,16 +70,17 @@ int GLFWImpl::CreateWindow() {
     }
 
     WindowInfo = new IWindowManager::WindowInfo {};
-    WindowInfo->name = CM->Get<std::string>("application_name", "default");
-    WindowInfo->width = CM->Get<int>("window_height", 800);
-    WindowInfo->height = CM->Get<int>("window_width", 600);
+    WindowInfo->name = CM->Get<std::string>("application_name", "default app name");
+    WindowInfo->width = CM->Get<int>("window_width", 800);
+    WindowInfo->height = CM->Get<int>("window_height", 600);
     
-    Window = glfwCreateWindow(WindowInfo->height, WindowInfo->width, WindowInfo->name.c_str(), nullptr, nullptr);
+    Window = glfwCreateWindow(WindowInfo->width, WindowInfo->height, WindowInfo->name.c_str(), nullptr, nullptr);
     glfwGetFramebufferSize(Window, &WindowInfo->width_pix, &WindowInfo->height_pix);
     
     if(!Window) {
-        return 1;
+        throw GLFWException("Failed to create GLFW window");
     } else {
+        DM().Log("Constructed GLFW window with name " + WindowInfo->name + " width " + std::to_string(WindowInfo->width) + " and height " + std::to_string(WindowInfo->height));
         return 0;
     }
 }
@@ -89,4 +93,12 @@ bool GLFWImpl::TouchSurfaceApi() {
         apiStatus = true;
     }
     return apiStatus; 
+}
+
+bool GLFWImpl::ShouldClose() {
+    return glfwWindowShouldClose(Window);
+}
+
+void GLFWImpl::pollEvents() {
+    glfwPollEvents();
 }

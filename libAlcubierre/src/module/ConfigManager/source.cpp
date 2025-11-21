@@ -53,7 +53,7 @@ int ConfigManagerImpl::get_impl(IConfigManager::Container& v_out) {
                 return 0;
             }
         } else if(!json->contains(v_out.key[i])) {
-            loc_Log("Failed to get value at key '" + fullkey(v_out.key) +"' because it did not exist");
+            // loc_Log("Failed to get value at key '" + fullkey(v_out.key) +"' because it did not exist");
             return 1;
         } else json = &((*json)[v_out.key[i]]);
     }

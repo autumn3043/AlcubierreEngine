@@ -7,6 +7,10 @@ class AlcubierreEngine {
     public:
         AlcubierreEngine();
         ~AlcubierreEngine();
+
+        bool ShouldClose();
+
+        void Frame();
     
     private:
         AlcubierreEngineImpl* PrivatePtr = nullptr;

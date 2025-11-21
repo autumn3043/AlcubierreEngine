@@ -20,6 +20,10 @@ class IWindowManager : public InterfaceBaseClass {
         virtual WindowInfo* GetWindowInfo() = 0;
 
         virtual bool TouchSurfaceApi() = 0;
+
+        virtual bool ShouldClose() = 0;
+
+        virtual void pollEvents() = 0;
 };
 
 #endif
