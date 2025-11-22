@@ -1,26 +1,18 @@
-#ifndef ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_RUNTIMEENVIRONMENT_H
-#define ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_RUNTIMEENVIRONMENT_H
+#ifndef ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_ENVIRONMENT_PUBLIC_H
+#define ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_ENVIRONMENT_PUBLIC_H
 
-class VulkanRuntimeEnvironmentComponent {
+class VulkanEnvironmentComponent {
     public:
-        VulkanRuntimeEnvironmentComponent(VulkanHandlerIMPL* _parent, Registry* _registry_ptr) : parent(_parent), registry_ptr(_registry_ptr) {
-            CreateVulkanInstance();
-            CreateDebugLink();
-            CreateSurface();
-        };
-
-        ~VulkanRuntimeEnvironmentComponent();
-
-        VkInstance& getInstance() { return Instance; }
-        VkSurfaceKHR& getSurface() { return Surface; }
-
-    private:
-        VulkanHandlerIMPL* parent = nullptr;
-        Registry*& registry_ptr;
+        VulkanEnvironmentComponent(VulkanHandler* _parent, Registry* _registry_ptr);
+        ~VulkanEnvironmentComponent();
 
         VkInstance Instance = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT DebugMessenger;
         VkSurfaceKHR Surface = VK_NULL_HANDLE;
+
+    private:
+        VulkanHandler* parent = nullptr;
+        Registry*& registry_ptr;
 
         int CreateVulkanInstance();
             void FetchCreateData(AlcInstanceCreateInfo& ReturnBundle);

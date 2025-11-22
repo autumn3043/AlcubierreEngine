@@ -7,8 +7,6 @@ class IGraphicsBackend : public InterfaceBaseClass {
     public:
         std::string token() override { return "IGraphicsBackend"; }
 
-        virtual void* GetBackendObject() = 0;
-
         virtual void drawFrame() = 0;
 };
 

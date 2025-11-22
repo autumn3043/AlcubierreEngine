@@ -1,5 +1,5 @@
-#ifndef ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_DEVICE_H
-#define ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_DEVICE_H
+#ifndef ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_DEVICE_PUBLIC_H
+#define ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_DEVICE_PUBLIC_H
 
 class VulkanDeviceComponent {
     private:
@@ -9,25 +9,17 @@ class VulkanDeviceComponent {
         };
 
     public:
-        VulkanDeviceComponent(VulkanHandlerIMPL* _parent, Registry* _registry_ptr) : parent(_parent), registry_ptr(_registry_ptr) {
-            CreateLogicalDevice();
-        };
-
+        VulkanDeviceComponent(VulkanHandler* _parent, Registry* _registry_ptr);
         ~VulkanDeviceComponent();
-
-        VkDevice& getDevice() { return Device; }
-        VkPhysicalDevice& getPhysicalDevice() { return PhysicalDevice; }
-        AlcQueue& getGraphicsQueue() { return GraphicsQueue; }
-        AlcQueue& getSurfacePresentQueue() { return SurfacePresentQueue; }
-
-    private:
-        VulkanHandlerIMPL* parent = nullptr;
-        Registry*& registry_ptr;
         
         VkPhysicalDevice PhysicalDevice = VK_NULL_HANDLE;
         VkDevice Device = VK_NULL_HANDLE;
         AlcQueue GraphicsQueue;
         AlcQueue SurfacePresentQueue;
+
+    private:
+        VulkanHandler* parent = nullptr;
+        Registry*& registry_ptr;
 
         int CreateLogicalDevice();
             VkPhysicalDevice SelectPhysicalDevice();

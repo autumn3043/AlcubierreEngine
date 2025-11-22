@@ -1,5 +1,5 @@
-#ifndef ALCENGINE_MODULE_VULKANHANDLER_PUBLIC_H
-#define ALCENGINE_MODULE_VULKANHANDLER_PUBLIC_H
+#ifndef ALCENGINE_MODULE_VULKANHANDLER_H
+#define ALCENGINE_MODULE_VULKANHANDLER_H
 
 #include "core/Registry/public.h"
 
@@ -18,16 +18,26 @@ class VulkanException : public AlcEngineException {
         VulkanException(std::string message) : AlcEngineException(DebugReport(message)) {}
 };
 
-class VulkanHandlerIMPL;
+#include <vulkan/vulkan.h>
+#include "module/VulkanHandler/VulkanStructBundles.h"
+
+class VulkanHandler;
+#include "module/VulkanHandler/Component/Environment/public.h"
+#include "module/VulkanHandler/Component/Device/public.h"
+#include "module/VulkanHandler/Component/Swapchain/public.h"
+#include "module/VulkanHandler/Component/Renderchain/public.h"
 
 class VulkanHandler : public WrapperBaseClass {
     public:
-        Registry* registry_ptr = nullptr;
         VulkanHandler(void* registry);
         ~VulkanHandler();
 
-        void* GetBackendObjectImpl();
-        void drawFrameImpl();
+        VulkanEnvironmentComponent* environment = nullptr;
+        VulkanDeviceComponent* device = nullptr;
+        VulkanSwapchainComponent* swapchain = nullptr;
+        VulkanRenderchainComponent* renderchain = nullptr;
+
+        void Init();
 
         class IGraphicsBackendImpl : public IGraphicsBackend {
             public:
@@ -35,16 +45,16 @@ class VulkanHandler : public WrapperBaseClass {
 
                 IGraphicsBackendImpl(VulkanHandler* _parent) : Parent(_parent) {}
 
-                void* GetBackendObject() override { return Parent->GetBackendObjectImpl(); }
                 void drawFrame() override { return Parent->drawFrameImpl(); }
         };
 
         IGraphicsBackendImpl IGraphicsBackend_VulkanHandler;
 
-        VulkanHandlerIMPL* PrivatePtr = nullptr;
-    
+        void drawFrameImpl();
+
     private:
         static ModuleRegistryBundle bundle;
+        Registry* registry_ptr = nullptr;
 };
 
-#endif 
+#endif

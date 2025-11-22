@@ -1,32 +1,13 @@
-#ifndef ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_RENDERCHAIN_H
-#define ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_RENDERCHAIN_H
+#ifndef ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_RENDERCHAIN_PUBLIC_H
+#define ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_RENDERCHAIN_PUBLIC_H
 
 class VulkanRenderchainComponent {
     public:
-        VulkanRenderchainComponent(VulkanHandlerIMPL* _parent, Registry* _registry_ptr) : parent(_parent), registry_ptr(_registry_ptr) {
-            CreateGraphicsPipeline();
-            CreateCommandPool();
-            CreateCommandBuffers();
-
-            AllocateSemaphores(semaphores_presentComplete, 5);
-            AllocateSemaphores(semaphores_renderFinished, 5);
-            AllocateFences(fences_draw, 2);
-        };
-
+        VulkanRenderchainComponent(VulkanHandler* _parent, Registry* _registry_ptr);
         ~VulkanRenderchainComponent();
 
-        VkCommandBuffer& getCommandBuffer(int index) { return CommandBuffers[index]; }
-        VkSemaphore& getPresentationSemaphore(int index) { return semaphores_presentComplete[index]; }
-        VkSemaphore& getRenderSemaphore(int index) { return semaphores_renderFinished[index]; }
-        VkFence& getDrawingFence(int index) { return fences_draw[index]; }
-
-        int RecordCommandBuffer_(VkCommandBuffer& CommandBuffer, int imageIndex) { return RecordCommandBuffer(CommandBuffer, imageIndex); }
-
-    private:
-        VulkanHandlerIMPL* parent = nullptr;
-        Registry*& registry_ptr;
-
         VkPipeline Pipeline = VK_NULL_HANDLE;
+            VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
         VkCommandPool CommandPool = VK_NULL_HANDLE;
             std::vector<VkCommandBuffer> CommandBuffers;
             int max_frames_in_flight = 2;
@@ -34,6 +15,12 @@ class VulkanRenderchainComponent {
         std::vector<VkSemaphore> semaphores_presentComplete;
         std::vector<VkSemaphore> semaphores_renderFinished;
         std::vector<VkFence> fences_draw;
+
+        void DrawFrame();
+
+    private:
+        VulkanHandler* parent = nullptr;
+        Registry*& registry_ptr;
         
 
         int CreateGraphicsPipeline();
