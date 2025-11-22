@@ -1,4 +1,4 @@
-FLAGS = -std=c++23 -I./ -I./src -g -O0 
+FLAGS = -std=c++23 -I./ -I./src -g -O0 -MMD -MF $*.d
 
 OUTPUT = libAlcubierre.a
 
@@ -31,6 +31,8 @@ $(OUTPUT): $(ALL_OBJS)
 	rm $(MODULE_DIR)/$@/source.o
 	g++ $(FLAGS) -o $(MODULE_DIR)/$@/source.o -c $< > makelog 2>&1
 
-
 clean:
 	rm $(shell find src -name '*.o') build/$(OUTPUT) build/AlcubierreEngine.h
+
+-include $(BASE_OBJS:.o=.d)
+-include $(MODULE_OBJS:.o=.d)

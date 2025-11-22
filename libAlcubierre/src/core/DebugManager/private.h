@@ -12,6 +12,9 @@ class DebugManagerImpl {
 
         void InternalLog(DebugReport* Report, bool Write = true);
 
+        int logToLogfileMinVerb = 0;
+        int logToConsoleMinVerb = 1;
+
     private:
         std::ofstream logfile;
 };

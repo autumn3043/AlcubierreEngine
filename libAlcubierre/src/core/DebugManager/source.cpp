@@ -7,9 +7,6 @@
 #include <sstream>
 #include <iomanip>
 
-const int PRINT_MIN_VERBOSITY = 0;
-const int WRITE_MIN_VERBOSITY = 0;
-
 DebugManager& DebugManager::GetDebugManager() {
     static DebugManager Instance;
     return Instance;
@@ -22,6 +19,22 @@ DebugManager::DebugManager() {
 DebugManager::~DebugManager() {
     Log("Note static entity deconstruction.");
     if(PrivatePtr) delete PrivatePtr;
+}
+
+int DebugManager::SetLogToLogfileMinVerbosity(int minVerbosity) {
+    if(minVerbosity < 99) {
+        PrivatePtr->logToLogfileMinVerb = minVerbosity;
+        Log("Logfile minimum verbosity changed to " + std::to_string(minVerbosity), 99);
+    }
+    return PrivatePtr->logToLogfileMinVerb;
+}
+
+int DebugManager::SetLogToConsoleMinVerbosity(int minVerbosity) {
+    if(minVerbosity < 99) {
+        PrivatePtr->logToConsoleMinVerb = minVerbosity;
+        Log("Console minimum verbosity changed to " + std::to_string(minVerbosity), 99);
+    }
+    return PrivatePtr->logToConsoleMinVerb;
 }
 
 // Public methods for shorthand interfacing
@@ -50,6 +63,7 @@ DebugManager::~DebugManager() {
 DebugManagerImpl::DebugManagerImpl() {
     logfile.open("program.log", std::ios::trunc);
     logfile << "<--DebugManager Instance Created-->" << std::endl;
+    logfile << "< logfile verb: " + std::to_string(logToLogfileMinVerb) + " console verb: " + std::to_string(logToConsoleMinVerb)  + " >"<< std::endl;
 }
 
 DebugManagerImpl::~DebugManagerImpl() {
@@ -77,7 +91,7 @@ void DebugManagerImpl::InternalLog(DebugReport* Report, bool Write) {
 
     std::string DebugMessage = oss.str();
 
-    if(Report->Level >= WRITE_MIN_VERBOSITY) {
+    if(Report->Level >= logToLogfileMinVerb) {
 
         //To access DM globally it has to be static. This makes logfile static. If something tries to log during static deconstruction DM will exist but logfile will not - > segfault. 
         //Below workaround avoids a segfault by creating new logfile object. This is to be avoided. Handled deconstruct should finish BEFORE any static deconstruct.
@@ -91,7 +105,7 @@ void DebugManagerImpl::InternalLog(DebugReport* Report, bool Write) {
         }
     }
 
-    if(Report->Level >= PRINT_MIN_VERBOSITY) std::cout << DebugMessage << std::endl;
+    if(Report->Level >= logToConsoleMinVerb) std::cout << DebugMessage << std::endl;
 }
 
 DebugManager::Punchcard::Punchcard() {

@@ -34,6 +34,7 @@ class VulkanHandler : public WrapperBaseClass {
 
         VulkanEnvironmentComponent* environment = nullptr;
         VulkanDeviceComponent* device = nullptr;
+        bool chainInitialisation = false;
         VulkanSwapchainComponent* swapchain = nullptr;
         VulkanRenderchainComponent* renderchain = nullptr;
 
@@ -55,6 +56,8 @@ class VulkanHandler : public WrapperBaseClass {
     private:
         static ModuleRegistryBundle bundle;
         Registry* registry_ptr = nullptr;
+        
+        const uint32_t API_VERSION = VK_API_VERSION_1_4;
 };
 
 #endif

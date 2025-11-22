@@ -9,6 +9,8 @@
 #include <variant>
 #include <stdexcept>
 
+#define CFGARRAY_SIZE_T "SIZE_T"
+
 class IConfigManager : public InterfaceBaseClass {
     public:
         std::string token() override { return "IConfigManager"; }
@@ -26,14 +28,26 @@ class IConfigManager : public InterfaceBaseClass {
         }
 
         template <typename T>
-        const T Get(const std::vector<std::string> key) {
+        const T Get(std::string key, T defaultValue) {
+            const std::vector<std::string> key_ = {key};
+            return Get<T>(key_, defaultValue);
+        }
+
+        template <typename T>
+        const T Get(std::initializer_list<std::string> key) {
+            const std::vector<std::string> key_ = std::vector<std::string>(key);
             return Get<T>(key, T(), true);
         }
 
         template <typename T>
-        const T Get(std::string key, T defaultValue) {
-            const std::vector<std::string> key_ = {key};
+        const T Get(std::initializer_list<std::string> key, T defaultValue) {
+            const std::vector<std::string> key_ = std::vector<std::string>(key);
             return Get<T>(key_, defaultValue);
+        }
+
+        template <typename T>
+        const T Get(const std::vector<std::string> key) {
+            return Get<T>(key, T(), true);
         }
 
         template <typename T>
@@ -44,7 +58,7 @@ class IConfigManager : public InterfaceBaseClass {
             Container item = Container(key, nullptr, descriptor);
 
             if(GetInternal(item) == 0) {
-                if(key[key.size() - 1] == "SIZE_T") {
+                if(key[key.size() - 1] == CFGARRAY_SIZE_T) {
                     if constexpr (std::is_same_v<T, int>) {
                         hold = Extract<int>(item.ptr);
                     } else {
@@ -101,6 +115,12 @@ class IConfigManager : public InterfaceBaseClass {
         }
 
         template <typename T>
+        int Set(std::initializer_list<std::string> key, std::string value) {
+            const std::vector<std::string> key_ = std::vector<std::string>(key);
+            return Set<T>(key_, value);
+        }
+
+        template <typename T>
         int Set(const std::vector<std::string> key, std::string value) {
             TypeDescriptor* descriptor = new TypeDescriptor(std::type_identity<T>{});
 
@@ -108,6 +128,13 @@ class IConfigManager : public InterfaceBaseClass {
             int hold = SetInternal(item);
 
             delete descriptor;
+
+            return hold;
+        }
+
+        int SetRaw(std::string value) {
+            Container item = Container(std::vector<std::string>(0), &value, nullptr);
+            int hold = SetRawInternal(item);
 
             return hold;
         }
@@ -196,7 +223,7 @@ class IConfigManager : public InterfaceBaseClass {
 
         virtual int GetInternal(Container& v_out) = 0; //Implementation reports status via int and fills out the ptr. Because the container is owned by the interface we can handle deletion smoothly. 
         virtual int SetInternal(Container& v_in) = 0;
-        virtual int SetFromFile(const std::string& value) = 0;
+        virtual int SetRawInternal(Container& v_in) = 0;
 };
 
 #endif

@@ -13,13 +13,18 @@ class AlcubierreEngineImpl {
     public:
         AlcubierreEngineImpl();
         ~AlcubierreEngineImpl();
+        void InitEngineImpl();
 
         bool ShouldCloseImpl();
 
         void FrameImpl();
 
+        int SetConfigFromJsonStringImpl(std::string jsonString);
+
     private:
-        Registry registry;
+        Registry registry_ptr;
+
+        const std::vector<int> ENGINE_VERSION = {0, 0, 0};
 };
 
 #endif

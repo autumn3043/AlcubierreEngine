@@ -53,20 +53,21 @@ void VulkanEnvironmentComponent::FetchCreateData(AlcInstanceCreateInfo& ReturnBu
     } else {
         ReturnBundle._ppEnabledLayerNames;
     }
-    ReturnBundle._ppEnabledExtensionNames = CM->Get<std::vector<std::string>>("extensions", {});
+    ReturnBundle._ppEnabledExtensionNames = CM->Get<std::vector<std::string>>({"renderer", "extensions"}, {});
     ReturnBundle._ppEnabledExtensionNames.push_back("VK_EXT_debug_utils");
 }
 
 void VulkanEnvironmentComponent::FetchAppData(AlcApplicationInfo& ReturnBundle) {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
-    ReturnBundle._apiVersion = VK_API_VERSION_1_4;
-    ReturnBundle._pApplicationName = CM->Get<std::string>("application_name", "Default Application");
-    ReturnBundle._pEngineName = CM->Get<std::string>("engine_name", "Alcubierre Engine");
+    ReturnBundle._apiVersion = static_cast<uint32_t>(CM->Get<int>({"protected", "metadata", "api_version"}));
 
-    std::vector<int> appversion = CM->Get<std::vector<int>>("application_version", {0, 0, 0});
+    ReturnBundle._pApplicationName = CM->Get<std::string>({"metadata", "application_data", "name"}, "default application name");
+    ReturnBundle._pEngineName = CM->Get<std::string>({"protected", "metadata", "engine_data", "name"});
+
+    std::vector<int> appversion = CM->Get<std::vector<int>>({"metadata", "application_data", "version"}, {1, 0, 0});
     ReturnBundle._applicationVersion = VK_MAKE_VERSION(static_cast<uint32_t>(appversion[0]), static_cast<uint32_t>(appversion[1]), static_cast<uint32_t>(appversion[2]));
-    std::vector<int> engineversion = CM->Get<std::vector<int>>("engine_version", {0, 0, 0});
+    std::vector<int> engineversion = CM->Get<std::vector<int>>({"protected", "metadata", "engine_data", "version"});
     ReturnBundle._engineVersion = VK_MAKE_VERSION(static_cast<uint32_t>(engineversion[0]), static_cast<uint32_t>(engineversion[1]), static_cast<uint32_t>(engineversion[2]));
 }
 
@@ -84,7 +85,7 @@ int VulkanEnvironmentComponent::CreateDebugLink() {
             return 0;
         }
     } else {
-        DM().Log("Debug extension not present, Vulkan failed to link"); 
+        DM().Log("Debug extension not present, Vulkan failed to link", 2); 
         return 1;
     }
 }
@@ -106,7 +107,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanEnvironmentComponent::VulkanDebugCallback(
 
     DebugReport Report(
         CallbackMessage,
-        1,
+        VULKAN_CALLBACK_VERB,
         "Vulkan Debug Callback",
         std::time(nullptr)
     );

@@ -121,20 +121,20 @@ void VulkanDeviceComponent::FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle) {
 
 void VulkanDeviceComponent::FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo>& ReturnArray) {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
-    int RequestedQueues = CM->Get<int>(std::vector<std::string>{"required_graphics_queues", "SIZE_T"}, 0);
+    int RequestedQueues = CM->Get<int>(std::vector<std::string>{"graphics", "device", "queues", "SIZE_T"}, 0);
 
     if(RequestedQueues == 0) {
-        DM().Log("Applying default graphics queue settings");
+        DM().Log("Applying default graphics queue settings", 1);
 
         //Graphics queue
-        CM->Set<std::vector<int>>({"required_graphics_queues", "0", "flags"}, "[1]");
-        CM->Set<int>({"required_graphics_queues", "0", "count"}, "1");
-        CM->Set<int>({"required_graphics_queues", "0", "priority"}, "1");
+        CM->Set<std::vector<int>>({"graphics", "device", "queues", "0", "flags"}, "[1]");
+        CM->Set<int>({"graphics", "device", "queues", "0", "count"}, "1");
+        CM->Set<int>({"graphics", "device", "queues", "0", "priority"}, "1");
 
         //Surface queue
-        CM->Set<bool>({"required_graphics_queues", "1", "surface_support"}, "true");
-        CM->Set<int>({"required_graphics_queues", "1", "count"}, "1");
-        CM->Set<int>({"required_graphics_queues", "1", "priority"}, "1");
+        CM->Set<bool>({"graphics", "device", "queues", "1", "surface_support"}, "true");
+        CM->Set<int>({"graphics", "device", "queues", "1", "count"}, "1");
+        CM->Set<int>({"graphics", "device", "queues", "1", "priority"}, "1");
 
         RequestedQueues = 2;
     }
@@ -150,8 +150,8 @@ void VulkanDeviceComponent::FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo
         AlcDeviceQueueCreateInfo& queueCreateInfo = ReturnArray.emplace_back(AlcDeviceQueueCreateInfo());
 
         int UsableQueue = -1;
-        std::vector<int> RequiredFlags = CM->Get<std::vector<int>>({"required_graphics_queues", std::to_string(i), "flags"}, {});
-        bool SurfaceRequirement = CM->Get<bool>({"required_graphics_queues", std::to_string(i), "surface_support"}, false);
+        std::vector<int> RequiredFlags = CM->Get<std::vector<int>>({"graphics", "device", "queues", std::to_string(i), "flags"}, {});
+        bool SurfaceRequirement = CM->Get<bool>({"graphics", "device", "queues", std::to_string(i), "surface_support"}, false);
         for(int j = 0; j < QueueFamilies.size(); j++) {
             bool validQueue = true;
 
@@ -177,8 +177,8 @@ void VulkanDeviceComponent::FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo
             GraphicsQueue.index = static_cast<uint32_t>(UsableQueue);
         }
 
-        queueCreateInfo._queueCount = static_cast<uint32_t>(CM->Get<int>({"required_graphics_queues", std::to_string(i), "count"}, 1));
-        queueCreateInfo._pQueuePriorities = static_cast<float>(CM->Get<int>({"required_graphics_queues", std::to_string(i), "priority"}, 1));
+        queueCreateInfo._queueCount = static_cast<uint32_t>(CM->Get<int>({"graphics", "device", "queues", std::to_string(i), "count"}, 1));
+        queueCreateInfo._pQueuePriorities = static_cast<float>(CM->Get<int>({"graphics", "device", "queues", std::to_string(i), "priority"}, 1));
     }
 }
 
@@ -186,7 +186,7 @@ void VulkanDeviceComponent::FetchDeviceExtensionArray(std::vector<std::string>& 
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
     //Stuff other modules need.
-    std::vector<std::string> requestedExtensions = CM->Get<std::vector<std::string>>("required_device_extensions", {});
+    std::vector<std::string> requestedExtensions = CM->Get<std::vector<std::string>>({"device", "extensions"}, {});
 
     //Stuff Vulkan needs.
     requestedExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);

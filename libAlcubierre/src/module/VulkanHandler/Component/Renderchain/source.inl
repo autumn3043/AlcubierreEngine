@@ -146,7 +146,7 @@ int VulkanRenderchainComponent::CreateGraphicsPipeline() {
         DM().Log("Successfully created graphics pipeline");
         return 0;
     } else {
-        DM().Log("Failed to create Vulkan graphics pipeline due to error: " + std::to_string(hold));
+        DM().Log("Failed to create Vulkan graphics pipeline due to error: " + std::to_string(hold), 2);
         return 1;
     }
 }
@@ -154,21 +154,25 @@ int VulkanRenderchainComponent::CreateGraphicsPipeline() {
 void VulkanRenderchainComponent::FetchShaderStageCreateInfos(std::vector<AlcPipelineShaderStageCreateInfo>& ReturnBundlesArray, VkShaderModule& shaderModule) {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
-        //Hacky stuff until I set it up proper
-        CM->Set<int>({"shaders", "stages", "1", "bit"}, std::to_string(VK_SHADER_STAGE_VERTEX_BIT));
-        CM->Set<std::string>({"shaders", "stages", "1", "name"}, "\"vertMain\"");
-        CM->Set<int>({"shaders", "stages", "2", "bit"}, std::to_string(VK_SHADER_STAGE_FRAGMENT_BIT));
-        CM->Set<std::string>({"shaders", "stages", "2", "name"}, "\"fragMain\"");
+    int requiredShaderStages = CM->Get<int>({"graphics", "shaders", "stages", CFGARRAY_SIZE_T}, 0);
 
-    int requiredShaderStages = CM->Get<int>(std::vector<std::string>{"shaders", "stages", "SIZE_T"}, 0);
+    if(requiredShaderStages == 0) {
+        DM().Log("Applying default shader stage settings", 1);
+        CM->Set<int>({"graphics", "shaders", "stages", "0", "bit"}, std::to_string(VK_SHADER_STAGE_VERTEX_BIT));
+        CM->Set<std::string>({"graphics", "shaders", "stages", "0", "name"}, "\"vertMain\"");
+        CM->Set<int>({"graphics", "shaders", "stages", "1", "bit"}, std::to_string(VK_SHADER_STAGE_FRAGMENT_BIT));
+        CM->Set<std::string>({"graphics", "shaders", "stages", "1", "name"}, "\"fragMain\"");
+        requiredShaderStages = 2;
+    }
+
     ReturnBundlesArray.reserve(requiredShaderStages);
 
     for(int i = 0; i < requiredShaderStages; i++) {
         AlcPipelineShaderStageCreateInfo& shaderStage = ReturnBundlesArray.emplace_back(AlcPipelineShaderStageCreateInfo());
-        shaderStage._flags = 0;
-        shaderStage._stage = static_cast<VkShaderStageFlagBits>(CM->Get<int>({"shaders", "stages", std::to_string(i + 1), "bit"}, VK_SHADER_STAGE_VERTEX_BIT));
+        shaderStage._flags = NULL_BIT;
+        shaderStage._stage = static_cast<VkShaderStageFlagBits>(CM->Get<int>({"graphics", "shaders", "stages", std::to_string(i), "bit"}));
         shaderStage._module = shaderModule;
-        shaderStage._pName = CM->Get<std::string>({"shaders", "stages", std::to_string(i + 1), "name"}, "ERR");
+        shaderStage._pName = CM->Get<std::string>({"graphics", "shaders", "stages", std::to_string(i), "name"});
     }
 }
 
@@ -191,7 +195,7 @@ void VulkanRenderchainComponent::GetCommandPoolCreateInfo(AlcCommandPoolCreateIn
 }
 
 int VulkanRenderchainComponent::CreateCommandBuffers() {
-    max_frames_in_flight = static_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER))->Get<int>(std::vector<std::string>{"graphics", "max_frames_in_flight"}, 2);
+    max_frames_in_flight = static_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER))->Get<int>({"graphics", "max_frames_in_flight"}, 2);
 
     CommandBuffers.clear();
 
@@ -341,7 +345,6 @@ int VulkanRenderchainComponent::AllocateFences(std::vector<VkFence>& fences, int
     fences.resize(count);
     for(int i = 0; i < count; i++) {
         VkResult hold = vkCreateFence(parent->device->Device, &CreateInfo, nullptr, &fences[i]);
-        // DM().Log("Created a fence");
         if(hold != VK_SUCCESS) throw VulkanException("Failed to allocate fence at index " + std::to_string(i) + " out of " + std::to_string(count));
     }
 

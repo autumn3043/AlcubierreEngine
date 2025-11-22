@@ -1,0 +1,44 @@
+{
+    "debug" : true,
+    "debug_layers" : ["VK_LAYER_KHRONOS_validation"],
+
+    "metadata" : {
+        "application_data" : {
+            "name" : "Alcubierre sandbox app",
+            "version" : [0, 0, 0]
+        }
+    },
+
+    "presentation" : {
+        "window" : {
+            "maximised" : false,
+            "width" : 800,
+            "height" : 600,
+            "hints" : []
+        }
+    },
+
+    "renderer" : {
+        "defer-renderchain-initialisation" : false,
+        "extensions" : []
+    },
+
+    "graphics" : {
+        "device" : {
+            "extensions" : [],
+            "queues" : [
+                { "flags" : [1], "count" : 1, "priority" : 1, "surface_support" : false},
+                { "flags" : [], "count" : 1, "priority" : 1, "surface_support" : true}
+            ]
+        },
+        "acceptable_image_formats" : [50],
+        "acceptable_presentation_modes" : ["vsync", "immediate"],
+        "shaders" : {
+            "stages" : [
+                { "bit" : 1, "name" : "vertMain" },
+                { "bit" : 16, "name" : "fragMain" }
+            ]
+        },
+        "max_frames_in_flight" : 2
+    }
+}

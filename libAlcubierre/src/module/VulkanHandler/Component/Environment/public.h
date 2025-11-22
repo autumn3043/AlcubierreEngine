@@ -11,6 +11,8 @@ class VulkanEnvironmentComponent {
         VkSurfaceKHR Surface = VK_NULL_HANDLE;
 
     private:
+        static const int VULKAN_CALLBACK_VERB = 0;
+
         VulkanHandler* parent = nullptr;
         Registry*& registry_ptr;
 

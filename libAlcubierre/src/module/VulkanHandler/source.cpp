@@ -27,24 +27,40 @@ VulkanHandler::~VulkanHandler() {
 }
 
 void VulkanHandler::Init() {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
+
     DebugManager::Punchcard bootstrapTimer;
+
+    CM->Set<int>({"protected", "metadata", "api_version"}, std::to_string(API_VERSION));
+    CM->Set<int>({"protected", "graphics", "default_presentation_mode"}, std::to_string(VK_PRESENT_MODE_FIFO_KHR));
 
     environment = new VulkanEnvironmentComponent(this, registry_ptr);
     device = new VulkanDeviceComponent(this, registry_ptr);
 
-    if(!dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER))->Get<bool>("defer-renderchain-initialisation", false)) {
+    if(!CM->Get<bool>({"renderer", "defer-renderchain-initialisation"}, false)) {
         swapchain = new VulkanSwapchainComponent(this, registry_ptr);
         renderchain = new VulkanRenderchainComponent(this, registry_ptr);
+        chainInitialisation = true;
+    } else {
+        DM().Log("Deferring renderchain initialisation to first frame draw call", 1);
     }
 
-    DM().Log("Finished graphics backend bootstrapping in " + std::to_string(bootstrapTimer.delta()) + " milliseconds. Awaiting frame draw command");
+    DM().Log("Finished graphics backend init in " + std::to_string(bootstrapTimer.delta()) + " milliseconds. Awaiting frame draw command", 1);
 }
 
+//We want the components to be included in THIS translation unit
 #include "module/VulkanHandler/Component/Environment/source.inl"
 #include "module/VulkanHandler/Component/Device/source.inl"
 #include "module/VulkanHandler/Component/Swapchain/source.inl"
 #include "module/VulkanHandler/Component/Renderchain/source.inl"
 
 void VulkanHandler::drawFrameImpl() {
+    if(!chainInitialisation) {
+        DM().Log("Proceeding with deferred intialisation", 1);
+        swapchain = new VulkanSwapchainComponent(this, registry_ptr);
+        renderchain = new VulkanRenderchainComponent(this, registry_ptr);
+        chainInitialisation = true;
+    }
+
     renderchain->DrawFrame();
 }

@@ -111,13 +111,13 @@ RegistryImpl::ModuleData::~ModuleData() {
 bool RegistryImpl::ModuleData::exists() { return Instance != nullptr; }
 int RegistryImpl::ModuleData::instantiate() { 
     if(exists()) destruct();
-    DM().Log("Instantiating module: " + Label);
+    DM().Log("Instantiating module: " + Label, 1);
     Instance = std::unique_ptr<WrapperBaseClass>(Constructor(registry_ptr));
     return 0;
 }
 int RegistryImpl::ModuleData::destruct() { 
     Instance.reset();
-    DM().Log("Destructed module: " + Label);
+    DM().Log("Destructed module: " + Label, 1);
     return 0;
 }
 const std::vector<ServiceID>& RegistryImpl::ModuleData::serviceArr() { return Provides; }

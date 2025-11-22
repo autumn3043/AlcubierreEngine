@@ -64,6 +64,9 @@ class DebugManager{
                 int entry;
         };
 
+        int SetLogToLogfileMinVerbosity(int minVerbosity);
+        int SetLogToConsoleMinVerbosity(int minVerbosity);
+
     private:
         DebugManager();
         ~DebugManager();

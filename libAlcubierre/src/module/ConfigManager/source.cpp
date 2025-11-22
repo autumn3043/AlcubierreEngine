@@ -40,6 +40,10 @@ int ConfigManager::Set_Impl(IConfigManager::Container& v_in) {
     return PrivatePtr->set_impl(v_in);    
 }
 
+int ConfigManager::SetRaw_Impl(IConfigManager::Container& v_in) {
+    return PrivatePtr->setraw_impl(v_in);    
+}
+
 int ConfigManagerImpl::get_impl(IConfigManager::Container& v_out) {
     //Does a value exist at this key?
     nlohmann::json* json = &RawConfig;
@@ -52,8 +56,18 @@ int ConfigManagerImpl::get_impl(IConfigManager::Container& v_out) {
                 v_out.ptr = new int(json->size());
                 return 0;
             }
+        } else if(json->is_array()) {
+            int arrayKey;
+            try {
+                arrayKey = std::stoi(v_out.key[i]);
+                json = &((*json)[arrayKey]);
+            } catch (std::invalid_argument& exception) {
+                std::vector<std::string> thisKey = v_out.key;
+                thisKey.erase(thisKey.begin() + i, thisKey.end());
+                loc_Log("The value at key '" + fullkey(thisKey) + "' is an array but the subsequent keynotch was '" + v_out.key[i] + "' which is not a numeric array index", 1);
+            }
         } else if(!json->contains(v_out.key[i])) {
-            // loc_Log("Failed to get value at key '" + fullkey(v_out.key) +"' because it did not exist");
+            loc_Log("Failed to get value at key '" + fullkey(v_out.key) +"' because it did not exist", 0);
             return 1;
         } else json = &((*json)[v_out.key[i]]);
     }
@@ -157,7 +171,7 @@ int ConfigManagerImpl::set_impl(IConfigManager::Container& v_in) {
     try {
         parsed = nlohmann::json::parse(input);
     } catch (const nlohmann::json::parse_error& E) {
-        loc_Log("Failed to parse string: '" + input + "'\nVerbose error: " + E.what(), 5);
+        loc_Log("Failed to parse string: '" + input + "'\nVerbose error: " + E.what(), 2);
         return 1;
     } 
 
@@ -178,6 +192,11 @@ int ConfigManagerImpl::set_impl(IConfigManager::Container& v_in) {
                     (*json)[notch] = parsed;
                     return 0;
                 }
+
+                if((*json)[notch].is_array() && (*json)[notch].empty() && parsed.is_array()) {
+                    (*json)[notch] = parsed;
+                    return 0;
+                }
                 
                 if(*v_in.t_info == GetDescriptorFromJson((*json)[notch])) {
                     (*json)[notch].swap(parsed);
@@ -189,7 +208,7 @@ int ConfigManagerImpl::set_impl(IConfigManager::Container& v_in) {
             }
         }
     } catch (const std::exception& E) {
-        loc_Log("Failed to insert key '" + fullkey(v_in.key) + "' of type: " + v_in.t_info->Type() + "\nVerbose error: " + E.what() + "\n" + RawConfig.dump(), 5);
+        loc_Log("Failed to insert key '" + fullkey(v_in.key) + "' of type: " + v_in.t_info->Type() + "\nVerbose error: " + E.what() + "\n" + RawConfig.dump(), 2);
         return 1;
     }
 
@@ -205,16 +224,47 @@ std::string ConfigManagerImpl::fullkey(const std::vector<std::string>& key) {
     return hold;
 }
 
-int ConfigManager::SetFromFile_Impl(const std::string& value) {
+int ConfigManagerImpl::setraw_impl(IConfigManager::Container& v_in) {
+    std::string value = *static_cast<std::string*>(v_in.ptr);
     nlohmann::json parsed;
 
     try {
         parsed = nlohmann::json::parse(value);
     } catch (const nlohmann::json::parse_error& E) {
-        DM().Log("Failed to parse string: '" + value + "'\nVerbose error: " + E.what(), 5);
+        loc_Log("Failed to parse string: '" + value + "'\nVerbose error: " + E.what(), 2);
         return 1;
-    } 
+    }
 
-    PrivatePtr->RawConfig += parsed;
+    if(parsed.contains("protected")) parsed.erase("protected");
+    if(parsed.empty()) return 1;
+    if(parsed.is_structured()) popEmptyElements(parsed);
+
+    // RawConfig.merge_patch(parsed); // Does NOT overwrite
+    RawConfig.update(parsed); // Does overwrite
     return 0;
+}
+
+void ConfigManagerImpl::popEmptyElements(nlohmann::json& json) {
+    if(json.is_array()) {
+        for(int i = json.size() - 1; i >= 0; i--) {
+            if(json[i].is_structured()) {
+                popEmptyElements(json[i]);
+            }
+            if(json[i].empty()) {
+                json.erase(json.begin() + i);
+            }
+        }
+    }
+    if(json.is_object()) {
+        for(nlohmann::json::iterator it = json.begin(); it != json.end();) {
+            if(it->is_structured()) {
+                popEmptyElements(*it);
+            }
+            if(it->empty()) {
+                it = json.erase(it);
+                continue;
+            }
+            it++;
+        }
+    }
 }

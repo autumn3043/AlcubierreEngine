@@ -38,7 +38,7 @@ GLFWSurfaceBridgeImpl::GLFWSurfaceBridgeImpl(Registry* registry) : registry_ptr(
         IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
         //GLFW window hint to not create VK window cuz we do that here
-            std::vector<std::vector<int>> hints = CM->Get<std::vector<std::vector<int>>>("glfw_window_hints", {});
+            std::vector<std::vector<int>> hints = CM->Get<std::vector<std::vector<int>>>({"presentation", "window", "hints"}, {});
 
             hints.push_back({GLFW_CLIENT_API, GLFW_NO_API});
 
@@ -49,12 +49,12 @@ GLFWSurfaceBridgeImpl::GLFWSurfaceBridgeImpl(Registry* registry) : registry_ptr(
             }
             hintsStr += "]";
 
-            CM->Set<std::vector<std::vector<int>>>("glfw_window_hints", hintsStr);
+            CM->Set<std::vector<std::vector<int>>>({"presentation", "window", "hints"}, hintsStr);
 
             DM().Log("Dumped GLFW-Vulkan bridge hints to cfg");
 
         //VK extensions needed for GLFW
-            std::vector<std::string> extensions = CM->Get<std::vector<std::string>>("extensions", {});
+            std::vector<std::string> extensions = CM->Get<std::vector<std::string>>({"renderer", "extensions"}, {});
 
             uint32_t extensionsCount = 0;
             const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionsCount);
@@ -70,7 +70,7 @@ GLFWSurfaceBridgeImpl::GLFWSurfaceBridgeImpl(Registry* registry) : registry_ptr(
             }
             extensionsStr += "]";
 
-            CM->Set<std::vector<std::string>>("extensions", extensionsStr);
+            CM->Set<std::vector<std::string>>({"renderer", "extensions"}, extensionsStr);
 
             DM().Log("Dumped GLFW-Vulkan bridge extensions to cfg");
     } catch (...) {

@@ -80,7 +80,7 @@ int VulkanSwapchainComponent::FillSwapchainImages(VkSwapchainCreateInfoKHR& Chai
 
         VkResult hold = vkCreateImageView(parent->device->Device, &ImageViewCreateInfo, nullptr, &ChainImageViews[i]);
 
-        if(hold != VK_SUCCESS) DM().Log("Failed to acquire image view on index [" + std::to_string(i) + "]");
+        if(hold != VK_SUCCESS) DM().Log("Failed to acquire image view on index [" + std::to_string(i) + "]", 2);
         else successes++;
     }
 
@@ -95,18 +95,55 @@ void VulkanSwapchainComponent::FetchSwapMode(VkPresentModeKHR& ReturnMode) {
     vkGetPhysicalDeviceSurfacePresentModesKHR(parent->device->PhysicalDevice, parent->environment->Surface, &presentModeCount, nullptr);
     std::vector<VkPresentModeKHR> presentModes(presentModeCount);
     vkGetPhysicalDeviceSurfacePresentModesKHR(parent->device->PhysicalDevice, parent->environment->Surface, &presentModeCount, presentModes.data());
+    if(presentModeCount == 0) throw VulkanException("The physical device indicated that there are no valid presentation modes");
 
-    std::vector<int> PreferredMode = CM->Get<std::vector<int>>(std::vector<std::string>{"graphics", "presentation_mode"}, std::vector<int>{VK_PRESENT_MODE_FIFO_KHR});
+    std::vector<std::string> PreferredMode_str = CM->Get<std::vector<std::string>>({"graphics", "acceptable_presentation_modes"}, {"vsync"});
+    std::vector<int> PreferredMode; 
+    for(int i = 0; i < PreferredMode_str.size(); i++) {
+        std::string mode = PreferredMode_str[i];
+        if(mode == "immediate") {
+            PreferredMode.push_back(VK_PRESENT_MODE_IMMEDIATE_KHR);
+            continue;
+        }
+        if(mode == "triple buffered") {
+            PreferredMode.push_back(VK_PRESENT_MODE_MAILBOX_KHR);
+            continue;
+        }
+        if(mode == "vsync") {
+            PreferredMode.push_back(VK_PRESENT_MODE_FIFO_KHR);
+            continue;
+        }
+        if(mode == "relaxed vsync") {
+            PreferredMode.push_back(VK_PRESENT_MODE_FIFO_RELAXED_KHR);
+            continue;
+        }
+        DM().Log("Presentation mode preference #" + std::to_string(i) + " '" + mode + "' is not a recognised mode and will be ignored", 1);
+        PreferredMode_str.erase(PreferredMode_str.begin() + i);
+    }
     for(int i = 0; i < PreferredMode.size(); i++) {
         for(const VkPresentModeKHR& mode : presentModes) {
             if(PreferredMode[i] == mode) {
                 ReturnMode = mode;
+                DM().Log("Selected presentation mode '" + PreferredMode_str[i] + "' for swapchain");
                 return;
             }
         }
+        DM().Log("Application preferred presentation mode '" + PreferredMode_str[i] + "' was not available", 1);
     }
 
-    throw VulkanException("No available present mode was suitable.");
+    DM().Log("No presentation mode which the application indicated was acceptable was available", 2);
+    int engineDefault = CM->Get<int>({"protected", "graphics", "default_presentation_mode"});
+    for(const VkPresentModeKHR& mode : presentModes) {
+        if(engineDefault == mode) {
+            ReturnMode = mode;
+            return;
+        } else {
+            DM().Log("The engine fallback presentation mode was not available", 2);
+        }
+    }
+
+    DM().Log("Since no listed presentation mode was available, falling back to the first mode indicated by the device", 2);
+    ReturnMode = presentModes[0];
 }
 
 void VulkanSwapchainComponent::FetchSwapSurfaceFormat(VkFormat& ReturnFormat, VkColorSpaceKHR& ReturnColor) {
@@ -117,7 +154,7 @@ void VulkanSwapchainComponent::FetchSwapSurfaceFormat(VkFormat& ReturnFormat, Vk
     std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
     vkGetPhysicalDeviceSurfaceFormatsKHR(parent->device->PhysicalDevice, parent->environment->Surface, &surfaceFormatCount, surfaceFormats.data());
 
-    std::vector<int> PreferredFormat = CM->Get<std::vector<int>>(std::vector<std::string>{"graphics", "image_format"}, std::vector<int>{VK_FORMAT_B8G8R8A8_SRGB});
+    std::vector<int> PreferredFormat = CM->Get<std::vector<int>>(std::vector<std::string>{"graphics", "acceptable_image_formats"}, std::vector<int>{VK_FORMAT_B8G8R8A8_SRGB});
     for(int i = 0; i < PreferredFormat.size(); i++) {
         for(const VkSurfaceFormatKHR& imageFormat : surfaceFormats) {
             if(PreferredFormat[i] == imageFormat.format) {
@@ -131,7 +168,7 @@ void VulkanSwapchainComponent::FetchSwapSurfaceFormat(VkFormat& ReturnFormat, Vk
     //Just use any format
     ReturnFormat = surfaceFormats[0].format;
     ReturnColor = surfaceFormats[0].colorSpace;
-    DM().Log("No requested image format was available");
+    DM().Log("No requested image format was available", 2);
 }
 
 //Undefine shorthands!!

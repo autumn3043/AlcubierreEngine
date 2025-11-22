@@ -63,16 +63,16 @@ GLFWImpl::~GLFWImpl() {
 int GLFWImpl::CreateWindow() {    
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
-    std::vector<std::vector<int>> hints = CM->Get<std::vector<std::vector<int>>>("glfw_window_hints", {});
+    std::vector<std::vector<int>> hints = CM->Get<std::vector<std::vector<int>>>({"presentation", "window", "hints"}, {});
     for(std::vector<int> hint : hints) {
         glfwWindowHint(hint[0], hint[1]);
         DM().Log("Window hint implemented: " + std::to_string(hint[0]) + ", Value: " + std::to_string(hint[1]));
     }
 
     WindowInfo = new IWindowManager::WindowInfo {};
-    WindowInfo->name = CM->Get<std::string>("application_name", "default app name");
-    WindowInfo->width = CM->Get<int>("window_width", 800);
-    WindowInfo->height = CM->Get<int>("window_height", 600);
+    WindowInfo->name = CM->Get<std::string>({"metadata", "application_data", "name"}, "default application name");
+    WindowInfo->width = CM->Get<int>({"presentation", "window", "width"}, 800);
+    WindowInfo->height = CM->Get<int>({"presentation", "window", "height"}, 600);
     
     Window = glfwCreateWindow(WindowInfo->width, WindowInfo->height, WindowInfo->name.c_str(), nullptr, nullptr);
     glfwGetFramebufferSize(Window, &WindowInfo->width_pix, &WindowInfo->height_pix);
@@ -80,7 +80,7 @@ int GLFWImpl::CreateWindow() {
     if(!Window) {
         throw GLFWException("Failed to create GLFW window");
     } else {
-        DM().Log("Constructed GLFW window with name " + WindowInfo->name + " width " + std::to_string(WindowInfo->width) + " and height " + std::to_string(WindowInfo->height));
+        DM().Log("Constructed GLFW window with name '" + WindowInfo->name + "' width " + std::to_string(WindowInfo->width) + " and height " + std::to_string(WindowInfo->height));
         return 0;
     }
 }
