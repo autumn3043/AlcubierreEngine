@@ -9,48 +9,41 @@ class VulkanRenderchainComponent {
         VkPipeline Pipeline = VK_NULL_HANDLE;
             VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
         VkCommandPool CommandPool = VK_NULL_HANDLE;
-            std::vector<VkCommandBuffer> CommandBuffers;
             int max_frames_in_flight = 2;
             int currentFrame = 0;
-        std::vector<VkSemaphore> semaphores_presentComplete;
-        std::vector<VkSemaphore> semaphores_renderFinished;
-        std::vector<VkFence> fences_draw;
-
-        void DrawFrame();
 
     private:
+        class RenderFrame {
+            public:
+                const VkDevice& device;
+                RenderFrame(VkDevice& device);
+                ~RenderFrame();
+                
+                VkCommandBuffer commandBuffer;
+
+                VkSemaphore semaphore = VK_NULL_HANDLE;
+                VkFence fence = VK_NULL_HANDLE;
+        };
+        std::vector<RenderFrame> renderFrames;
+
         VulkanHandler* parent = nullptr;
         Registry*& registry_ptr;
         
-
+        const uint64_t t_second = 1000000000; //qty of nanoseconds in 1 second
+        const uint64_t TIMEOUT_SET = 5; //seconds
+        
         int CreateGraphicsPipeline();
             void FetchShaderStageCreateInfos(std::vector<AlcPipelineShaderStageCreateInfo>& ReturnBundlesArray, VkShaderModule& shaderModule);
 
         int CreateCommandPool();
             void GetCommandPoolCreateInfo(AlcCommandPoolCreateInfo& ReturnBundle);
-
         int CreateCommandBuffers();
             void GetCommandBufferCreateInfo(AlcCommandBufferCreateInfo& ReturnBundle);
 
-        int RecordCommandBuffer(VkCommandBuffer& CommandBuffer, int imageIndex);
-            struct AlcImageLayoutDetails{
-                VkPipelineStageFlags2 stageMask;
-                VkAccessFlags2 accessMask;
-                VkImageLayout layout;
-                uint32_t queueIndex;
-
-                AlcImageLayoutDetails(VkPipelineStageFlags2 _stageMask, VkAccessFlags2 _accessMask, VkImageLayout _layout, uint32_t _queueIndex = VK_QUEUE_FAMILY_IGNORED)
-                    :   stageMask(_stageMask),
-                        accessMask(_accessMask),
-                        layout(_layout),
-                        queueIndex(_queueIndex)
-                    {}
-            };
+        public: int DrawFrame();
+        private:
+            int RecordCommandBuffer(VkCommandBuffer& CommandBuffer, VulkanSwapchainComponent::SwapchainImageWrapper* image);            
             
-            int TransitionImageLayout(VkCommandBuffer& CommandBuffer, VkImage& _image, AlcImageLayoutDetails& _oldDetails, AlcImageLayoutDetails& _newDetails);
-
-        int AllocateSemaphores(std::vector<VkSemaphore>& semaphores, int count);
-        int AllocateFences(std::vector<VkFence>& fences, int count);
 };
 
 #endif

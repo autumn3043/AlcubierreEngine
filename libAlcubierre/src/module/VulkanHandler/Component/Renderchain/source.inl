@@ -5,23 +5,9 @@ VulkanRenderchainComponent::VulkanRenderchainComponent(VulkanHandler* _parent, R
     CreateGraphicsPipeline();
     CreateCommandPool();
     CreateCommandBuffers();
-
-    AllocateSemaphores(semaphores_presentComplete, 5);
-    AllocateSemaphores(semaphores_renderFinished, 5);
-    AllocateFences(fences_draw, 2);
 };
 
 VulkanRenderchainComponent::~VulkanRenderchainComponent() {
-    for(VkSemaphore semaphore : semaphores_presentComplete) {
-        if(semaphore) vkDestroySemaphore(parent->device->Device, semaphore, nullptr);
-    }
-    for(VkSemaphore semaphore : semaphores_renderFinished) {
-        if(semaphore) vkDestroySemaphore(parent->device->Device, semaphore, nullptr);
-    }
-    for(VkFence fence : fences_draw) {
-        if(fence) vkDestroyFence(parent->device->Device, fence, nullptr);
-    }
-
     if(parent->device->Device != VK_NULL_HANDLE, CommandPool != VK_NULL_HANDLE) {
         vkDestroyCommandPool(parent->device->Device, CommandPool, nullptr);
         DM().Log("Successfully destroyed command pool");
@@ -195,18 +181,20 @@ void VulkanRenderchainComponent::GetCommandPoolCreateInfo(AlcCommandPoolCreateIn
 }
 
 int VulkanRenderchainComponent::CreateCommandBuffers() {
-    max_frames_in_flight = static_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER))->Get<int>({"graphics", "max_frames_in_flight"}, 2);
-
-    CommandBuffers.clear();
-
     AlcCommandBufferCreateInfo CreateInfo {};
     GetCommandBufferCreateInfo(CreateInfo);
 
-    CommandBuffers.resize(CreateInfo.Get()->commandBufferCount);
-    VkResult hold = vkAllocateCommandBuffers(parent->device->Device, CreateInfo.Get(), CommandBuffers.data());
-
-    if(hold == VK_SUCCESS) {
-        DM().Log("Successfully created " + std::to_string(max_frames_in_flight) + " command buffers");
+    int s = CreateInfo.Get()->commandBufferCount;
+    renderFrames.clear();
+    std::vector<VkCommandBuffer> hold(s, VK_NULL_HANDLE);
+    VkResult commandBufferAllocateResult = vkAllocateCommandBuffers(parent->device->Device, CreateInfo.Get(), hold.data());
+    renderFrames.reserve(s);
+    for(int i = 0; i < s; i++) {
+        RenderFrame& frame = renderFrames.emplace_back(parent->device->Device);
+        frame.commandBuffer = hold[i];
+    }
+    if(commandBufferAllocateResult == VK_SUCCESS) {
+        DM().Log("Successfully created " + std::to_string(s) + " command buffers");
         return 0;
     } else throw VulkanException("Failed to create command buffers");
 }
@@ -217,37 +205,94 @@ void VulkanRenderchainComponent::GetCommandBufferCreateInfo(AlcCommandBufferCrea
     ReturnBundle._commandBufferCount = max_frames_in_flight;
 }
 
-//Temporary proof of concept. This should be bundled into some kind of structure where assets can be arranged in 3D space and then rendered but for now we just want to render SOMETHING
-int VulkanRenderchainComponent::RecordCommandBuffer(VkCommandBuffer& CommandBuffer, int imageIndex) {
-    VkImage& chainImage = parent->swapchain->ChainImages[imageIndex];
-    VkImageView chainImageView = parent->swapchain->ChainImageViews[imageIndex];
+VulkanRenderchainComponent::RenderFrame::RenderFrame(VkDevice& _device) : device(_device) {
+    VkFenceCreateInfo FenceCreateInfo { 
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT
+    };
 
-    //We may want to transition the image from and into any number of a given formats. Frequently used formats can be defined up here for convenience
-    //We also have to pass the *current* format when transitioning, so make sure to store that too
-    AlcImageLayoutDetails layer_undefined (VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, {}, VK_IMAGE_LAYOUT_UNDEFINED);
-    AlcImageLayoutDetails layer_colorAttachment(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    AlcImageLayoutDetails layer_present(VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, {}, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    vkCreateFence(device, &FenceCreateInfo, nullptr, &fence);
 
-    AlcImageLayoutDetails* context = &layer_undefined;
+    VkSemaphoreCreateInfo SemaphoreCreateInfo { 
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO 
+    };
 
+    vkCreateSemaphore(device, &SemaphoreCreateInfo, nullptr, &semaphore);
+}
+
+VulkanRenderchainComponent::RenderFrame::~RenderFrame() {
+    if(fence) vkDestroyFence(device, fence, nullptr);
+    fence = VK_NULL_HANDLE;
+    if(semaphore) vkDestroySemaphore(device, semaphore, nullptr);
+    semaphore = VK_NULL_HANDLE;
+}
+
+int VulkanRenderchainComponent::DrawFrame() {
+    uint64_t timeout = TIMEOUT_SET * t_second;
+
+    RenderFrame& frame = renderFrames[currentFrame]; //Get (or wait for) next frame free out of max frames in flight
+    vkWaitForFences(parent->device->Device, 1, &frame.fence, VK_TRUE, timeout);
+
+    uint32_t imageIndex;
+    VkResult result_acquireNextImage = vkAcquireNextImageKHR(parent->device->Device, parent->swapchain->Swapchain, timeout, frame.semaphore, VK_NULL_HANDLE, &imageIndex);
+    VulkanSwapchainComponent::SwapchainImageWrapper& image = parent->swapchain->Images[imageIndex]; //Get the next image from the swapchain
+    
+    vkResetFences(parent->device->Device, 1, &frame.fence);
+    vkResetCommandBuffer(frame.commandBuffer, NULL_BIT);
+
+    RecordCommandBuffer(frame.commandBuffer, &image); //Record our render pass onto this frame's command buffer
+
+    VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkSubmitInfo SubmitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &frame.semaphore,
+        .pWaitDstStageMask = &pipelineStageFlags,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &frame.commandBuffer,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &image.semaphore
+    };
+
+    vkQueueSubmit(parent->device->GraphicsQueue.queue, 1, &SubmitInfo, frame.fence);
+
+    VkPresentInfoKHR presentInfo {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &image.semaphore,
+        .swapchainCount = 1,
+        .pSwapchains = &parent->swapchain->Swapchain,
+        .pImageIndices = &imageIndex,
+        .pResults = nullptr
+    };
+
+    vkQueuePresentKHR(parent->device->SurfacePresentQueue.queue, &presentInfo);
+
+    currentFrame = (currentFrame + 1) % max_frames_in_flight;
+
+    return 0;
+}
+
+int VulkanRenderchainComponent::RecordCommandBuffer(VkCommandBuffer& CommandBuffer, VulkanSwapchainComponent::SwapchainImageWrapper* image) {
     VkCommandBufferBeginInfo BeginInfo { 
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .pNext = nullptr,
         .flags = NULL_BIT,
         .pInheritanceInfo = nullptr
     };
-    vkBeginCommandBuffer(CommandBuffer, &BeginInfo);
+    vkBeginCommandBuffer(CommandBuffer, &BeginInfo); //We have to init the command buffer before we start recording commands to it
+
+    image->TransitionImageLayout(CommandBuffer, parent->swapchain->imageLayoutPresets[VulkanSwapchainComponent::LAYOUT_DETAILS_PRESET_COLOURATTACHMENT]);
     
-    TransitionImageLayout(CommandBuffer, chainImage, *context, layer_colorAttachment);
-    context = &layer_colorAttachment;
-
     VkClearValue _clearValue = { .color = VkClearColorValue({0.0f, 0.0f, 0.0f, 1.0f}) };
-
+    
     VkRenderingAttachmentInfo colorRenderingAttachment {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
         .pNext = nullptr,
-        .imageView = chainImageView,
-        .imageLayout = layer_colorAttachment.layout,
+        .imageView = image->imageView,
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         .clearValue = _clearValue
@@ -257,7 +302,7 @@ int VulkanRenderchainComponent::RecordCommandBuffer(VkCommandBuffer& CommandBuff
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
         .pNext = nullptr,
         .flags = NULL_BIT,
-        .renderArea = { .offset = {0,0}, .extent = parent->swapchain->frameExtent },
+        .renderArea = { .offset = {0,0}, .extent = image->extent },
         .layerCount = 1,
         .viewMask = 0,
         .colorAttachmentCount = 1,
@@ -267,39 +312,42 @@ int VulkanRenderchainComponent::RecordCommandBuffer(VkCommandBuffer& CommandBuff
     };
 
     vkCmdBeginRendering(CommandBuffer, &RenderingInfo);
+
     vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipeline);
 
-    VkViewport viewport = VkViewport(0.0f, 0.0f, static_cast<float>(parent->swapchain->frameExtent.width), static_cast<float>(parent->swapchain->frameExtent.height), 0.0f, 1.0f);
+    VkViewport viewport = VkViewport(0.0f, 0.0f, static_cast<float>(image->extent.width), static_cast<float>(image->extent.height), 0.0f, 1.0f);
     vkCmdSetViewport(CommandBuffer, 0, 1, &viewport);
 
-    VkRect2D scissor = VkRect2D(VkOffset2D(0.0f, 0.0f), parent->swapchain->frameExtent);
+    VkRect2D scissor = VkRect2D(VkOffset2D(0.0f, 0.0f), image->extent);
     vkCmdSetScissor(CommandBuffer, 0, 1, &scissor);
 
     vkCmdDraw(CommandBuffer, 3, 1, 0, 0);
 
     vkCmdEndRendering(CommandBuffer);
 
-    TransitionImageLayout(CommandBuffer, chainImage, *context, layer_present);
-    context = &layer_present;
+    image->TransitionImageLayout(CommandBuffer, parent->swapchain->imageLayoutPresets[VulkanSwapchainComponent::LAYOUT_DETAILS_PRESET_PRESENT]);
 
     vkEndCommandBuffer(CommandBuffer);
 
     return 0;
 }
 
-int VulkanRenderchainComponent::TransitionImageLayout(VkCommandBuffer& CommandBuffer, VkImage& _image, AlcImageLayoutDetails& _oldDetails, AlcImageLayoutDetails& _newDetails) {
+int VulkanSwapchainComponent::SwapchainImageWrapper::TransitionImageLayout(VkCommandBuffer& CommandBuffer, AlcImageLayoutDetails& target) {
     VkImageMemoryBarrier2 imageMemoryBarrier {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
         .pNext = nullptr,
-        .srcStageMask = _oldDetails.stageMask,
-        .srcAccessMask = _oldDetails.accessMask,
-        .dstStageMask = _newDetails.stageMask,
-        .dstAccessMask = _newDetails.accessMask,
-        .oldLayout = _oldDetails.layout,
-        .newLayout = _newDetails.layout,
-        .srcQueueFamilyIndex = _oldDetails.queueIndex,
-        .dstQueueFamilyIndex = _newDetails.queueIndex,
-        .image = _image,
+
+        .srcStageMask = layoutDetails.stageMask,
+        .srcAccessMask = layoutDetails.accessMask,
+        .dstStageMask = target.stageMask,
+        .dstAccessMask = target.accessMask,
+        .oldLayout = layoutDetails.layout,
+        .newLayout = target.layout,
+        .srcQueueFamilyIndex = layoutDetails.queueIndex,
+        .dstQueueFamilyIndex = target.queueIndex,
+
+        .image = imageHandle,
+
         .subresourceRange = {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .baseMipLevel = 0,
@@ -319,83 +367,9 @@ int VulkanRenderchainComponent::TransitionImageLayout(VkCommandBuffer& CommandBu
 
     vkCmdPipelineBarrier2(CommandBuffer, &dependencyInfo);
 
-    return 0;
-}
-
-int VulkanRenderchainComponent::AllocateSemaphores(std::vector<VkSemaphore>& semaphores, int count) {
-    VkSemaphoreCreateInfo CreateInfo { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-
-    semaphores.clear();
-    semaphores.resize(count);
-    for(int i = 0; i < count; i++) {
-        VkResult hold = vkCreateSemaphore(parent->device->Device, &CreateInfo, nullptr, &semaphores[i]);
-        if(hold != VK_SUCCESS) throw VulkanException("Failed to allocate semaphore at index " + std::to_string(i) + " out of " + std::to_string(count));
-    }
+    layoutDetails = target;
 
     return 0;
-}
-
-int VulkanRenderchainComponent::AllocateFences(std::vector<VkFence>& fences, int count) {
-    VkFenceCreateInfo CreateInfo { 
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-        .flags = VK_FENCE_CREATE_SIGNALED_BIT
-    };
-
-    fences.clear();
-    fences.resize(count);
-    for(int i = 0; i < count; i++) {
-        VkResult hold = vkCreateFence(parent->device->Device, &CreateInfo, nullptr, &fences[i]);
-        if(hold != VK_SUCCESS) throw VulkanException("Failed to allocate fence at index " + std::to_string(i) + " out of " + std::to_string(count));
-    }
-
-    return 0;
-}
-
-const uint64_t t_second = 1000000000; //qty of nanoseconds in 1 second
-const uint64_t TIMEOUT_SET = 1; //seconds
-uint64_t TIMEOUT = TIMEOUT_SET * t_second;
-// uint64_t TIMEOUT = UINT64_MAX;
-
-void VulkanRenderchainComponent::DrawFrame() {
-    vkWaitForFences(parent->device->Device, 1, &fences_draw[currentFrame], VK_TRUE, TIMEOUT);
-
-    uint32_t imageIndex;
-    VkResult result_acquireNextImage = vkAcquireNextImageKHR(parent->device->Device, parent->swapchain->Swapchain, TIMEOUT, semaphores_presentComplete[currentFrame], VK_NULL_HANDLE, &imageIndex);
-
-    vkResetFences(parent->device->Device, 1, &fences_draw[currentFrame]);
-    vkResetCommandBuffer(CommandBuffers[currentFrame], NULL_BIT);
-
-    RecordCommandBuffer(CommandBuffers[currentFrame], imageIndex);
-
-    VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    VkSubmitInfo SubmitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &semaphores_presentComplete[currentFrame],
-        .pWaitDstStageMask = &pipelineStageFlags,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &CommandBuffers[currentFrame],
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &semaphores_renderFinished[imageIndex]
-    };
-
-    vkQueueSubmit(parent->device->GraphicsQueue.queue, 1, &SubmitInfo, fences_draw[currentFrame]);
-
-    VkPresentInfoKHR presentInfo {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &semaphores_renderFinished[imageIndex],
-        .swapchainCount = 1,
-        .pSwapchains = &parent->swapchain->Swapchain,
-        .pImageIndices = &imageIndex,
-        .pResults = nullptr
-    };
-
-    vkQueuePresentKHR(parent->device->SurfacePresentQueue.queue, &presentInfo);
-
-    currentFrame = (currentFrame + 1) % max_frames_in_flight;
 }
 
 //Undefine shorthands!!

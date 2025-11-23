@@ -38,6 +38,10 @@ int DebugManager::SetLogToConsoleMinVerbosity(int minVerbosity) {
 }
 
 // Public methods for shorthand interfacing
+    void DebugManager::Log() {
+        Log("The sparrow flies south for the winter");
+    }
+
     void DebugManager::Log(std::string Message, int Level, bool Write) {
         DebugReport* Report = new DebugReport(Message, Level);
         PrivatePtr->InternalLog(Report, Write);

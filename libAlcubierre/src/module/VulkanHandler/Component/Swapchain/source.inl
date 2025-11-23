@@ -5,15 +5,16 @@ VulkanSwapchainComponent::VulkanSwapchainComponent(VulkanHandler* _parent, Regis
 }
 
 VulkanSwapchainComponent::~VulkanSwapchainComponent() {
-    for(VkImageView view : ChainImageViews) {
-        vkDestroyImageView(parent->device->Device, view, nullptr);
-        view = VK_NULL_HANDLE;
-    }
-    ChainImages.clear();
     vkDestroySwapchainKHR(parent->device->Device, Swapchain, nullptr);
     Swapchain = VK_NULL_HANDLE;
     DM().Log("Successfully destroyed swapchain");
 }
+
+std::vector<AlcImageLayoutDetails> VulkanSwapchainComponent::imageLayoutPresets = {
+    {VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, {}, VK_IMAGE_LAYOUT_UNDEFINED},
+    {VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+    {VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, {}, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR}
+};
 
 int VulkanSwapchainComponent::CreateSwapchain() {
     VkSwapchainCreateInfoKHR ChainInitInfo {};
@@ -42,22 +43,43 @@ int VulkanSwapchainComponent::CreateSwapchain() {
     VkResult hold = vkCreateSwapchainKHR(parent->device->Device, &ChainInitInfo, nullptr, &Swapchain);
 
     if(hold == VK_SUCCESS) {
-        uint32_t s;
-        vkGetSwapchainImagesKHR(parent->device->Device, Swapchain, &s, nullptr);
-        DM().Log("Successfully created Vulkan swapchain consisting of " + std::to_string(s) + " images");
+        DM().Log("Successfully created Vulkan swapchain");
         return FillSwapchainImages(ChainInitInfo);
     } else {
         throw VulkanException("Failed to create Vulkan swapchain due to VK error: " + std::to_string(hold));
     }
 }
 
+VulkanSwapchainComponent::SwapchainImageWrapper::SwapchainImageWrapper(VkDevice& _device, VkExtent2D _extent) : device(_device), extent(_extent) {
+    layoutDetails = imageLayoutPresets[LAYOUT_DETAILS_PRESET_UNDEFINED];
+
+    VkSemaphoreCreateInfo CreateInfo { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+    vkCreateSemaphore(device, &CreateInfo, nullptr, &semaphore);
+}
+
+VulkanSwapchainComponent::SwapchainImageWrapper::~SwapchainImageWrapper() {
+    if(imageView) vkDestroyImageView(device, imageView, nullptr);
+    imageView = VK_NULL_HANDLE;
+
+    if(semaphore) vkDestroySemaphore(device, semaphore, nullptr);
+    semaphore = VK_NULL_HANDLE;
+}
+
 int VulkanSwapchainComponent::FillSwapchainImages(VkSwapchainCreateInfoKHR& ChainInitInfo) {
     ChainFormat = ChainInitInfo.imageFormat;
 
     uint32_t s;
+    Images.clear();
     vkGetSwapchainImagesKHR(parent->device->Device, Swapchain, &s, nullptr);
-    ChainImages.resize(s);
-    vkGetSwapchainImagesKHR(parent->device->Device, Swapchain, &s, ChainImages.data());
+    std::vector<VkImage> hold(s, VK_NULL_HANDLE);
+    VkResult imageCreateResult = vkGetSwapchainImagesKHR(parent->device->Device, Swapchain, &s, hold.data());
+    Images.reserve(s);
+    for(int i = 0; i < s; i++) {
+        SwapchainImageWrapper& image = Images.emplace_back(parent->device->Device, frameExtent);
+        image.imageHandle = hold[i];
+    }
+    if(imageCreateResult == VK_SUCCESS) DM().Log("Successfully created " + std::to_string(s) + " swapchain images");
+    else throw VulkanException("An issue occurred when attempting to create "+ std::to_string(s) + " swapchain images");
 
     VkImageSubresourceRange ImageSubresourceRange {};
     ImageSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -67,25 +89,23 @@ int VulkanSwapchainComponent::FillSwapchainImages(VkSwapchainCreateInfoKHR& Chai
     ImageSubresourceRange.layerCount = 1;
 
     int successes = 0;
-    for(int i = 0; i < ChainImages.size(); i++) {
-        ChainImageViews.push_back(VkImageView());
-
+    for(SwapchainImageWrapper& image : Images) {
         VkImageViewCreateInfo ImageViewCreateInfo {};
         ImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-
-        ImageViewCreateInfo.image = ChainImages[i];
+        ImageViewCreateInfo.image = image.imageHandle;
         ImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         ImageViewCreateInfo.format = ChainFormat;
         ImageViewCreateInfo.subresourceRange = ImageSubresourceRange;
 
-        VkResult hold = vkCreateImageView(parent->device->Device, &ImageViewCreateInfo, nullptr, &ChainImageViews[i]);
-
-        if(hold != VK_SUCCESS) DM().Log("Failed to acquire image view on index [" + std::to_string(i) + "]", 2);
-        else successes++;
+        VkResult imageViewCreateResult = vkCreateImageView(parent->device->Device, &ImageViewCreateInfo, nullptr, &image.imageView);
+        if(imageViewCreateResult == VK_SUCCESS) successes++;
     }
 
-    if(successes > 0) return 0;
-    else throw VulkanException("No image views were able to be acquired.");
+    if(successes == Images.size()) DM().Log("Successfully allocated all image views");
+    else if(successes > 0) DM().Log("Failed to allocate " + std::to_string(Images.size() - successes) + " image views", 2);
+    else throw VulkanException("Failed to allocate any image views");
+
+    return 0;
 }
 
 void VulkanSwapchainComponent::FetchSwapMode(VkPresentModeKHR& ReturnMode) {

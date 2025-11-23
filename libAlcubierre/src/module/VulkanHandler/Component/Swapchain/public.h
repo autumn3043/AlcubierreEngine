@@ -10,9 +10,33 @@ class VulkanSwapchainComponent {
         uint32_t frameHeight;
         VkExtent2D frameExtent;
 
+        enum LAYOUT_DETAILS_PRESET {
+            LAYOUT_DETAILS_PRESET_UNDEFINED = 0,
+            LAYOUT_DETAILS_PRESET_COLOURATTACHMENT = 1,
+            LAYOUT_DETAILS_PRESET_PRESENT = 2
+        };
+        static std::vector<AlcImageLayoutDetails> imageLayoutPresets;
+        
+        class SwapchainImageWrapper {
+            public:
+                const VkDevice& device;
+                const VkExtent2D extent;
+
+                SwapchainImageWrapper(VkDevice& _device, VkExtent2D _extent);
+                ~SwapchainImageWrapper();
+
+                int TransitionImageLayout(VkCommandBuffer& CommandBuffer, AlcImageLayoutDetails& layoutDetails_target);
+
+                VkImage imageHandle = VK_NULL_HANDLE;
+                VkImageView imageView = VK_NULL_HANDLE;
+
+                VkSemaphore semaphore = VK_NULL_HANDLE;
+
+                AlcImageLayoutDetails layoutDetails;
+        };
+
         VkSwapchainKHR Swapchain = VK_NULL_HANDLE;
-            std::vector<VkImage> ChainImages;
-            std::vector<VkImageView> ChainImageViews;
+            std::vector<SwapchainImageWrapper> Images;
             VkFormat ChainFormat;
 
     private:

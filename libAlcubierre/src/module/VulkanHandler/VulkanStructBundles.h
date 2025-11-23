@@ -250,4 +250,20 @@ struct AlcCommandBufferCreateInfo {
         VkCommandBufferAllocateInfo InternalStruct;
 };
 
+struct AlcImageLayoutDetails {
+    VkPipelineStageFlags2 stageMask;
+    VkAccessFlags2 accessMask;
+    VkImageLayout layout;
+    uint32_t queueIndex;
+
+    AlcImageLayoutDetails(VkPipelineStageFlags2 _stageMask, VkAccessFlags2 _accessMask, VkImageLayout _layout, uint32_t _queueIndex = VK_QUEUE_FAMILY_IGNORED)
+        :   stageMask(_stageMask),
+            accessMask(_accessMask),
+            layout(_layout),
+            queueIndex(_queueIndex)
+        {}
+
+    AlcImageLayoutDetails() {};
+};
+
 #endif

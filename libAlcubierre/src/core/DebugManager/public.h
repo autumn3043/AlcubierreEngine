@@ -42,6 +42,7 @@ class DebugManager{
     public:
         static DebugManager& GetDebugManager();
 
+        void Log();
         void Log(std::string, int Level = 0, bool Write = true);
 
         template <typename T>
@@ -75,6 +76,5 @@ class DebugManager{
 };
 
 inline DebugManager& DM() { return DebugManager::GetDebugManager(); }
-#define QEM "The sparrow flies south for the winter"
 
 #endif

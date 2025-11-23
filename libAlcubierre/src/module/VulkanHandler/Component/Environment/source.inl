@@ -50,6 +50,8 @@ void VulkanEnvironmentComponent::FetchCreateData(AlcInstanceCreateInfo& ReturnBu
     FetchAppData(ReturnBundle._pApplicationInfo);
     if(CM->Get<bool>("debug", true)) {
         ReturnBundle._ppEnabledLayerNames = CM->Get<std::vector<std::string>>("debug_layers", {"VK_LAYER_KHRONOS_validation"});
+        //Vulkan also loads some layers implicitly based on accessed API elements. Can be disabled with an environment variable:
+        //VK_LOADER_LAYERS_DISABLE=~implicit~
     } else {
         ReturnBundle._ppEnabledLayerNames;
     }
