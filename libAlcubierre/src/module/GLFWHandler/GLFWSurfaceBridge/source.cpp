@@ -32,6 +32,7 @@ int GLFWSurfaceBridge::CreateWindowSurfaceImpl(void* TargetInstance, void* Targe
 }
 
 GLFWSurfaceBridgeImpl::GLFWSurfaceBridgeImpl(Registry* registry) : registry_ptr(registry) {
+    // dynamic_cast<IWindowManager*>(registry_ptr->FetchService(WINDOW_MANAGER))->TouchSurfaceApi();
     glfwInit();
 
     try {

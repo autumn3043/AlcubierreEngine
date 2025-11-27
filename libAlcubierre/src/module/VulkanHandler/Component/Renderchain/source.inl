@@ -5,6 +5,8 @@ VulkanRenderchainComponent::VulkanRenderchainComponent(VulkanHandler* _parent, R
     CreateGraphicsPipeline();
     CreateCommandPool();
     CreateCommandBuffers();
+
+    framebufferResizedFlag = dynamic_cast<IWindowManager*>(registry_ptr->FetchService(WINDOW_MANAGER))->getFramebufferResizedFlag();
 };
 
 VulkanRenderchainComponent::~VulkanRenderchainComponent() {
@@ -119,6 +121,7 @@ int VulkanRenderchainComponent::CreateGraphicsPipeline() {
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.setLayoutCount = 0;
     layoutInfo.pushConstantRangeCount = 0;
+
     vkCreatePipelineLayout(parent->device->Device, &layoutInfo, nullptr, &pipelineLayout);
     pipeCreateInfo.layout = pipelineLayout;
 
@@ -181,7 +184,7 @@ void VulkanRenderchainComponent::GetCommandPoolCreateInfo(AlcCommandPoolCreateIn
 }
 
 int VulkanRenderchainComponent::CreateCommandBuffers() {
-    AlcCommandBufferCreateInfo CreateInfo {};
+    AlcCommandBufferCreateInfo CreateInfo{};
     GetCommandBufferCreateInfo(CreateInfo);
 
     int s = CreateInfo.Get()->commandBufferCount;
@@ -212,12 +215,7 @@ VulkanRenderchainComponent::RenderFrame::RenderFrame(VkDevice& _device) : device
     };
 
     vkCreateFence(device, &FenceCreateInfo, nullptr, &fence);
-
-    VkSemaphoreCreateInfo SemaphoreCreateInfo { 
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO 
-    };
-
-    vkCreateSemaphore(device, &SemaphoreCreateInfo, nullptr, &semaphore);
+    CreateSemaphores();
 }
 
 VulkanRenderchainComponent::RenderFrame::~RenderFrame() {
@@ -225,6 +223,16 @@ VulkanRenderchainComponent::RenderFrame::~RenderFrame() {
     fence = VK_NULL_HANDLE;
     if(semaphore) vkDestroySemaphore(device, semaphore, nullptr);
     semaphore = VK_NULL_HANDLE;
+}
+
+void VulkanRenderchainComponent::RenderFrame::CreateSemaphores() {
+    if(semaphore) vkDestroySemaphore(device, semaphore, nullptr);
+
+    VkSemaphoreCreateInfo SemaphoreCreateInfo { 
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO 
+    };
+
+    vkCreateSemaphore(device, &SemaphoreCreateInfo, nullptr, &semaphore);
 }
 
 int VulkanRenderchainComponent::DrawFrame() {
@@ -235,6 +243,13 @@ int VulkanRenderchainComponent::DrawFrame() {
 
     uint32_t imageIndex;
     VkResult result_acquireNextImage = vkAcquireNextImageKHR(parent->device->Device, parent->swapchain->Swapchain, timeout, frame.semaphore, VK_NULL_HANDLE, &imageIndex);
+
+    if(result_acquireNextImage == VK_ERROR_OUT_OF_DATE_KHR || *framebufferResizedFlag) {
+        DM().Log("Attempt to acquire next swapchain image indicated swapchain was out of date");
+        RecreateSwapchain();
+        return 1;
+    }
+
     VulkanSwapchainComponent::SwapchainImageWrapper& image = parent->swapchain->Images[imageIndex]; //Get the next image from the swapchain
     
     vkResetFences(parent->device->Device, 1, &frame.fence);
@@ -268,10 +283,24 @@ int VulkanRenderchainComponent::DrawFrame() {
         .pResults = nullptr
     };
 
-    vkQueuePresentKHR(parent->device->SurfacePresentQueue.queue, &presentInfo);
+    VkResult result_queuePresent = vkQueuePresentKHR(parent->device->SurfacePresentQueue.queue, &presentInfo);
+
+    if(result_queuePresent == VK_ERROR_OUT_OF_DATE_KHR || result_queuePresent == VK_SUBOPTIMAL_KHR || *framebufferResizedFlag) {
+        DM().Log("Attempt to present render pass to surface queue indicated swapchain was out of date or suboptimal");
+        RecreateSwapchain();
+    }
 
     currentFrame = (currentFrame + 1) % max_frames_in_flight;
 
+    return 0;
+}
+
+int VulkanRenderchainComponent::RecreateSwapchain() {
+    *framebufferResizedFlag = false;
+    parent->recreateSwapchain();
+    for(RenderFrame& frame : renderFrames) {
+        frame.CreateSemaphores();
+    }
     return 0;
 }
 

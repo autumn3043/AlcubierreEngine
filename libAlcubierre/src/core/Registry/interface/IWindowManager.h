@@ -8,7 +8,6 @@ class IWindowManager : public InterfaceBaseClass {
         std::string token() override { return "IWindowManager"; }
 
         virtual void* GetWindowObject() = 0;
-
         struct WindowInfo {
             std::string name;
             int width;
@@ -16,14 +15,13 @@ class IWindowManager : public InterfaceBaseClass {
             int width_pix;
             int height_pix;
         };
-
-        virtual WindowInfo* GetWindowInfo() = 0;
-
+        virtual WindowInfo* GetWindowInfo() = 0; 
         virtual bool TouchSurfaceApi() = 0;
-
         virtual bool ShouldClose() = 0;
-
         virtual void pollEvents() = 0;
+        virtual bool* getFramebufferResizedFlag() = 0;
+
+
 };
 
 #endif

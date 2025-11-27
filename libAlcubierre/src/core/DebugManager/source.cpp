@@ -119,9 +119,12 @@ DebugManager::Punchcard::Punchcard() {
 #include <chrono>
 
 void DebugManager::Punchcard::punch() {
-    entry = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    entry = std::chrono::system_clock::now().time_since_epoch().count();
 }
 
-int DebugManager::Punchcard::delta() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - entry;
+#include <cmath>
+
+uint64_t DebugManager::Punchcard::delta(int digits) {
+    int rawDelta = std::chrono::system_clock::now().time_since_epoch().count() - entry;
+    return rawDelta / pow(10, (9 - digits));
 }

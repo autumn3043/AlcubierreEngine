@@ -52,6 +52,7 @@ class VulkanHandler : public WrapperBaseClass {
         IGraphicsBackendImpl IGraphicsBackend_VulkanHandler;
 
         void drawFrameImpl();
+        void recreateSwapchain();
 
     private:
         static ModuleRegistryBundle bundle;

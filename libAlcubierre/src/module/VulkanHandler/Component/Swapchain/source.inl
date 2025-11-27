@@ -28,6 +28,8 @@ int VulkanSwapchainComponent::CreateSwapchain() {
     frameHeight = std::clamp<uint32_t>(static_cast<uint32_t>(info->height_pix), surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height);
     frameExtent = { .width=frameWidth, .height=frameHeight };
 
+    // DM().Log(std::to_string(frameWidth) + "w " + std::to_string(frameHeight) + "h");
+
     ChainInitInfo.imageExtent = frameExtent;
     ChainInitInfo.imageArrayLayers = 1;
     ChainInitInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;

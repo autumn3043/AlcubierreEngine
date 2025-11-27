@@ -58,7 +58,7 @@ class DebugManager{
         class Punchcard {
             public:
                 void punch();
-                int delta();
+                uint64_t delta(int digits = 3);
 
                 Punchcard();
             private:

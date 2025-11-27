@@ -64,3 +64,10 @@ void VulkanHandler::drawFrameImpl() {
 
     renderchain->DrawFrame();
 }
+
+void VulkanHandler::recreateSwapchain() {
+    DM().Log("Recreating Vulkan swapchain");
+    vkDeviceWaitIdle(device->Device);
+    if(swapchain) delete swapchain;
+    swapchain = new VulkanSwapchainComponent(this, registry_ptr);
+}
