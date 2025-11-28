@@ -37,12 +37,34 @@ class VulkanRenderchainComponent {
         const uint64_t TIMEOUT_SET = 5; //seconds
         
         int CreateGraphicsPipeline();
+            int CreateShader(VkShaderModule& shader);
             void FetchShaderStageCreateInfos(std::vector<AlcPipelineShaderStageCreateInfo>& ReturnBundlesArray, VkShaderModule& shaderModule);
 
         int CreateCommandPool();
             void GetCommandPoolCreateInfo(AlcCommandPoolCreateInfo& ReturnBundle);
         int CreateCommandBuffers();
             void GetCommandBufferCreateInfo(AlcCommandBufferCreateInfo& ReturnBundle);
+        int CreateVertexBuffers();
+            struct Vertex {
+                float position[2];
+                float colour[3];
+            };
+            class VertexBuffer {
+                public:
+                    VertexBuffer(VkDevice& device, VkPhysicalDevice& physicalDevice, std::vector<Vertex> vertices);
+                    ~VertexBuffer();
+
+                    int fillBufferMemory(void** external_membuffer);
+
+                    VkDevice& device;
+
+                    VkDeviceMemory bufferMemory;
+                    VkBuffer bufferInstance;
+                    VkDeviceSize bufferSize;
+            };
+            std::vector<VertexBuffer*> vertexBuffers;
+            std::vector<Vertex> vertices_temp;
+            void* vertexData;
 
         public: int DrawFrame();
         private:
