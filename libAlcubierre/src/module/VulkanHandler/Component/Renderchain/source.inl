@@ -167,27 +167,33 @@ int VulkanRenderchainComponent::CreateShader(VkShaderModule& shader) {
 void VulkanRenderchainComponent::FetchShaderStageCreateInfos(std::vector<AlcPipelineShaderStageCreateInfo>& ReturnBundlesArray, VkShaderModule& shaderModule) {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
+    //If the app does not specify the name of its shader, there is no general default which can safely be assumed. Thus, we have no choice but to throw
+    //We do this manually though, the raw engine error means nothing to the developer
     int requiredShaderStages = CM->Get<int>({"graphics", "shaders", "stages", CFGARRAY_SIZE_T}, 0);
-
-    if(requiredShaderStages == 0) {
-        DM().Log("Applying default shader stage settings", 1);
-        CM->Set<int>({"graphics", "shaders", "stages", "0", "bit"}, std::to_string(VK_SHADER_STAGE_VERTEX_BIT));
-        CM->Set<std::string>({"graphics", "shaders", "stages", "0", "name"}, "\"vertMain\"");
-        CM->Set<int>({"graphics", "shaders", "stages", "1", "bit"}, std::to_string(VK_SHADER_STAGE_FRAGMENT_BIT));
-        CM->Set<std::string>({"graphics", "shaders", "stages", "1", "name"}, "\"fragMain\"");
-        requiredShaderStages = 2;
-    }
+    if(requiredShaderStages == 0) throw VulkanException("Attempted to fetch shader stage infos, but none existed in config! Ensure that at least one correct shader name is dumped to graphics/shaders/stages/name");
 
     ReturnBundlesArray.reserve(requiredShaderStages);
-
     for(int i = 0; i < requiredShaderStages; i++) {
         AlcPipelineShaderStageCreateInfo& shaderStage = ReturnBundlesArray.emplace_back(AlcPipelineShaderStageCreateInfo());
         shaderStage._flags = NULL_BIT;
-        shaderStage._stage = static_cast<VkShaderStageFlagBits>(CM->Get<int>({"graphics", "shaders", "stages", std::to_string(i), "bit"}));
+        std::string stageBit = CM->Get<std::string>({"graphics", "shaders", "stages", std::to_string(i), "type"}, "all");
+        shaderStage._stage = ConfigParse_ShaderStage(stageBit);
         shaderStage._module = shaderModule;
-        shaderStage._pName = CM->Get<std::string>({"graphics", "shaders", "stages", std::to_string(i), "name"});
+        shaderStage._pName = CM->Get<std::string>({"graphics", "shaders", "stages", std::to_string(i), "name"}, "ALC_MISSING_STAGE_NAME");
+        if(shaderStage._pName == "ALC_MISSING_STAGE_NAME") throw VulkanException("Attempted to fetch shader stage infos, but none existed in config! Ensure that at least one correct shader name is dumped to graphics/shaders/stages/name");
     }
 }
+
+VkShaderStageFlagBits VulkanRenderchainComponent::ConfigParse_ShaderStage(std::string& value) {
+    if(value == "vertex") return VK_SHADER_STAGE_VERTEX_BIT;
+    if(value == "tessellation_control") return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    if(value == "tessellation_evaluation") return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    if(value == "geometry") return VK_SHADER_STAGE_GEOMETRY_BIT;
+    if(value == "fragment") return VK_SHADER_STAGE_FRAGMENT_BIT;
+    if(value == "compute") return VK_SHADER_STAGE_COMPUTE_BIT;
+    if(value == "all_graphics") return VK_SHADER_STAGE_ALL_GRAPHICS;
+    if(value == "all") return VK_SHADER_STAGE_ALL;
+} 
 
 int VulkanRenderchainComponent::CreateCommandPool() {
     AlcCommandPoolCreateInfo CreateInfo {};

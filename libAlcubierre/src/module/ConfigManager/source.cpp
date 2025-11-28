@@ -229,7 +229,7 @@ int ConfigManagerImpl::setraw_impl(IConfigManager::Container& v_in) {
     nlohmann::json parsed;
 
     try {
-        parsed = nlohmann::json::parse(value);
+        parsed = nlohmann::json::parse(value, nullptr, true, true);
     } catch (const nlohmann::json::parse_error& E) {
         loc_Log("Failed to parse string: '" + value + "'\nVerbose error: " + E.what(), 2);
         return 1;

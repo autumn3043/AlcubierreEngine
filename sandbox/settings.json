@@ -1,4 +1,7 @@
+//empty objects or arrays will be ignored by the parser because it cannot interpret the type of the nested value
+
 {
+    //if debug is false, the Vulkan Debug Callback will not be assigned and debug_layers will be ignored
     "debug" : true,
     "debug_layers" : ["VK_LAYER_KHRONOS_validation"],
 
@@ -19,7 +22,8 @@
     },
 
     "renderer" : {
-        "defer-renderchain-initialisation" : false,
+        //if true, does not initialise the renderchain (graphics pipeline, shader modules, swapchain, command pools) until the first frame draw command is recieved
+        "defer_renderchain_initialisation" : false,
         "extensions" : []
     },
 
@@ -27,16 +31,17 @@
         "device" : {
             "extensions" : [],
             "queues" : [
-                { "flags" : [1], "count" : 1, "priority" : 1, "surface_support" : false},
-                { "flags" : [], "count" : 1, "priority" : 1, "surface_support" : true}
+                { "flags" : ["graphics"], "count" : 1, "priority" : 1, "surface_support" : false},
+                { "count" : 1, "priority" : 1, "surface_support" : true}
             ]
         },
+        //https://docs.vulkan.org/refpages/latest/refpages/source/VkFormat.html
         "acceptable_image_formats" : [50],
         "acceptable_presentation_modes" : ["vsync", "immediate"],
         "shaders" : {
             "stages" : [
-                { "bit" : 1, "name" : "vertMain" },
-                { "bit" : 16, "name" : "fragMain" }
+                { "type" : "vertex", "name" : "vertMain" },
+                { "type" : "fragment", "name" : "fragMain" }
             ]
         },
         "max_frames_in_flight" : 2

@@ -27,6 +27,7 @@ class VulkanDeviceComponent {
 
             void FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle);
             void FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo>& ReturnArray);
+                VkQueueFlags ConfigParse_QueueFlagBits(std::vector<std::string>& values);
             void FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray);
             void FetchDeviceFeatures(AlcDeviceFeatures& ReturnBundle);
 };

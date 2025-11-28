@@ -37,7 +37,7 @@ void VulkanHandler::Init() {
     environment = new VulkanEnvironmentComponent(this, registry_ptr);
     device = new VulkanDeviceComponent(this, registry_ptr);
 
-    if(!CM->Get<bool>({"renderer", "defer-renderchain-initialisation"}, false)) {
+    if(!CM->Get<bool>({"renderer", "defer_renderchain_initialisation"}, false)) {
         swapchain = new VulkanSwapchainComponent(this, registry_ptr);
         renderchain = new VulkanRenderchainComponent(this, registry_ptr);
         chainInitialisation = true;

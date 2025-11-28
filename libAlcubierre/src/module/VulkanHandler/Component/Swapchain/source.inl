@@ -176,10 +176,10 @@ void VulkanSwapchainComponent::FetchSwapSurfaceFormat(VkFormat& ReturnFormat, Vk
     std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
     vkGetPhysicalDeviceSurfaceFormatsKHR(parent->device->PhysicalDevice, parent->environment->Surface, &surfaceFormatCount, surfaceFormats.data());
 
-    std::vector<int> PreferredFormat = CM->Get<std::vector<int>>(std::vector<std::string>{"graphics", "acceptable_image_formats"}, std::vector<int>{VK_FORMAT_B8G8R8A8_SRGB});
-    for(int i = 0; i < PreferredFormat.size(); i++) {
+    std::vector<int> preferredFormat = CM->Get<std::vector<int>>(std::vector<std::string>{"graphics", "acceptable_image_formats"}, std::vector<int>{VK_FORMAT_B8G8R8A8_SRGB});
+    for(int i = 0; i < preferredFormat.size(); i++) {
         for(const VkSurfaceFormatKHR& imageFormat : surfaceFormats) {
-            if(PreferredFormat[i] == imageFormat.format) {
+            if(preferredFormat[i] == imageFormat.format) {
                 ReturnFormat = imageFormat.format;
                 ReturnColor = imageFormat.colorSpace;
                 return;

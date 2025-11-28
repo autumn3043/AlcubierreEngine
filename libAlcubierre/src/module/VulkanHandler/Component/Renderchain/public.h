@@ -39,6 +39,7 @@ class VulkanRenderchainComponent {
         int CreateGraphicsPipeline();
             int CreateShader(VkShaderModule& shader);
             void FetchShaderStageCreateInfos(std::vector<AlcPipelineShaderStageCreateInfo>& ReturnBundlesArray, VkShaderModule& shaderModule);
+            VkShaderStageFlagBits ConfigParse_ShaderStage(std::string& value);
 
         int CreateCommandPool();
             void GetCommandPoolCreateInfo(AlcCommandPoolCreateInfo& ReturnBundle);
