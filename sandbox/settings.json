@@ -39,11 +39,22 @@
         "acceptable_image_formats" : [50],
         "acceptable_presentation_modes" : ["vsync", "immediate"],
         "shaders" : {
+            "count" : 1,
             "stages" : [
-                { "type" : "vertex", "name" : "vertMain" },
-                { "type" : "fragment", "name" : "fragMain" }
+                { "type" : "vertex", "name" : "vertMain", "shader" : 0 },
+                { "type" : "fragment", "name" : "fragMain", "shader" : 0}
             ]
         },
-        "max_frames_in_flight" : 2
-    }
+        "max_frames_in_flight" : 2,
+        "frame_timeout_seconds" : 5
+    },
+
+    "scale" : 0.75,
+
+    "vertices_temp" : [
+        {"position" : {"x" : 0.0, "y" : 0.0}, "colour" : {"r" : 1.0, "g" : 0.0, "b" : 0.0}},
+        {"position" : {"x" : 0.5, "y" : -1.0}, "colour" : {"r" : 0.0, "g" : 1.0, "b" : 0.0}},
+        {"position" : {"x" : 1.0, "y" : 0.0}, "colour" : {"r" : 0.0, "g" : 0.0, "b" : 1.0}},
+        {"position" : {"x" : 1.5, "y" : -1.0}, "colour" : {"r" : 1.0, "g" : 0.0, "b" : 0.0}}
+    ]
 }

@@ -1,5 +1,4 @@
 //Space left for shorthand defines
-#define NULL_BIT 0x0
 
 VulkanDeviceComponent::VulkanDeviceComponent(VulkanHandler* _parent, Registry* _registry_ptr) : parent(_parent), registry_ptr(_registry_ptr) {
     CreateLogicalDevice();
@@ -246,4 +245,3 @@ void VulkanDeviceComponent::FetchDeviceFeatures(AlcDeviceFeatures& ReturnBundle)
 }
 
 //Undefine shorthands!!
-#undef NULL_BIT

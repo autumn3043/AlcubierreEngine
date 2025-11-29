@@ -1,4 +1,5 @@
 #include "module/VulkanHandler/public.h"
+#define NULL_BIT 0x0
 
 ModuleRegistryBundle VulkanHandler::bundle(
     [](void* registry) -> WrapperBaseClass* { return new VulkanHandler(registry); },
@@ -71,3 +72,5 @@ void VulkanHandler::recreateSwapchain() {
     if(swapchain) delete swapchain;
     swapchain = new VulkanSwapchainComponent(this, registry_ptr);
 }
+
+#undef NULL_BIT

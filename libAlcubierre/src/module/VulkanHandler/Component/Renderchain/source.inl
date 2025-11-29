@@ -1,55 +1,118 @@
-//Space left for shorthand defines
-#define NULL_BIT 0x0
-
 VulkanRenderchainComponent::VulkanRenderchainComponent(VulkanHandler* _parent, Registry* _registry_ptr) : parent(_parent), registry_ptr(_registry_ptr) {
+    framebufferResizedFlag = dynamic_cast<IWindowManager*>(registry_ptr->FetchService(WINDOW_MANAGER))->getFramebufferResizedFlag();
+    maxFramesInFlight = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER))->Get<int>({"graphics", "max_frames_in_flight"}, 2);
+
     CreateGraphicsPipeline();
     CreateCommandPool();
-    CreateCommandBuffers();
     CreateVertexBuffers();
-
-    framebufferResizedFlag = dynamic_cast<IWindowManager*>(registry_ptr->FetchService(WINDOW_MANAGER))->getFramebufferResizedFlag();
 };
 
 VulkanRenderchainComponent::~VulkanRenderchainComponent() {
-    for(VertexBuffer* buffer : vertexBuffers) {
-        if(buffer) delete buffer;
+    for(int i = 0; i < vertexBuffers.size(); i++) {
+        if(vertexBuffers[i]) delete vertexBuffers[i];
     }
-
-    if(parent->device->Device != VK_NULL_HANDLE, CommandPool != VK_NULL_HANDLE) {
-        vkDestroyCommandPool(parent->device->Device, CommandPool, nullptr);
-        DM().Log("Successfully destroyed command pool");
-    }
-
-    if((parent->device->Device != VK_NULL_HANDLE) && (Pipeline != VK_NULL_HANDLE)) {
-        vkDestroyPipeline(parent->device->Device, Pipeline, nullptr);
-        vkDestroyPipelineLayout(parent->device->Device, pipelineLayout, nullptr);
-        DM().Log("Successfully destroyed graphics pipeline");
-    }
+    if(commandPool) delete commandPool;
+    if(pipeline) delete pipeline;
 }
 
 int VulkanRenderchainComponent::CreateGraphicsPipeline() {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
+    std::vector<ShaderModule> shaders;
+    int shaderCount = CM->Get<int>({"graphics", "shaders", "count"}, 1);
+    shaders.reserve(shaderCount);
+    for(int i = 0; i < shaderCount; i++) {
+        shaders.emplace_back(parent->device->Device);
+    }
+    DM().Log("Constructed " + std::to_string(shaderCount) + " shaders");
+
+    std::vector<ShaderModuleStage> shaderStages;
+    int shaderStageCount = CM->Get<int>({"graphics", "shaders", "stages", CFGARRAY_SIZE_T}, 0);
+    shaderStages.reserve(shaderStageCount);
+    for(int i = 0; i < shaderStageCount; i++) {
+        std::string type = CM->Get<std::string>({"graphics", "shaders", "stages", std::to_string(i), "type"}, "all");
+        std::string name = CM->Get<std::string>({"graphics", "shaders", "stages", std::to_string(i), "name"});
+        int shaderIndex = CM->Get<int>({"graphics", "shaders", "stages", std::to_string(i), "shader"}, 0);
+        if(shaderIndex > shaders.size() - 1) {
+            DM().Log("Shader stage " + std::to_string(i) + " requested shader " + std::to_string(shaderIndex) + " but only " + std::to_string(shaders.size()) + " existed so it used the default shader 0", 1);
+            shaderIndex = 0;
+        }
+        shaderStages.emplace_back(i, name, type, shaders[shaderIndex]);
+    }
+    DM().Log("Prepared " + std::to_string(shaderStageCount) + " shader stages");
+
+    if(pipeline) delete pipeline;
+    pipeline = new GraphicsPipeline(parent->device->Device, parent->swapchain->ChainFormat, shaderStages);
+
+    return 0;
+}
+
+#include <fstream>
+VulkanRenderchainComponent::ShaderModule::ShaderModule(VkDevice& _device) : device(_device) {
+    //TEMP
+        std::ifstream file("basic_shader.spv", std::ios::ate | std::ios::binary);
+        if(!file.is_open()) throw VulkanException("Failed to open shader file");
+        size_t fileSize = static_cast<size_t>(file.tellg());
+        file.seekg(0, std::ios::beg);
+        std::vector<uint32_t> shaderData(fileSize / sizeof(uint32_t));
+        if (!file.read(reinterpret_cast<char*>(shaderData.data()), static_cast<std::streamsize>(fileSize))) {
+            throw VulkanException("Failed to read shader");
+        }
+        file.close();
+
+    VkShaderModuleCreateInfo shaderCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = shaderData.size() * sizeof(uint32_t),
+        .pCode = shaderData.data()
+    };
+    vkCreateShaderModule(device, &shaderCreateInfo, nullptr, &module);
+}
+
+VulkanRenderchainComponent::ShaderModule::~ShaderModule() {
+    if(device != VK_NULL_HANDLE) {
+        if(module) vkDestroyShaderModule(device, module, nullptr);
+    } else {
+        DM().Log("Attempted to discard shader module, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
+    }
+}
+
+VulkanRenderchainComponent::ShaderModuleStage::ShaderModuleStage(int _index, std::string _name, std::string _type, ShaderModule& shader) : index(_index), name(_name) {
+    if(_type == "vertex") type = VK_SHADER_STAGE_VERTEX_BIT;
+    else if(_type == "tessellation_control") type = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    else if(_type == "tessellation_evaluation") type = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    else if(_type == "geometry") type = VK_SHADER_STAGE_GEOMETRY_BIT;
+    else if(_type == "fragment") type = VK_SHADER_STAGE_FRAGMENT_BIT;
+    else if(_type == "compute") type = VK_SHADER_STAGE_COMPUTE_BIT;
+    else if(_type == "all_graphics") type = VK_SHADER_STAGE_ALL_GRAPHICS;
+    else if(_type == "all") type = VK_SHADER_STAGE_ALL;
+    else throw VulkanException("Invalid shader stage '" + _type + "' passed to shader stage" + std::to_string(index));
+
+    createInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = NULL_BIT,
+        .stage = type,
+        .module = shader.module,
+        .pName = name.c_str(),
+    };
+}
+
+VulkanRenderchainComponent::GraphicsPipeline::GraphicsPipeline(VkDevice& _device, VkFormat& format, std::vector<ShaderModuleStage>& shaderStages) : device(_device) {
     VkGraphicsPipelineCreateInfo pipeCreateInfo {};
     pipeCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 
     VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
         .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &parent->swapchain->ChainFormat
+        .pColorAttachmentFormats = &format
     };
     pipeCreateInfo.pNext = &pipelineRenderingCreateInfo;
 
-    VkShaderModule basicShader;
-    CreateShader(basicShader);
-
-    std::vector<AlcPipelineShaderStageCreateInfo> shaderStageCreateInfos_arr; 
-    FetchShaderStageCreateInfos(shaderStageCreateInfos_arr, basicShader);
     std::vector<VkPipelineShaderStageCreateInfo> shaderStageCreateInfos;
-    shaderStageCreateInfos.reserve(shaderStageCreateInfos_arr.size());
-    for(AlcPipelineShaderStageCreateInfo& shaderStage : shaderStageCreateInfos_arr) {
-        shaderStageCreateInfos.push_back(*shaderStage.Get());
+    for(ShaderModuleStage shaderStage : shaderStages) {
+        shaderStageCreateInfos.push_back(shaderStage.createInfo);
+        //Shallow copy is okay, parent vector exists for the lifetime of this function
     }
-
     pipeCreateInfo.stageCount = static_cast<uint32_t>(shaderStageCreateInfos.size());
     pipeCreateInfo.pStages = shaderStageCreateInfos.data();
 
@@ -67,7 +130,8 @@ int VulkanRenderchainComponent::CreateGraphicsPipeline() {
 
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
+        // .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP
     };
     pipeCreateInfo.pInputAssemblyState = &inputAssemblyInfo;
 
@@ -83,7 +147,8 @@ int VulkanRenderchainComponent::CreateGraphicsPipeline() {
         .depthClampEnable = VK_FALSE,
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = VK_POLYGON_MODE_FILL,
-        .cullMode = VK_CULL_MODE_BACK_BIT,
+        // .cullMode = VK_CULL_MODE_BACK_BIT,
+        .cullMode = VK_CULL_MODE_NONE,
         .frontFace = VK_FRONT_FACE_CLOCKWISE,
         .depthBiasEnable = VK_FALSE,
         .depthBiasSlopeFactor = 1.0f,
@@ -124,133 +189,123 @@ int VulkanRenderchainComponent::CreateGraphicsPipeline() {
         .pushConstantRangeCount = 0
     };
 
-    vkCreatePipelineLayout(parent->device->Device, &layoutInfo, nullptr, &pipelineLayout);
-    pipeCreateInfo.layout = pipelineLayout;
+    vkCreatePipelineLayout(device, &layoutInfo, nullptr, &layout);
+    pipeCreateInfo.layout = layout;
 
     pipeCreateInfo.renderPass = VK_NULL_HANDLE;
 
-    VkResult hold = vkCreateGraphicsPipelines(parent->device->Device, nullptr, 1, &pipeCreateInfo, nullptr, &Pipeline);
-
-    vkDestroyShaderModule(parent->device->Device, basicShader, nullptr);
+    VkResult hold = vkCreateGraphicsPipelines(device, nullptr, 1, &pipeCreateInfo, nullptr, &pipeline);
 
     if(hold == VK_SUCCESS) {
         DM().Log("Successfully created graphics pipeline");
-        return 0;
     } else {
         DM().Log("Failed to create Vulkan graphics pipeline due to error: " + std::to_string(hold), 2);
-        return 1;
     }
 }
 
-#include <fstream>
-int VulkanRenderchainComponent::CreateShader(VkShaderModule& shader) {
-    //TEMP
-    std::ifstream file("basic_shader.spv", std::ios::ate | std::ios::binary);
-    if(!file.is_open()) throw VulkanException("Failed to open shader file");
-    size_t fileSize = static_cast<size_t>(file.tellg());
-    file.seekg(0, std::ios::beg);
-    std::vector<uint32_t> shaderData(fileSize / sizeof(uint32_t));
-    if (!file.read(reinterpret_cast<char*>(shaderData.data()), static_cast<std::streamsize>(fileSize))) {
-        throw VulkanException("Failed to read shader");
+VulkanRenderchainComponent::GraphicsPipeline::~GraphicsPipeline() {
+    if(device != VK_NULL_HANDLE) {
+        if(pipeline) vkDestroyPipeline(device, pipeline, nullptr);
+        if(layout) vkDestroyPipelineLayout(device, layout, nullptr);
+        DM().Log("Successfully destroyed graphics pipeline");
+    } else {
+        DM().Log("Tried to destroy graphics pipeline, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
     }
-    file.close();
+}
 
-    VkShaderModuleCreateInfo shaderCreateInfo {
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = shaderData.size() * sizeof(uint32_t),
-        .pCode = shaderData.data()
-    };
-    vkCreateShaderModule(parent->device->Device, &shaderCreateInfo, nullptr, &shader);
+int VulkanRenderchainComponent::CreateCommandPool() {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
+    
+    int maxFramesInFlight = CM->Get<int>({"graphics", "max_frames_in_flight"}, 1);
+    int frameTimeoutSeconds = CM->Get<int>({"graphics", "frame_timeout_seconds"}, 2);
+
+    commandPool = new CommandPool(parent->device->Device, parent->device->GraphicsQueue.index, maxFramesInFlight, frameTimeoutSeconds);
     return 0;
 }
 
-void VulkanRenderchainComponent::FetchShaderStageCreateInfos(std::vector<AlcPipelineShaderStageCreateInfo>& ReturnBundlesArray, VkShaderModule& shaderModule) {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
+VulkanRenderchainComponent::CommandPool::CommandPool(VkDevice& _device, int queueIndex, int _maxFramesInFlight, int frameTimeoutSeconds) : device(_device), maxFramesInFlight(_maxFramesInFlight), frameTimeout(frameTimeoutSeconds * 1000000000) {
+    VkCommandPoolCreateInfo createInfo {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = static_cast<uint32_t>(queueIndex)
+    };
 
-    //If the app does not specify the name of its shader, there is no general default which can safely be assumed. Thus, we have no choice but to throw
-    //We do this manually though, the raw engine error means nothing to the developer
-    int requiredShaderStages = CM->Get<int>({"graphics", "shaders", "stages", CFGARRAY_SIZE_T}, 0);
-    if(requiredShaderStages == 0) throw VulkanException("Attempted to fetch shader stage infos, but none existed in config! Ensure that at least one correct shader name is dumped to graphics/shaders/stages/name");
-
-    ReturnBundlesArray.reserve(requiredShaderStages);
-    for(int i = 0; i < requiredShaderStages; i++) {
-        AlcPipelineShaderStageCreateInfo& shaderStage = ReturnBundlesArray.emplace_back(AlcPipelineShaderStageCreateInfo());
-        shaderStage._flags = NULL_BIT;
-        std::string stageBit = CM->Get<std::string>({"graphics", "shaders", "stages", std::to_string(i), "type"}, "all");
-        shaderStage._stage = ConfigParse_ShaderStage(stageBit);
-        shaderStage._module = shaderModule;
-        shaderStage._pName = CM->Get<std::string>({"graphics", "shaders", "stages", std::to_string(i), "name"}, "ALC_MISSING_STAGE_NAME");
-        if(shaderStage._pName == "ALC_MISSING_STAGE_NAME") throw VulkanException("Attempted to fetch shader stage infos, but none existed in config! Ensure that at least one correct shader name is dumped to graphics/shaders/stages/name");
-    }
-}
-
-VkShaderStageFlagBits VulkanRenderchainComponent::ConfigParse_ShaderStage(std::string& value) {
-    if(value == "vertex") return VK_SHADER_STAGE_VERTEX_BIT;
-    if(value == "tessellation_control") return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-    if(value == "tessellation_evaluation") return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-    if(value == "geometry") return VK_SHADER_STAGE_GEOMETRY_BIT;
-    if(value == "fragment") return VK_SHADER_STAGE_FRAGMENT_BIT;
-    if(value == "compute") return VK_SHADER_STAGE_COMPUTE_BIT;
-    if(value == "all_graphics") return VK_SHADER_STAGE_ALL_GRAPHICS;
-    if(value == "all") return VK_SHADER_STAGE_ALL;
-} 
-
-int VulkanRenderchainComponent::CreateCommandPool() {
-    AlcCommandPoolCreateInfo CreateInfo {};
-    GetCommandPoolCreateInfo(CreateInfo);
-
-    VkResult hold = vkCreateCommandPool(parent->device->Device, CreateInfo.Get(), nullptr, &CommandPool);
+    VkResult hold = vkCreateCommandPool(device, &createInfo, nullptr, &commandPool);
 
     if(hold == VK_SUCCESS) {
         DM().Log("Successfully created command pool");
     } else throw VulkanException("Failed to create command pool");
 
-    return 0;
-}
-
-void VulkanRenderchainComponent::GetCommandPoolCreateInfo(AlcCommandPoolCreateInfo& ReturnBundle) {
-    ReturnBundle._flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    ReturnBundle._queueFamilyIndex = parent->device->GraphicsQueue.index;
-}
-
-int VulkanRenderchainComponent::CreateCommandBuffers() {
-    AlcCommandBufferCreateInfo CreateInfo{};
-    GetCommandBufferCreateInfo(CreateInfo);
-
-    int s = CreateInfo.Get()->commandBufferCount;
-    renderFrames.clear();
-    std::vector<VkCommandBuffer> hold(s, VK_NULL_HANDLE);
-    VkResult commandBufferAllocateResult = vkAllocateCommandBuffers(parent->device->Device, CreateInfo.Get(), hold.data());
-    renderFrames.reserve(s);
-    for(int i = 0; i < s; i++) {
-        RenderFrame& frame = renderFrames.emplace_back(parent->device->Device);
-        frame.commandBuffer = hold[i];
+    renderFrames.reserve(maxFramesInFlight);
+    for(int i = 0; i < maxFramesInFlight; i++) {
+        renderFrames.emplace_back(device, commandPool, frameTimeout);
     }
-    if(commandBufferAllocateResult == VK_SUCCESS) {
-        DM().Log("Successfully created " + std::to_string(s) + " command buffers");
-        return 0;
-    } else throw VulkanException("Failed to create command buffers");
 }
 
-void VulkanRenderchainComponent::GetCommandBufferCreateInfo(AlcCommandBufferCreateInfo& ReturnBundle) {
-    ReturnBundle._commandPool = CommandPool;
-    ReturnBundle._level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    ReturnBundle._commandBufferCount = max_frames_in_flight;
+VulkanRenderchainComponent::CommandPool::~CommandPool() {
+    if(device != VK_NULL_HANDLE) {
+        if(commandPool) vkDestroyCommandPool(device, commandPool, nullptr);
+        commandPool = VK_NULL_HANDLE;
+        DM().Log("Successfully destroyed command pool");
+    } else {
+        DM().Log("Tried to destroy command pool, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
+    }
+}
+
+VulkanRenderchainComponent::RenderFrame::RenderFrame(VkDevice& _device, VkCommandPool& commandPool, int _timeout) : device(_device), timeout(_timeout) {
+    VkFenceCreateInfo FenceCreateInfo { 
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT
+    };
+    vkCreateFence(device, &FenceCreateInfo, nullptr, &fence);
+
+    VkSemaphoreCreateInfo SemaphoreCreateInfo { 
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO 
+    };
+    if(semaphore) vkDestroySemaphore(device, semaphore, nullptr);
+    vkCreateSemaphore(device, &SemaphoreCreateInfo, nullptr, &semaphore);
+
+    VkCommandBufferAllocateInfo createInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = commandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
+    vkAllocateCommandBuffers(device, &createInfo, &commandBuffer);
+}
+
+VulkanRenderchainComponent::RenderFrame::~RenderFrame() {
+    if(device != VK_NULL_HANDLE) {
+        vkWaitForFences(device, 1, &fence, VK_TRUE, timeout);
+        if(fence) vkDestroyFence(device, fence, nullptr);
+        fence = VK_NULL_HANDLE;
+        if(semaphore) vkDestroySemaphore(device, semaphore, nullptr);
+        semaphore = VK_NULL_HANDLE;
+    } else {
+        DM().Log("Tried to destroy render frame, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
+    }
 }
 
 int VulkanRenderchainComponent::CreateVertexBuffers() {
-    vertices_temp = {
-        {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{1.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{1.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
-    };
-    vertexData = vertices_temp.data();
+    //TEMP
+        IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
+        int count = CM->Get<int>({"vertices_temp", CFGARRAY_SIZE_T}, 0);
+        vertices_temp.resize(count);
+        for(int i = 0; i < count; i++) {
+            float scale = static_cast<float>(CM->Get<double>({"scale"}));
+            float x = static_cast<float>(CM->Get<double>({"vertices_temp", std::to_string(i), "position", "x"})) * scale;
+            float y = static_cast<float>(CM->Get<double>({"vertices_temp", std::to_string(i), "position", "y"})) * scale;
+            float r = static_cast<float>(CM->Get<double>({"vertices_temp", std::to_string(i), "colour", "r"}));
+            float g = static_cast<float>(CM->Get<double>({"vertices_temp", std::to_string(i), "colour", "g"}));
+            float b = static_cast<float>(CM->Get<double>({"vertices_temp", std::to_string(i), "colour", "b"}));
+            Vertex hold {.position = {x, y}, .colour = {r, g, b}};
+            vertices_temp[i] = hold;
+        }
+        DM().Log(std::to_string(count) + " vertices");
+
     vertexBuffers.resize(1);
     vertexBuffers[0] = new VertexBuffer(parent->device->Device, parent->device->PhysicalDevice, vertices_temp);
-    vertexBuffers[0]->fillBufferMemory(&vertexData);
+    vertexBuffers[0]->fillBufferMemory(vertices_temp);
     return 0;
 }
 
@@ -311,115 +366,33 @@ VulkanRenderchainComponent::VertexBuffer::VertexBuffer(VkDevice& _device, VkPhys
 }
 
 VulkanRenderchainComponent::VertexBuffer::~VertexBuffer() {
-    vkFreeMemory(device, bufferMemory, nullptr);
-    vkDestroyBuffer(device, bufferInstance, nullptr);
+    if(device != VK_NULL_HANDLE) {
+        vkFreeMemory(device, bufferMemory, nullptr);
+        vkDestroyBuffer(device, bufferInstance, nullptr);
+        DM().Log("Successfully freed vertex buffer");
+    } else {
+        DM().Log("Tried to free vertex buffer, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
+    }
 }
 
-int VulkanRenderchainComponent::VertexBuffer::fillBufferMemory(void** external_membuffer) {
+int VulkanRenderchainComponent::VertexBuffer::fillBufferMemory(std::vector<Vertex>& external_membuffer) {
     void* internal_membuffer;
     VkResult hold = vkMapMemory(device, bufferMemory, 0, bufferSize, NULL_BIT, &internal_membuffer);
     if(hold != VK_SUCCESS) {
         throw VulkanException("Failed to map memory to buffer. Vulkan error code: " + std::to_string(hold));
     }
-    memcpy(internal_membuffer, *external_membuffer, bufferSize);
+    assert(sizeof(external_membuffer[0]) * external_membuffer.size() == bufferSize);
+    memcpy(internal_membuffer, external_membuffer.data(), bufferSize);
     vkUnmapMemory(device, bufferMemory);
     DM().Log("Copied input vertices to membuffer");
-    return 0;
-}
-
-VulkanRenderchainComponent::RenderFrame::RenderFrame(VkDevice& _device) : device(_device) {
-    VkFenceCreateInfo FenceCreateInfo { 
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-        .flags = VK_FENCE_CREATE_SIGNALED_BIT
-    };
-
-    vkCreateFence(device, &FenceCreateInfo, nullptr, &fence);
-    CreateSemaphores();
-}
-
-VulkanRenderchainComponent::RenderFrame::~RenderFrame() {
-    if(fence) vkDestroyFence(device, fence, nullptr);
-    fence = VK_NULL_HANDLE;
-    if(semaphore) vkDestroySemaphore(device, semaphore, nullptr);
-    semaphore = VK_NULL_HANDLE;
-}
-
-void VulkanRenderchainComponent::RenderFrame::CreateSemaphores() {
-    if(semaphore) vkDestroySemaphore(device, semaphore, nullptr);
-
-    VkSemaphoreCreateInfo SemaphoreCreateInfo { 
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO 
-    };
-
-    vkCreateSemaphore(device, &SemaphoreCreateInfo, nullptr, &semaphore);
-}
-
-int VulkanRenderchainComponent::DrawFrame() {
-    uint64_t timeout = TIMEOUT_SET * t_second;
-
-    RenderFrame& frame = renderFrames[currentFrame]; //Get (or wait for) next frame free out of max frames in flight
-    vkWaitForFences(parent->device->Device, 1, &frame.fence, VK_TRUE, timeout);
-
-    uint32_t imageIndex;
-    VkResult result_acquireNextImage = vkAcquireNextImageKHR(parent->device->Device, parent->swapchain->Swapchain, timeout, frame.semaphore, VK_NULL_HANDLE, &imageIndex);
-
-    if(result_acquireNextImage == VK_ERROR_OUT_OF_DATE_KHR || *framebufferResizedFlag) {
-        DM().Log("Attempt to acquire next swapchain image indicated swapchain was out of date");
-        RecreateSwapchain();
-        return 1;
-    }
-
-    VulkanSwapchainComponent::SwapchainImageWrapper& image = parent->swapchain->Images[imageIndex]; //Get the next image from the swapchain
-    
-    vkResetFences(parent->device->Device, 1, &frame.fence);
-    vkResetCommandBuffer(frame.commandBuffer, NULL_BIT);
-
-    RecordCommandBuffer(frame.commandBuffer, &image); //Record our render pass onto this frame's command buffer
-
-    VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    VkSubmitInfo SubmitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &frame.semaphore,
-        .pWaitDstStageMask = &pipelineStageFlags,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &frame.commandBuffer,
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &image.semaphore
-    };
-
-    vkQueueSubmit(parent->device->GraphicsQueue.queue, 1, &SubmitInfo, frame.fence);
-
-    VkPresentInfoKHR presentInfo {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .pNext = nullptr,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &image.semaphore,
-        .swapchainCount = 1,
-        .pSwapchains = &parent->swapchain->Swapchain,
-        .pImageIndices = &imageIndex,
-        .pResults = nullptr
-    };
-
-    VkResult result_queuePresent = vkQueuePresentKHR(parent->device->SurfacePresentQueue.queue, &presentInfo);
-
-    if(result_queuePresent == VK_ERROR_OUT_OF_DATE_KHR || result_queuePresent == VK_SUBOPTIMAL_KHR || *framebufferResizedFlag) {
-        DM().Log("Attempt to present render pass to surface queue indicated swapchain was out of date or suboptimal");
-        RecreateSwapchain();
-    }
-
-    currentFrame = (currentFrame + 1) % max_frames_in_flight;
-
     return 0;
 }
 
 int VulkanRenderchainComponent::RecreateSwapchain() {
     *framebufferResizedFlag = false;
     parent->recreateSwapchain();
-    for(RenderFrame& frame : renderFrames) {
-        frame.CreateSemaphores();
-    }
+    if(commandPool) delete commandPool;
+    CreateCommandPool();
     return 0;
 }
 
@@ -461,7 +434,7 @@ int VulkanRenderchainComponent::RecordCommandBuffer(VkCommandBuffer& CommandBuff
 
     vkCmdBeginRendering(CommandBuffer, &RenderingInfo);
 
-    vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipeline);
+    vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
     VkDeviceSize deviceOffset = 0;
     vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &vertexBuffers[0]->bufferInstance, &deviceOffset);
 
@@ -522,5 +495,60 @@ int VulkanSwapchainComponent::SwapchainImageWrapper::TransitionImageLayout(VkCom
     return 0;
 }
 
-//Undefine shorthands!!
-#undef NULL_BIT
+int VulkanRenderchainComponent::DrawFrame() {
+    RenderFrame& frame = commandPool->renderFrames[currentFrame]; //Get (or wait for) next frame free out of max frames in flight
+    vkWaitForFences(parent->device->Device, 1, &frame.fence, VK_TRUE, frame.timeout);
+
+    uint32_t imageIndex;
+    VkResult result_acquireNextImage = vkAcquireNextImageKHR(parent->device->Device, parent->swapchain->Swapchain, frame.timeout, frame.semaphore, VK_NULL_HANDLE, &imageIndex);
+
+    if(result_acquireNextImage == VK_ERROR_OUT_OF_DATE_KHR || *framebufferResizedFlag) {
+        DM().Log("Attempt to acquire next swapchain image indicated swapchain was out of date");
+        RecreateSwapchain();
+        return 1;
+    }
+
+    VulkanSwapchainComponent::SwapchainImageWrapper& image = parent->swapchain->Images[imageIndex]; //Get the next image from the swapchain
+    
+    vkResetFences(parent->device->Device, 1, &frame.fence);
+    vkResetCommandBuffer(frame.commandBuffer, NULL_BIT);
+
+    RecordCommandBuffer(frame.commandBuffer, &image); //Record our render pass onto this frame's command buffer
+
+    VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkSubmitInfo SubmitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &frame.semaphore,
+        .pWaitDstStageMask = &pipelineStageFlags,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &frame.commandBuffer,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &image.semaphore
+    };
+
+    vkQueueSubmit(parent->device->GraphicsQueue.queue, 1, &SubmitInfo, frame.fence);
+
+    VkPresentInfoKHR presentInfo {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .pNext = nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &image.semaphore,
+        .swapchainCount = 1,
+        .pSwapchains = &parent->swapchain->Swapchain,
+        .pImageIndices = &imageIndex,
+        .pResults = nullptr
+    };
+
+    VkResult result_queuePresent = vkQueuePresentKHR(parent->device->SurfacePresentQueue.queue, &presentInfo);
+
+    if(result_queuePresent == VK_ERROR_OUT_OF_DATE_KHR || result_queuePresent == VK_SUBOPTIMAL_KHR || *framebufferResizedFlag) {
+        DM().Log("Attempt to present render pass to surface queue indicated swapchain was out of date or suboptimal");
+        RecreateSwapchain();
+    }
+
+    currentFrame = (currentFrame + 1) % maxFramesInFlight;
+
+    return 0;
+}
