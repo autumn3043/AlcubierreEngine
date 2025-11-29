@@ -142,7 +142,7 @@ void* ConfigManagerImpl::GetPointerToJson(const nlohmann::json& json) {
         break;
 
         case nlohmann::json::value_t::number_float:
-            hold = new float(json.get<double>());
+            hold = new double(json.get<double>());
         break;
 
         case nlohmann::json::value_t::string:
