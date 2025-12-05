@@ -41,14 +41,15 @@ class VulkanRenderchainComponent {
             };
         GraphicsPipeline* pipeline = nullptr;
 
-        int CreateCommandPool();
+        int CreateTransferCommandPool();
+        int CreateGraphicalCommandPool();
             class CommandPool;
 
-            struct RenderFrame {
+            struct CommandBuffer {
                 const VkDevice& device;
 
-                RenderFrame(VkDevice& _device, VkCommandPool& commandPool, int _timeout);
-                ~RenderFrame();
+                CommandBuffer(VkDevice& _device, VkCommandPool& commandPool, int _timeout);
+                ~CommandBuffer();
 
                 const int timeout;
                 
@@ -59,21 +60,22 @@ class VulkanRenderchainComponent {
 
             class CommandPool {
                 public:
-                    CommandPool(VkDevice& _device, int queueIndex, int _maxFramesInFlight, int frameTimeoutSeconds);
+                    CommandPool(VkDevice& _device, int queueIndex, int bufferCount, int commandTimeoutSeconds);
                     ~CommandPool();
 
-                    std::vector<RenderFrame> renderFrames;
+                    std::vector<CommandBuffer> buffers;
 
                 private:
                     VkDevice& device;
 
-                    int maxFramesInFlight;
-                    int frameTimeout;
+                    int bufferCount;
+                    int commandTimeout;
 
                     VkCommandPool commandPool = VK_NULL_HANDLE;
 
             };
-        CommandPool* commandPool = nullptr;
+        CommandPool* graphicalCommandPool = nullptr;
+        CommandPool* transferCommandPool = nullptr;
 
         int CreateVertexBuffers();
             struct Vertex {
@@ -82,7 +84,7 @@ class VulkanRenderchainComponent {
             };
             class VertexBuffer {
                 public:
-                    VertexBuffer(VkDevice& device, VkPhysicalDevice& physicalDevice, std::vector<Vertex> vertices);
+                    VertexBuffer(VkDevice& _device, VkPhysicalDevice& physicalDevice, std::vector<Vertex> vertices, std::vector<uint32_t>& queues);
                     ~VertexBuffer();
 
                     int fillBufferMemory(std::vector<Vertex>& external_membuffer);

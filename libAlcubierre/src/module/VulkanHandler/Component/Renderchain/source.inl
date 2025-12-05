@@ -3,7 +3,8 @@ VulkanRenderchainComponent::VulkanRenderchainComponent(VulkanHandler* _parent, R
     maxFramesInFlight = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER))->Get<int>({"graphics", "max_frames_in_flight"}, 2);
 
     CreateGraphicsPipeline();
-    CreateCommandPool();
+    CreateTransferCommandPool();
+    CreateGraphicalCommandPool();
     CreateVertexBuffers();
 };
 
@@ -11,7 +12,8 @@ VulkanRenderchainComponent::~VulkanRenderchainComponent() {
     for(int i = 0; i < vertexBuffers.size(); i++) {
         if(vertexBuffers[i]) delete vertexBuffers[i];
     }
-    if(commandPool) delete commandPool;
+    if(transferCommandPool) delete transferCommandPool;
+    if(graphicalCommandPool) delete graphicalCommandPool;
     if(pipeline) delete pipeline;
 }
 
@@ -85,7 +87,7 @@ VulkanRenderchainComponent::ShaderModuleStage::ShaderModuleStage(int _index, std
     else if(_type == "compute") type = VK_SHADER_STAGE_COMPUTE_BIT;
     else if(_type == "all_graphics") type = VK_SHADER_STAGE_ALL_GRAPHICS;
     else if(_type == "all") type = VK_SHADER_STAGE_ALL;
-    else throw VulkanException("Invalid shader stage '" + _type + "' passed to shader stage" + std::to_string(index));
+    else throw VulkanException("Invalid shader stage '" + _type + "' passed to shader stage " + std::to_string(index));
 
     createInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -213,17 +215,26 @@ VulkanRenderchainComponent::GraphicsPipeline::~GraphicsPipeline() {
     }
 }
 
-int VulkanRenderchainComponent::CreateCommandPool() {
+int VulkanRenderchainComponent::CreateTransferCommandPool() {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
-    
-    int maxFramesInFlight = CM->Get<int>({"graphics", "max_frames_in_flight"}, 1);
-    int frameTimeoutSeconds = CM->Get<int>({"graphics", "frame_timeout_seconds"}, 2);
 
-    commandPool = new CommandPool(parent->device->Device, parent->device->GraphicsQueue.index, maxFramesInFlight, frameTimeoutSeconds);
+    int commandTimeoutSeconds = CM->Get<int>({"graphics", "command_timeout_seconds"}, 2);
+
+    transferCommandPool = new CommandPool(parent->device->Device, parent->device->getQueue(VK_QUEUE_TRANSFER_BIT).familyIndex, 1, commandTimeoutSeconds);
     return 0;
 }
 
-VulkanRenderchainComponent::CommandPool::CommandPool(VkDevice& _device, int queueIndex, int _maxFramesInFlight, int frameTimeoutSeconds) : device(_device), maxFramesInFlight(_maxFramesInFlight), frameTimeout(frameTimeoutSeconds * 1000000000) {
+int VulkanRenderchainComponent::CreateGraphicalCommandPool() {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
+    
+    int maxFramesInFlight = CM->Get<int>({"graphics", "max_frames_in_flight"}, 1);
+    int commandTimeoutSeconds = CM->Get<int>({"graphics", "command_timeout_seconds"}, 2);
+
+    graphicalCommandPool = new CommandPool(parent->device->Device, parent->device->getQueue(VK_QUEUE_GRAPHICS_BIT, true).familyIndex, maxFramesInFlight, commandTimeoutSeconds);
+    return 0;
+}
+
+VulkanRenderchainComponent::CommandPool::CommandPool(VkDevice& _device, int queueIndex, int _bufferCount, int commandTimeoutSeconds) : device(_device), bufferCount(_bufferCount), commandTimeout(commandTimeoutSeconds * 1000000000) {
     VkCommandPoolCreateInfo createInfo {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
@@ -236,9 +247,9 @@ VulkanRenderchainComponent::CommandPool::CommandPool(VkDevice& _device, int queu
         DM().Log("Successfully created command pool");
     } else throw VulkanException("Failed to create command pool");
 
-    renderFrames.reserve(maxFramesInFlight);
-    for(int i = 0; i < maxFramesInFlight; i++) {
-        renderFrames.emplace_back(device, commandPool, frameTimeout);
+    buffers.reserve(bufferCount);
+    for(int i = 0; i < bufferCount; i++) {
+        buffers.emplace_back(device, commandPool, commandTimeout);
     }
 }
 
@@ -252,7 +263,7 @@ VulkanRenderchainComponent::CommandPool::~CommandPool() {
     }
 }
 
-VulkanRenderchainComponent::RenderFrame::RenderFrame(VkDevice& _device, VkCommandPool& commandPool, int _timeout) : device(_device), timeout(_timeout) {
+VulkanRenderchainComponent::CommandBuffer::CommandBuffer(VkDevice& _device, VkCommandPool& commandPool, int _timeout) : device(_device), timeout(_timeout) {
     VkFenceCreateInfo FenceCreateInfo { 
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .flags = VK_FENCE_CREATE_SIGNALED_BIT
@@ -274,7 +285,7 @@ VulkanRenderchainComponent::RenderFrame::RenderFrame(VkDevice& _device, VkComman
     vkAllocateCommandBuffers(device, &createInfo, &commandBuffer);
 }
 
-VulkanRenderchainComponent::RenderFrame::~RenderFrame() {
+VulkanRenderchainComponent::CommandBuffer::~CommandBuffer() {
     if(device != VK_NULL_HANDLE) {
         vkWaitForFences(device, 1, &fence, VK_TRUE, timeout);
         if(fence) vkDestroyFence(device, fence, nullptr);
@@ -282,7 +293,7 @@ VulkanRenderchainComponent::RenderFrame::~RenderFrame() {
         if(semaphore) vkDestroySemaphore(device, semaphore, nullptr);
         semaphore = VK_NULL_HANDLE;
     } else {
-        DM().Log("Tried to destroy render frame, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
+        DM().Log("Tried to destroy command buffer utilites, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
     }
 }
 
@@ -301,24 +312,36 @@ int VulkanRenderchainComponent::CreateVertexBuffers() {
             Vertex hold {.position = {x, y}, .colour = {r, g, b}};
             vertices_temp[i] = hold;
         }
-        DM().Log(std::to_string(count) + " vertices");
 
     vertexBuffers.resize(1);
-    vertexBuffers[0] = new VertexBuffer(parent->device->Device, parent->device->PhysicalDevice, vertices_temp);
+    //TEMP
+        uint32_t graphicsQueue = parent->device->getQueue(VK_QUEUE_GRAPHICS_BIT, true).familyIndex;
+        uint32_t transferQueue = parent->device->getQueue(VK_QUEUE_TRANSFER_BIT).familyIndex;
+        std::vector<uint32_t> queues;
+        queues.push_back(graphicsQueue);
+        if(graphicsQueue != transferQueue) queues.push_back(transferQueue);
+    vertexBuffers[0] = new VertexBuffer(parent->device->Device, parent->device->PhysicalDevice, vertices_temp, queues);
     vertexBuffers[0]->fillBufferMemory(vertices_temp);
     return 0;
 }
 
-VulkanRenderchainComponent::VertexBuffer::VertexBuffer(VkDevice& _device, VkPhysicalDevice& physicalDevice, std::vector<Vertex> vertices) : device(_device) {
+VulkanRenderchainComponent::VertexBuffer::VertexBuffer(VkDevice& _device, VkPhysicalDevice& physicalDevice, std::vector<Vertex> vertices, std::vector<uint32_t>& queues) : device(_device) {
     bufferSize = sizeof(vertices[0]) * vertices.size();
+
+    VkSharingMode _sharing;
+    if(queues.size() == 1) _sharing = VK_SHARING_MODE_EXCLUSIVE;
+    else _sharing = VK_SHARING_MODE_CONCURRENT;
 
     VkBufferCreateInfo createInfo {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
         .size = bufferSize,
         .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+        .sharingMode = _sharing,
+        .queueFamilyIndexCount = static_cast<uint32_t>(queues.size()),
+        .pQueueFamilyIndices = queues.data()
     };
+
     VkResult hold = vkCreateBuffer(device, &createInfo, nullptr, &bufferInstance);
     if(hold != 0) {
         throw VulkanException("Failed to create vertex buffer. Vulkan error code: " + std::to_string(hold));
@@ -391,8 +414,8 @@ int VulkanRenderchainComponent::VertexBuffer::fillBufferMemory(std::vector<Verte
 int VulkanRenderchainComponent::RecreateSwapchain() {
     *framebufferResizedFlag = false;
     parent->recreateSwapchain();
-    if(commandPool) delete commandPool;
-    CreateCommandPool();
+    if(graphicalCommandPool) delete graphicalCommandPool;
+    CreateGraphicalCommandPool();
     return 0;
 }
 
@@ -496,11 +519,16 @@ int VulkanSwapchainComponent::SwapchainImageWrapper::TransitionImageLayout(VkCom
 }
 
 int VulkanRenderchainComponent::DrawFrame() {
-    RenderFrame& frame = commandPool->renderFrames[currentFrame]; //Get (or wait for) next frame free out of max frames in flight
-    vkWaitForFences(parent->device->Device, 1, &frame.fence, VK_TRUE, frame.timeout);
+    CommandBuffer& graphicsBuffer = graphicalCommandPool->buffers[currentFrame]; //Get (or wait for) next frame free out of max frames in flight
+    VulkanDeviceComponent::DeviceQueue& graphicalQueue = parent->device->getQueue(VK_QUEUE_GRAPHICS_BIT);
+    VulkanDeviceComponent::DeviceQueue& presentationQueue = parent->device->getQueue(VK_QUEUE_GRAPHICS_BIT, true);
+    CommandBuffer& transferBuffer = transferCommandPool->buffers[0];
+    VulkanDeviceComponent::DeviceQueue& transferQueue = parent->device->getQueue(VK_QUEUE_TRANSFER_BIT);
+
+    vkWaitForFences(parent->device->Device, 1, &graphicsBuffer.fence, VK_TRUE, graphicsBuffer.timeout);
 
     uint32_t imageIndex;
-    VkResult result_acquireNextImage = vkAcquireNextImageKHR(parent->device->Device, parent->swapchain->Swapchain, frame.timeout, frame.semaphore, VK_NULL_HANDLE, &imageIndex);
+    VkResult result_acquireNextImage = vkAcquireNextImageKHR(parent->device->Device, parent->swapchain->Swapchain, graphicsBuffer.timeout, graphicsBuffer.semaphore, VK_NULL_HANDLE, &imageIndex);
 
     if(result_acquireNextImage == VK_ERROR_OUT_OF_DATE_KHR || *framebufferResizedFlag) {
         DM().Log("Attempt to acquire next swapchain image indicated swapchain was out of date");
@@ -510,25 +538,25 @@ int VulkanRenderchainComponent::DrawFrame() {
 
     VulkanSwapchainComponent::SwapchainImageWrapper& image = parent->swapchain->Images[imageIndex]; //Get the next image from the swapchain
     
-    vkResetFences(parent->device->Device, 1, &frame.fence);
-    vkResetCommandBuffer(frame.commandBuffer, NULL_BIT);
+    vkResetFences(parent->device->Device, 1, &graphicsBuffer.fence);
+    vkResetCommandBuffer(graphicsBuffer.commandBuffer, NULL_BIT);
 
-    RecordCommandBuffer(frame.commandBuffer, &image); //Record our render pass onto this frame's command buffer
+    RecordCommandBuffer(graphicsBuffer.commandBuffer, &image); //Record our render pass onto this frame's command buffer
 
     VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo SubmitInfo = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .pNext = nullptr,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &frame.semaphore,
+        .pWaitSemaphores = &graphicsBuffer.semaphore,
         .pWaitDstStageMask = &pipelineStageFlags,
         .commandBufferCount = 1,
-        .pCommandBuffers = &frame.commandBuffer,
+        .pCommandBuffers = &graphicsBuffer.commandBuffer,
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = &image.semaphore
     };
 
-    vkQueueSubmit(parent->device->GraphicsQueue.queue, 1, &SubmitInfo, frame.fence);
+    vkQueueSubmit(graphicalQueue.queue, 1, &SubmitInfo, graphicsBuffer.fence);
 
     VkPresentInfoKHR presentInfo {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -541,7 +569,7 @@ int VulkanRenderchainComponent::DrawFrame() {
         .pResults = nullptr
     };
 
-    VkResult result_queuePresent = vkQueuePresentKHR(parent->device->SurfacePresentQueue.queue, &presentInfo);
+    VkResult result_queuePresent = vkQueuePresentKHR(presentationQueue.queue, &presentInfo);
 
     if(result_queuePresent == VK_ERROR_OUT_OF_DATE_KHR || result_queuePresent == VK_SUBOPTIMAL_KHR || *framebufferResizedFlag) {
         DM().Log("Attempt to present render pass to surface queue indicated swapchain was out of date or suboptimal");

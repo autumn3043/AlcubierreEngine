@@ -20,8 +20,7 @@ int VulkanDeviceComponent::CreateLogicalDevice() {
 
     VkResult CreateEcho = vkCreateDevice(PhysicalDevice, DeviceInitInfo.Get(), nullptr, &Device);
 
-    vkGetDeviceQueue(Device, GraphicsQueue.index, 0, &GraphicsQueue.queue);
-    vkGetDeviceQueue(Device, SurfacePresentQueue.index, 0, &SurfacePresentQueue.queue);
+    for(DeviceQueue& queue : queues) vkGetDeviceQueue(Device, queue.familyIndex, queue.queueIndex, &queue.queue);
 
     if(CreateEcho != VK_SUCCESS) {
         switch(CreateEcho) {
@@ -48,7 +47,6 @@ int VulkanDeviceComponent::CreateLogicalDevice() {
 }
 
 VkPhysicalDevice VulkanDeviceComponent::SelectPhysicalDevice() {
-
     uint32_t CompatibleDeviceCount = 0;
     vkEnumeratePhysicalDevices(parent->environment->Instance, &CompatibleDeviceCount, nullptr);
     if(CompatibleDeviceCount == 0) throw std::runtime_error("No detected GPU devices support Vulkan.");
@@ -69,7 +67,6 @@ VkPhysicalDevice VulkanDeviceComponent::SelectPhysicalDevice() {
 }
 
 int VulkanDeviceComponent::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {    
-    
     VkPhysicalDeviceProperties DeviceProperties;
     vkGetPhysicalDeviceProperties(_PhysicalDevice, &DeviceProperties);
 
@@ -95,6 +92,7 @@ int VulkanDeviceComponent::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {
     bool _hasSurfaceSupport = false;
 
     for(int i = 0; i < DeviceQueueFamilies.size(); i++) {
+        //TODO: Add logic to prefer GPUs that reflect or better reflect queue requests.
         if(DeviceQueueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             hold += 100 * DeviceQueueFamilies[i].queueCount;
             _hasGraphics = true;
@@ -121,101 +119,71 @@ void VulkanDeviceComponent::FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle) {
 
 void VulkanDeviceComponent::FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo>& ReturnArray) {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
-    int RequestedQueues = CM->Get<int>(std::vector<std::string>{"graphics", "device", "queues", "SIZE_T"}, 0);
-
-    if(RequestedQueues == 0) {
-        DM().Log("Applying default graphics queue settings", 1);
-
-        //Graphics queue
-        CM->Set<std::vector<int>>({"graphics", "device", "queues", "0", "flags"}, "[1]");
-        CM->Set<int>({"graphics", "device", "queues", "0", "count"}, "1");
-        CM->Set<int>({"graphics", "device", "queues", "0", "priority"}, "1");
-
-        //Surface queue
-        CM->Set<bool>({"graphics", "device", "queues", "1", "surface_support"}, "true");
-        CM->Set<int>({"graphics", "device", "queues", "1", "count"}, "1");
-        CM->Set<int>({"graphics", "device", "queues", "1", "priority"}, "1");
-
-        RequestedQueues = 2;
-    }
-
-    std::unordered_map<uint32_t, VkQueueFlags> AvailableQueues;
     
     uint32_t QueueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(PhysicalDevice, &QueueFamilyCount, nullptr);
     std::vector<VkQueueFamilyProperties> QueueFamilies(QueueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(PhysicalDevice, &QueueFamilyCount, QueueFamilies.data());
 
-    std::vector<int> allocatedQueues;
-    for (int i = 0; i < RequestedQueues; i++) {
+    int desiredGraphicsQueues = CM->Get<int>({"graphics", "device", "queues", "graphics_capable_count"}, 0);
+    int desiredComputeQueues = CM->Get<int>({"graphics", "device", "queues", "compute_capable_count"}, 0);
+    int desiredTransferQueues = CM->Get<int>({"graphics", "device", "queues", "transfer_capable_count"}, 0);
+    int desiredBindingQueues = CM->Get<int>({"graphics", "device", "queues", "binding_capable_count"}, 0);
 
-        AlcDeviceQueueCreateInfo& queueCreateInfo = ReturnArray.emplace_back(AlcDeviceQueueCreateInfo());
+    for(int i = 0; i < QueueFamilyCount; i++) {
+        VkQueueFlags supportedTypes = NULL_BIT;
 
-        //More verbose than strictly necessary to facilitate human readable values in config sheet
-        std::vector<std::string> _requiredFlags = CM->Get<std::vector<std::string>>({"graphics", "device", "queues", std::to_string(i), "flags"}, {});
-        VkQueueFlags requiredFlags = ConfigParse_QueueFlagBits(_requiredFlags);
-        bool SurfaceRequirement = CM->Get<bool>({"graphics", "device", "queues", std::to_string(i), "surface_support"}, false);
+        if(QueueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT && desiredGraphicsQueues > 0) {
+            supportedTypes |= VK_QUEUE_GRAPHICS_BIT;
+            desiredGraphicsQueues--;
+        };
+        if(QueueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT && desiredComputeQueues > 0) {
+            supportedTypes |= VK_QUEUE_COMPUTE_BIT;
+            desiredComputeQueues--;
+        };
+        if(QueueFamilies[i].queueFlags & VK_QUEUE_TRANSFER_BIT && desiredTransferQueues > 0) {
+            supportedTypes |= VK_QUEUE_TRANSFER_BIT;
+            desiredTransferQueues--;
+        };
+        if(QueueFamilies[i].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT && desiredBindingQueues > 0) {
+            supportedTypes |= VK_QUEUE_SPARSE_BINDING_BIT;
+            desiredBindingQueues--;
+        };
 
-        std::vector<int> usableQueues;
+        if(supportedTypes != NULL_BIT) {
+            AlcDeviceQueueCreateInfo& thisQueue = ReturnArray.emplace_back();
+            thisQueue._queueCount = 1;
+            thisQueue._queueFamilyIndex = static_cast<uint32_t>(i);
+            thisQueue._pQueuePriorities = 1;
 
-        for(int j = 0; j < QueueFamilies.size(); j++) {
-            if((QueueFamilies[j].queueFlags & requiredFlags) != requiredFlags) continue;
+            VkBool32 surfaceSupport;
+            vkGetPhysicalDeviceSurfaceSupportKHR(PhysicalDevice, i, parent->environment->Surface, &surfaceSupport);
 
-            if(SurfaceRequirement) {
-                VkBool32 SurfaceSupport;
-                vkGetPhysicalDeviceSurfaceSupportKHR(PhysicalDevice, j, parent->environment->Surface, &SurfaceSupport);
-                if(!SurfaceSupport) continue;
-            }
-
-            bool skip = false;
-            for(int& queue : allocatedQueues) {
-                if(j == queue) {
-                    skip = true;
-                    break;
-                }
-            }
-            if(QueueFamilyCount - allocatedQueues.size() == 0) skip = false;
-            if(skip) continue;
-
-            usableQueues.push_back(j);
+            queues.emplace_back(supportedTypes, i, surfaceSupport);
         }
-
-        if(usableQueues.size() == 0) throw VulkanException("No available graphics queue fulfilled all requirements for queue: " + std::to_string(i));
-
-        queueCreateInfo._queueFamilyIndex = static_cast<uint32_t>(usableQueues[0]);
-        if(SurfaceRequirement) {
-            SurfacePresentQueue.index = static_cast<uint32_t>(usableQueues[0]);
-        } else {
-            GraphicsQueue.index = static_cast<uint32_t>(usableQueues[0]);
-        }
-
-        queueCreateInfo._queueCount = static_cast<uint32_t>(CM->Get<int>({"graphics", "device", "queues", std::to_string(i), "count"}, 1));
-        queueCreateInfo._pQueuePriorities = static_cast<float>(CM->Get<int>({"graphics", "device", "queues", std::to_string(i), "priority"}, 1));
-        allocatedQueues.push_back(usableQueues[0]);
     }
 }
 
-VkQueueFlags VulkanDeviceComponent::ConfigParse_QueueFlagBits(std::vector<std::string>& values) {
-    VkQueueFlags returnValue = NULL_BIT;
-    for(std::string& value : values) {
-        if(value == "graphics") {
-            returnValue |= VK_QUEUE_GRAPHICS_BIT;
-            continue;
+VulkanDeviceComponent::DeviceQueue& VulkanDeviceComponent::getQueue(VkQueueFlags type, bool surfaceSupport = false) {
+    DeviceQueue& hold = queues[0];
+    int holdPriority = -1;
+
+    for(DeviceQueue& queue : queues) {
+        if(surfaceSupport) {
+            if(!queue.surfaceSupport) continue;
         }
-        if(value == "compute") {
-            returnValue |= VK_QUEUE_COMPUTE_BIT;
-            continue;
-        }
-        if(value == "transfer") {
-            returnValue |= VK_QUEUE_TRANSFER_BIT;
-            continue;
-        }
-        if(value == "sparse_binding") {
-            returnValue |= VK_QUEUE_SPARSE_BINDING_BIT;
-            continue;
+
+        if((type & queue.supportedQueueTypes) == type) {
+            if(queue.priority > holdPriority) {
+                hold = queue;
+                holdPriority = queue.priority;
+            }
         }
     }
-    return returnValue;
+
+    if(holdPriority == -1) throw VulkanException("No valid device queue was found");
+
+    return hold;
 }
 
 void VulkanDeviceComponent::FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray) {
