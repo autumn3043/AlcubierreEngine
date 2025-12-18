@@ -1,4 +1,4 @@
-#include "module/ConfigManager/public.h"
+#include "module/ConfigManager/private.h"
 
 #include <cstring>
 

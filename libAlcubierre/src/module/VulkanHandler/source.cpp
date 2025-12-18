@@ -1,4 +1,4 @@
-#include "module/VulkanHandler/public.h"
+#include "module/VulkanHandler/private.h"
 #define NULL_BIT 0x0
 
 ModuleRegistryBundle VulkanHandler::bundle(

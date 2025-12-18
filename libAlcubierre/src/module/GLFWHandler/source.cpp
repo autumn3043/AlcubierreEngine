@@ -1,4 +1,4 @@
-#include "module/GLFWHandler/public.h"
+#include "module/GLFWHandler/private.h"
 
 ModuleRegistryBundle GLFWHandler::bundle(
     [](void* registry) -> WrapperBaseClass* { return new GLFWHandler(registry); },
