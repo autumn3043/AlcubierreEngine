@@ -33,7 +33,6 @@ class VulkanRenderchainComponent {
                     GraphicsPipeline(VkDevice& _device, VkFormat& format, std::vector<ShaderModuleStage>& shaderStages);
                     ~GraphicsPipeline();
 
-                // private:
                     const VkDevice& device;
 
                     VkPipeline pipeline = VK_NULL_HANDLE;
@@ -102,6 +101,7 @@ class VulkanRenderchainComponent {
         std::vector<Vertex> vertices_temp;
 
         int RecreateSwapchain();
+        int numberOfFrames = 0;
         int RecordCommandBuffer(VkCommandBuffer& CommandBuffer, VulkanSwapchainComponent::SwapchainImageWrapper* image);
         
     public:
@@ -112,8 +112,6 @@ class VulkanRenderchainComponent {
 
         int maxFramesInFlight = 0;
         int currentFrame = 0;
-
-        bool* framebufferResizedFlag = nullptr;
 };
 
 #endif

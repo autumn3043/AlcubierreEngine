@@ -10,29 +10,30 @@
 //Provides
 #include "core/Registry/interface/IWindowSurfaceBridge.h"
 
-class GLFWSurfaceBridgeImpl;
+#include "core/DebugManager/public.h"
 
 class GLFWSurfaceBridge : public WrapperBaseClass{
     public:
-        Registry* registry_ptr = nullptr;
         GLFWSurfaceBridge(void* registry);
         ~GLFWSurfaceBridge();
-
-        GLFWSurfaceBridgeImpl* PrivatePtr = nullptr;
         
-        int CreateWindowSurfaceImpl(void* TargetInstance, void* TargetSurfaceObject);
+        int createWindowSurface(void* TargetInstance, void* TargetSurfaceObject);
 
         class IWindowSurfaceBridgeImpl : public IWindowSurfaceBridge {
             public:
                 GLFWSurfaceBridge* Parent;
 
                 IWindowSurfaceBridgeImpl(GLFWSurfaceBridge* _parent) : Parent(_parent) {}
-                int CreateWindowSurface(void* TargetInstance, void* TargetSurfaceObject) override { return Parent->CreateWindowSurfaceImpl(TargetInstance, TargetSurfaceObject); }
+                int createWindowSurface(void* TargetInstance, void* TargetSurfaceObject) override { return Parent->createWindowSurface(TargetInstance, TargetSurfaceObject); }
         };
 
         IWindowSurfaceBridgeImpl IWindowSurfaceBridge_GLFWSurfaceBridge;
 
+    private:
         static ModuleRegistryBundle bundle;
+        Registry* registry_ptr = nullptr;
+
+        int init();
 };
 
 #endif

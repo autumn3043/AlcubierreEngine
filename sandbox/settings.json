@@ -14,10 +14,10 @@
 
     "presentation" : {
         "window" : {
-            "maximised" : false,
             "width" : 800,
             "height" : 600,
-            "hints" : []
+            "maximised" : false,
+            "permit_resize" : false
         }
     },
 

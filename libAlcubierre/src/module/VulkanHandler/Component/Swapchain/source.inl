@@ -23,9 +23,9 @@ int VulkanSwapchainComponent::CreateSwapchain() {
     VkSurfaceCapabilitiesKHR surfaceCapabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(parent->device->PhysicalDevice, parent->environment->Surface, &surfaceCapabilities);
 
-    IWindowManager::WindowInfo* info = dynamic_cast<IWindowManager*>(registry_ptr->FetchService(WINDOW_MANAGER))->GetWindowInfo();
-    frameWidth = std::clamp<uint32_t>(static_cast<uint32_t>(info->width_pix), surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width);
-    frameHeight = std::clamp<uint32_t>(static_cast<uint32_t>(info->height_pix), surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height);
+    IWindowManager::WindowInfo info = dynamic_cast<IWindowManager*>(registry_ptr->FetchService(WINDOW_MANAGER))->getWindowInfo();
+    frameWidth = std::clamp<uint32_t>(static_cast<uint32_t>(info.width_pix), surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width);
+    frameHeight = std::clamp<uint32_t>(static_cast<uint32_t>(info.height_pix), surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height);
     frameExtent = { .width=frameWidth, .height=frameHeight };
 
     // DM().Log(std::to_string(frameWidth) + "w " + std::to_string(frameHeight) + "h");

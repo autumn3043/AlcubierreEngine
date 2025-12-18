@@ -9,10 +9,16 @@ struct VSOutput
     float3 color;
 };
 
+[[vk::push_constant]]
+cbuffer PushConstants {
+    float2 offset;
+};
+
 [shader("vertex")]
 VSOutput vertMain(VSInput input) {
     VSOutput output;
-    output.pos = float4(input.inPosition, 0.0, 1.0);
+    float2 translatedPos = input.inPosition + offset;
+    output.pos = float4(translatedPos, 0.0, 1.0);
     output.color = input.inColor;
     return output;
 }

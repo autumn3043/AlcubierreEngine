@@ -40,12 +40,10 @@ AlcubierreEngineImpl::~AlcubierreEngineImpl() {
 void AlcubierreEngineImpl::InitEngineImpl() {
     registry_ptr.FetchService(WINDOW_SURFACE); //Must come before Vulkan so it can dump to cfg. (Part of registry pre init hook TODO)
     registry_ptr.FetchService(GRAPHICS_BACKEND);
-
-    IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(registry_ptr.FetchService(GRAPHICS_BACKEND));
 }
 
 bool AlcubierreEngineImpl::ShouldCloseImpl() {
-    return dynamic_cast<IWindowManager*>(registry_ptr.FetchService(WINDOW_MANAGER))->ShouldClose();
+    return dynamic_cast<IWindowManager*>(registry_ptr.FetchService(WINDOW_MANAGER))->shouldClose();
 }
 
 void AlcubierreEngineImpl::FrameImpl() {

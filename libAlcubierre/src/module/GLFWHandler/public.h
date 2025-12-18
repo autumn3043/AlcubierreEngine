@@ -28,23 +28,18 @@ class GLFWHandler : public WrapperBaseClass{
                 GLFWHandler* Parent;
 
                 IWindowManagerImpl(GLFWHandler* _parent) : Parent(_parent) {}
-                void* GetWindowObject() override { return Parent->GetWindowObjectImpl(); }
-                WindowInfo* GetWindowInfo() override { return Parent->GetWindowInfoImpl(); }
-                bool TouchSurfaceApi() override { return Parent->TouchSurfaceApiImpl(); }
-                bool ShouldClose() override { return Parent->ShouldCloseImpl(); }
-                void pollEvents() override { return Parent->pollEventsImpl(); }
-                bool* getFramebufferResizedFlag() override { return Parent->getFramebufferResizedFlagImpl(); }
+                void* getWindowObject() override { return Parent->getWindowObject(); }
+                WindowInfo getWindowInfo() override { return Parent->getWindowInfo(); }
+                void pollEvents() override { return Parent->pollEvents(); }
+                bool shouldClose() override { return Parent->shouldClose(); }
         };
 
         IWindowManagerImpl IWindowManager_GLFWHandler;
 
-        void* GetWindowObjectImpl();
-        IWindowManager::WindowInfo* GetWindowInfoImpl();
-        bool TouchSurfaceApiImpl();
-        bool ShouldCloseImpl();
-        void pollEventsImpl();
-        bool suppressFirstResize();
-        bool* getFramebufferResizedFlagImpl();
+        void* getWindowObject();
+        IWindowManager::WindowInfo getWindowInfo();
+        void pollEvents();
+        bool shouldClose();
     
     private:
         static ModuleRegistryBundle bundle;
@@ -52,14 +47,8 @@ class GLFWHandler : public WrapperBaseClass{
 
         GLFWwindow* Window;
 
-        int Init();
-        int CreateWindowImpl();
-        static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
-
-        bool apiStatus = false;
-        IWindowManager::WindowInfo* WindowInfo = nullptr;
-        bool framebufferResizedFlag = false;
-        bool suppressFirstResizeFlag = true;
+        int init();
+        int createWindow();
 };
 
 #endif

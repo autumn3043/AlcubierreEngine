@@ -6,13 +6,20 @@
 //Services
 #include "core/Registry/interface/IConfigManager.h"
 
-class ConfigManagerImpl;
+#include "core/DebugManager/public.h"
+
+class ConfigManagerException : public AlcEngineException {
+    public:
+        ConfigManagerException(std::string message) : AlcEngineException(DebugReport(message, 0, "ConfigManager")) {}
+};
+
+#include <nlohmann/json.hpp>
 
 class ConfigManager : public WrapperBaseClass{
     public:
-        int Get_Impl(IConfigManager::Container& v_out);
-        int Set_Impl(IConfigManager::Container& v_in);
-        int SetRaw_Impl(IConfigManager::Container& v_in);
+        int get(IConfigManager::Container& v_out);
+        int set(IConfigManager::Container& v_in);
+        int setParse(IConfigManager::Container& v_in);
 
         class IConfigManagerImpl : public IConfigManager {
             public:
@@ -20,21 +27,30 @@ class ConfigManager : public WrapperBaseClass{
 
                 IConfigManagerImpl(ConfigManager* _parent) : Parent(_parent) {}
 
-                int GetInternal(IConfigManager::Container& v_out) override { return Parent->Get_Impl(v_out); }
-                int SetInternal(IConfigManager::Container& v_in) override { return Parent->Set_Impl(v_in); }
-                int SetRawInternal(IConfigManager::Container& v_in) override { return Parent->SetRaw_Impl(v_in); }
+                int getInternal(IConfigManager::Container& v_out) override { return Parent->get(v_out); }
+                int setInternal(IConfigManager::Container& v_in) override { return Parent->set(v_in); }
+                int setParseInternal(IConfigManager::Container& v_in) override { return Parent->setParse(v_in); }
         };
 
-        Registry* registry_ptr = nullptr;
         ConfigManager(void* registry);
         ~ConfigManager();
 
         IConfigManagerImpl IConfigManager_ConfigManager;
         
     private:
-        ConfigManagerImpl* PrivatePtr = nullptr;
-
+        Registry* registry_ptr = nullptr;
         static ModuleRegistryBundle bundle;
+
+        int init();
+
+        nlohmann::json RawConfig;
+
+        IConfigManager::TypeDescriptor getDescriptorFromJson(const nlohmann::json& json);
+        void* getPointerToJson(const nlohmann::json& json);
+
+        void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "ConfigManager"), Write); }
+        std::string fullkey(const std::vector<std::string>& key);
+        void popEmptyElements(nlohmann::json& json);
 };
 
 #endif

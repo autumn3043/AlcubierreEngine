@@ -57,7 +57,7 @@ class IConfigManager : public InterfaceBaseClass {
 
             Container item = Container(key, nullptr, descriptor);
 
-            if(GetInternal(item) == 0) {
+            if(getInternal(item) == 0) {
                 if(key[key.size() - 1] == CFGARRAY_SIZE_T) {
                     if constexpr (std::is_same_v<T, int>) {
                         hold = Extract<int>(item.ptr);
@@ -125,7 +125,7 @@ class IConfigManager : public InterfaceBaseClass {
             TypeDescriptor* descriptor = new TypeDescriptor(std::type_identity<T>{});
 
             Container item = Container(key, &value, descriptor);
-            int hold = SetInternal(item);
+            int hold = setInternal(item);
 
             delete descriptor;
 
@@ -134,7 +134,7 @@ class IConfigManager : public InterfaceBaseClass {
 
         int SetRaw(std::string value) {
             Container item = Container(std::vector<std::string>(0), &value, nullptr);
-            int hold = SetRawInternal(item);
+            int hold = setParseInternal(item);
 
             return hold;
         }
@@ -221,9 +221,9 @@ class IConfigManager : public InterfaceBaseClass {
             Container(const std::vector<std::string>& _key, void* value, TypeDescriptor* _t_info) : key(_key), ptr(value), t_info(_t_info) {}
         };
 
-        virtual int GetInternal(Container& v_out) = 0; //Implementation reports status via int and fills out the ptr. Because the container is owned by the interface we can handle deletion smoothly. 
-        virtual int SetInternal(Container& v_in) = 0;
-        virtual int SetRawInternal(Container& v_in) = 0;
+        virtual int getInternal(Container& v_out) = 0; //Implementation reports status via int and fills out the ptr. Because the container is owned by the interface we can handle deletion smoothly. 
+        virtual int setInternal(Container& v_in) = 0;
+        virtual int setParseInternal(Container& v_in) = 0;
 };
 
 #endif

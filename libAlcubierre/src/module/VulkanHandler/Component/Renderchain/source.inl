@@ -1,5 +1,4 @@
 VulkanRenderchainComponent::VulkanRenderchainComponent(VulkanHandler* _parent, Registry* _registry_ptr) : parent(_parent), registry_ptr(_registry_ptr) {
-    framebufferResizedFlag = dynamic_cast<IWindowManager*>(registry_ptr->FetchService(WINDOW_MANAGER))->getFramebufferResizedFlag();
     maxFramesInFlight = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER))->Get<int>({"graphics", "max_frames_in_flight"}, 2);
 
     CreateGraphicsPipeline();
@@ -185,10 +184,17 @@ VulkanRenderchainComponent::GraphicsPipeline::GraphicsPipeline(VkDevice& _device
     };
     pipeCreateInfo.pDynamicState = &dynamicStateInfo;
 
+    VkPushConstantRange pushConstantRange {
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .offset = 0,
+        .size = sizeof(float) * 2
+    };
+
     VkPipelineLayoutCreateInfo layoutInfo {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = 0,
-        .pushConstantRangeCount = 0
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &pushConstantRange
     };
 
     vkCreatePipelineLayout(device, &layoutInfo, nullptr, &layout);
@@ -359,7 +365,7 @@ int VulkanRenderchainComponent::VertexBuffer::fillBufferMemory(std::vector<Verte
 }
 
 int VulkanRenderchainComponent::RecreateSwapchain() {
-    *framebufferResizedFlag = false;
+    vkDeviceWaitIdle(parent->device->Device);
     parent->recreateSwapchain();
     if(graphicalCommandPool) delete graphicalCommandPool;
     CreateGraphicalCommandPool();
@@ -405,6 +411,10 @@ int VulkanRenderchainComponent::RecordCommandBuffer(VkCommandBuffer& CommandBuff
     vkCmdBeginRendering(CommandBuffer, &RenderingInfo);
 
     vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+
+    float offset[2] = { numberOfFrames * 0.01f, 0 };
+    vkCmdPushConstants(CommandBuffer, pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(offset), offset);
+
     VkDeviceSize deviceOffset = 0;
     vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &vertexBuffers[0]->allocation->executiveBuffer, &deviceOffset);
 
@@ -477,7 +487,7 @@ int VulkanRenderchainComponent::DrawFrame() {
     uint32_t imageIndex;
     VkResult result_acquireNextImage = vkAcquireNextImageKHR(parent->device->Device, parent->swapchain->Swapchain, graphicsBuffer.timeout, graphicsBuffer.semaphore, VK_NULL_HANDLE, &imageIndex);
 
-    if(result_acquireNextImage == VK_ERROR_OUT_OF_DATE_KHR || *framebufferResizedFlag) {
+    if(result_acquireNextImage == VK_ERROR_OUT_OF_DATE_KHR) {
         DM().Log("Attempt to acquire next swapchain image indicated swapchain was out of date");
         RecreateSwapchain();
         return 1;
@@ -518,12 +528,13 @@ int VulkanRenderchainComponent::DrawFrame() {
 
     VkResult result_queuePresent = vkQueuePresentKHR(presentationQueue.queue, &presentInfo);
 
-    if(result_queuePresent == VK_ERROR_OUT_OF_DATE_KHR || result_queuePresent == VK_SUBOPTIMAL_KHR || *framebufferResizedFlag) {
+    if(result_queuePresent == VK_ERROR_OUT_OF_DATE_KHR) {
         DM().Log("Attempt to present render pass to surface queue indicated swapchain was out of date or suboptimal");
         RecreateSwapchain();
     }
 
     currentFrame = (currentFrame + 1) % maxFramesInFlight;
+    numberOfFrames = (numberOfFrames + 1) % 100;
 
     return 0;
 }

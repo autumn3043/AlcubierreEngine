@@ -1,6 +1,5 @@
 #include "AlcubierreEngine.h"
 
-#include <thread>
 #include <fstream>
 std::string ImportDeveloperConfig() {
     std::ifstream settingsFile("settings.json", std::ios::in);

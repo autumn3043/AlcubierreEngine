@@ -120,9 +120,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanEnvironmentComponent::VulkanDebugCallback(
 }
 
 int VulkanEnvironmentComponent::CreateSurface() {
-    int hold = static_cast<IWindowSurfaceBridge*>(registry_ptr->FetchService(WINDOW_SURFACE))->CreateWindowSurface(&Instance, &Surface);
+    int hold = static_cast<IWindowSurfaceBridge*>(registry_ptr->FetchService(WINDOW_SURFACE))->createWindowSurface(&Instance, &Surface);
 
-    if(hold == 1) {
+    if(hold == 0) {
         DM().Log("Successfully established Vulkan window surface bridge link");
     } else {
         throw VulkanException("Failed to establish Vulkan wsb link");
