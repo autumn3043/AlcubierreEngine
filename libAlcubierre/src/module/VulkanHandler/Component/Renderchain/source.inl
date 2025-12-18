@@ -132,8 +132,8 @@ VulkanRenderchainComponent::GraphicsPipeline::GraphicsPipeline(VkDevice& _device
 
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        // .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
-        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
+        // .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP
     };
     pipeCreateInfo.pInputAssemblyState = &inputAssemblyInfo;
 
@@ -259,7 +259,7 @@ VulkanRenderchainComponent::CommandPool::~CommandPool() {
         commandPool = VK_NULL_HANDLE;
         DM().Log("Successfully destroyed command pool");
     } else {
-        DM().Log("Tried to destroy command pool, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
+        DM().Log("Tried to destroy command pool, but VkDevice handle was null, which would have caused a segfault. This memory will leak", 2);
     }
 }
 
@@ -314,84 +314,37 @@ int VulkanRenderchainComponent::CreateVertexBuffers() {
         }
 
     vertexBuffers.resize(1);
-    //TEMP
-        uint32_t graphicsQueue = parent->device->getQueue(VK_QUEUE_GRAPHICS_BIT, true).familyIndex;
-        uint32_t transferQueue = parent->device->getQueue(VK_QUEUE_TRANSFER_BIT).familyIndex;
-        std::vector<uint32_t> queues;
-        queues.push_back(graphicsQueue);
-        if(graphicsQueue != transferQueue) queues.push_back(transferQueue);
-    vertexBuffers[0] = new VertexBuffer(parent->device->Device, parent->device->PhysicalDevice, vertices_temp, queues);
+    vertexBuffers[0] = new VertexBuffer(parent->allocator, parent->device->Device, sizeof(vertices_temp[0]) * vertices_temp.size(), parent->device->getQueue(VK_QUEUE_TRANSFER_BIT).familyIndex);
     vertexBuffers[0]->fillBufferMemory(vertices_temp);
     return 0;
 }
 
-VulkanRenderchainComponent::VertexBuffer::VertexBuffer(VkDevice& _device, VkPhysicalDevice& physicalDevice, std::vector<Vertex> vertices, std::vector<uint32_t>& queues) : device(_device) {
-    bufferSize = sizeof(vertices[0]) * vertices.size();
-
-    VkSharingMode _sharing;
-    if(queues.size() == 1) _sharing = VK_SHARING_MODE_EXCLUSIVE;
-    else _sharing = VK_SHARING_MODE_CONCURRENT;
-
+VulkanRenderchainComponent::VertexBuffer::VertexBuffer(VulkanMemoryAllocatorComponent* _allocator, VkDevice& _device, uint32_t _bufferSize, uint32_t transferQueueIndex) : allocator(_allocator), device(_device), bufferSize(_bufferSize) {
     VkBufferCreateInfo createInfo {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
         .size = bufferSize,
-        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        .sharingMode = _sharing,
-        .queueFamilyIndexCount = static_cast<uint32_t>(queues.size()),
-        .pQueueFamilyIndices = queues.data()
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 1,
+        .pQueueFamilyIndices = &transferQueueIndex
     };
 
     VkResult hold = vkCreateBuffer(device, &createInfo, nullptr, &bufferInstance);
-    if(hold != 0) {
+    if(hold != VK_SUCCESS) {
         throw VulkanException("Failed to create vertex buffer. Vulkan error code: " + std::to_string(hold));
     }
 
-    VkPhysicalDeviceMemoryProperties2 physicalDeviceMemory {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2
-    };
-    vkGetPhysicalDeviceMemoryProperties2(physicalDevice, &physicalDeviceMemory);
+    allocation = &allocator->bindBufferMemory(bufferInstance, bufferSize);
 
-    VkMemoryAllocateInfo memoryAllocation {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = nullptr,
-    };
-    VkMemoryRequirements2 memoryRequirements {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
-        .pNext = nullptr
-    };
-    VkBufferMemoryRequirementsInfo2 bufferMemoryRequirements {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
-        .pNext = nullptr,
-        .buffer = bufferInstance
-    };
-    vkGetBufferMemoryRequirements2(device, &bufferMemoryRequirements, &memoryRequirements);
-    memoryAllocation.allocationSize = memoryRequirements.memoryRequirements.size;
-    VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-    for(int i = 0; i < physicalDeviceMemory.memoryProperties.memoryTypeCount; i++) {
-        if(memoryRequirements.memoryRequirements.memoryTypeBits & (1 << i) && (physicalDeviceMemory.memoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            memoryAllocation.memoryTypeIndex = i;
-            break;
-        }
-    }
-    hold = vkAllocateMemory(device, &memoryAllocation, nullptr, &bufferMemory);
-    if(hold != 0) {
-        throw VulkanException("Failed to allocate memory. Vulkan error code: " + std::to_string(hold));
-    }
-
-    std::vector<VkBindBufferMemoryInfo> bindInfo = {{VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO, nullptr, bufferInstance, bufferMemory}};
-    hold = vkBindBufferMemory2(device, bindInfo.size(), bindInfo.data());
-    if(hold != 0) {
-        throw VulkanException("Failed to bind buffer memory. Vulkan error code: " + std::to_string(hold));
-    }
-
-    DM().Log("Successfully created vertex buffer");
+    DM().Log("Successfully created and bound empty memory buffer sized " + std::to_string(bufferSize) + " bytes");
 }
 
 VulkanRenderchainComponent::VertexBuffer::~VertexBuffer() {
     if(device != VK_NULL_HANDLE) {
-        vkFreeMemory(device, bufferMemory, nullptr);
+        allocator->freeBufferMemory(*allocation);
         vkDestroyBuffer(device, bufferInstance, nullptr);
+        bufferInstance = VK_NULL_HANDLE;
         DM().Log("Successfully freed vertex buffer");
     } else {
         DM().Log("Tried to free vertex buffer, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
@@ -399,15 +352,9 @@ VulkanRenderchainComponent::VertexBuffer::~VertexBuffer() {
 }
 
 int VulkanRenderchainComponent::VertexBuffer::fillBufferMemory(std::vector<Vertex>& external_membuffer) {
-    void* internal_membuffer;
-    VkResult hold = vkMapMemory(device, bufferMemory, 0, bufferSize, NULL_BIT, &internal_membuffer);
-    if(hold != VK_SUCCESS) {
-        throw VulkanException("Failed to map memory to buffer. Vulkan error code: " + std::to_string(hold));
-    }
-    assert(sizeof(external_membuffer[0]) * external_membuffer.size() == bufferSize);
-    memcpy(internal_membuffer, external_membuffer.data(), bufferSize);
-    vkUnmapMemory(device, bufferMemory);
-    DM().Log("Copied input vertices to membuffer");
+    assert(allocation->allocatedRegion.memorySize == sizeof(external_membuffer[0]) * external_membuffer.size());
+    allocator->stageBufferMemory(*allocation, external_membuffer.data());
+    allocator->submitBufferMemory(*allocation, nullptr);
     return 0;
 }
 
@@ -459,7 +406,7 @@ int VulkanRenderchainComponent::RecordCommandBuffer(VkCommandBuffer& CommandBuff
 
     vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
     VkDeviceSize deviceOffset = 0;
-    vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &vertexBuffers[0]->bufferInstance, &deviceOffset);
+    vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &vertexBuffers[0]->allocation->executiveBuffer, &deviceOffset);
 
     VkViewport viewport = VkViewport(0.0f, 0.0f, static_cast<float>(image->extent.width), static_cast<float>(image->extent.height), 0.0f, 1.0f);
     vkCmdSetViewport(CommandBuffer, 0, 1, &viewport);

@@ -125,9 +125,9 @@ void VulkanDeviceComponent::FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo
     std::vector<VkQueueFamilyProperties> QueueFamilies(QueueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(PhysicalDevice, &QueueFamilyCount, QueueFamilies.data());
 
-    int desiredGraphicsQueues = CM->Get<int>({"graphics", "device", "queues", "graphics_capable_count"}, 0);
+    int desiredGraphicsQueues = CM->Get<int>({"graphics", "device", "queues", "graphics_capable_count"}, 1);
     int desiredComputeQueues = CM->Get<int>({"graphics", "device", "queues", "compute_capable_count"}, 0);
-    int desiredTransferQueues = CM->Get<int>({"graphics", "device", "queues", "transfer_capable_count"}, 0);
+    int desiredTransferQueues = CM->Get<int>({"graphics", "device", "queues", "transfer_capable_count"}, 1);
     int desiredBindingQueues = CM->Get<int>({"graphics", "device", "queues", "binding_capable_count"}, 0);
 
     for(int i = 0; i < QueueFamilyCount; i++) {

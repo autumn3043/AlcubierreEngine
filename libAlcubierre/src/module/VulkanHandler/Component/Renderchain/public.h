@@ -13,7 +13,7 @@ class VulkanRenderchainComponent {
                 ShaderModule(VkDevice& _device);
                 ~ShaderModule();
 
-                const VkDevice& device;
+                VkDevice& device;
                 
                 VkShaderModule module = VK_NULL_HANDLE;
             };
@@ -46,7 +46,7 @@ class VulkanRenderchainComponent {
             class CommandPool;
 
             struct CommandBuffer {
-                const VkDevice& device;
+                VkDevice& device;
 
                 CommandBuffer(VkDevice& _device, VkCommandPool& commandPool, int _timeout);
                 ~CommandBuffer();
@@ -84,16 +84,19 @@ class VulkanRenderchainComponent {
             };
             class VertexBuffer {
                 public:
-                    VertexBuffer(VkDevice& _device, VkPhysicalDevice& physicalDevice, std::vector<Vertex> vertices, std::vector<uint32_t>& queues);
+                    VertexBuffer(VulkanMemoryAllocatorComponent* _allocator, VkDevice& _device, uint32_t _bufferSize, uint32_t transferQueueIndex);
                     ~VertexBuffer();
 
                     int fillBufferMemory(std::vector<Vertex>& external_membuffer);
 
-                    const VkDevice& device;
+                    VkDevice& device;
+                    VulkanMemoryAllocatorComponent::MemoryHeap::bufferAllocationDetails* allocation;
 
-                    VkDeviceMemory bufferMemory;
+                private:
                     VkBuffer bufferInstance;
-                    VkDeviceSize bufferSize;
+                    uint32_t bufferSize;
+
+                    VulkanMemoryAllocatorComponent* allocator;
             };
         std::vector<VertexBuffer*> vertexBuffers;
         std::vector<Vertex> vertices_temp;

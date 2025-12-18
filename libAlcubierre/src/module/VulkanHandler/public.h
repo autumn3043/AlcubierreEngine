@@ -24,6 +24,7 @@ class VulkanException : public AlcEngineException {
 class VulkanHandler;
 #include "module/VulkanHandler/Component/Environment/public.h"
 #include "module/VulkanHandler/Component/Device/public.h"
+#include "module/VulkanHandler/Component/Allocator/public.h"
 #include "module/VulkanHandler/Component/Swapchain/public.h"
 #include "module/VulkanHandler/Component/Renderchain/public.h"
 
@@ -37,6 +38,7 @@ class VulkanHandler : public WrapperBaseClass {
         bool chainInitialisation = false;
         VulkanSwapchainComponent* swapchain = nullptr;
         VulkanRenderchainComponent* renderchain = nullptr;
+        VulkanMemoryAllocatorComponent* allocator = nullptr;
 
         void Init();
 
@@ -52,6 +54,7 @@ class VulkanHandler : public WrapperBaseClass {
         IGraphicsBackendImpl IGraphicsBackend_VulkanHandler;
 
         void drawFrameImpl();
+
         void recreateSwapchain();
 
     private:

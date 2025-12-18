@@ -12,7 +12,6 @@ class AlcubierreEngine {
         void InitEngine();
 
         bool ShouldClose();
-
         void Frame();
 
         int SetConfigFromJsonString(std::string jsonString);

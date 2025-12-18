@@ -33,7 +33,7 @@
             "queues" : {
                 "graphics_capable_count" : 1,
                 "surface_capable_count" : 1, //surface_capable_count MUST <= graphics_count
-                "transfer_capable_count" : 2
+                "transfer_capable_count" : 1
             }
         },
         //https://docs.vulkan.org/refpages/latest/refpages/source/VkFormat.html
@@ -56,6 +56,8 @@
         {"position" : {"x" : 0.0, "y" : 0.0}, "colour" : {"r" : 1.0, "g" : 0.0, "b" : 0.0}},
         {"position" : {"x" : 0.5, "y" : -1.0}, "colour" : {"r" : 0.0, "g" : 1.0, "b" : 0.0}},
         {"position" : {"x" : 1.0, "y" : 0.0}, "colour" : {"r" : 0.0, "g" : 0.0, "b" : 1.0}},
-        {"position" : {"x" : 1.5, "y" : -1.0}, "colour" : {"r" : 1.0, "g" : 0.0, "b" : 0.0}}
+        {"position" : {"x" : 0.0, "y" : 0.0}, "colour" : {"r" : 1.0, "g" : 0.0, "b" : 0.0}},
+        {"position" : {"x" : -0.5, "y" : -1.0}, "colour" : {"r" : 0.0, "g" : 1.0, "b" : 0.0}},
+        {"position" : {"x" : -1.0, "y" : 0.0}, "colour" : {"r" : 0.0, "g" : 0.0, "b" : 1.0}}
     ]
 }

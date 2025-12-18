@@ -23,6 +23,7 @@ VulkanHandler::~VulkanHandler() {
 
     if(renderchain) delete renderchain;
     if(swapchain) delete swapchain;
+    if(allocator) delete allocator;
     if(device) delete device;
     if(environment) delete environment;
 }
@@ -37,6 +38,7 @@ void VulkanHandler::Init() {
 
     environment = new VulkanEnvironmentComponent(this, registry_ptr);
     device = new VulkanDeviceComponent(this, registry_ptr);
+    allocator = new VulkanMemoryAllocatorComponent(this, registry_ptr);
 
     if(!CM->Get<bool>({"renderer", "defer_renderchain_initialisation"}, false)) {
         swapchain = new VulkanSwapchainComponent(this, registry_ptr);
@@ -54,6 +56,7 @@ void VulkanHandler::Init() {
 #include "module/VulkanHandler/Component/Device/source.inl"
 #include "module/VulkanHandler/Component/Swapchain/source.inl"
 #include "module/VulkanHandler/Component/Renderchain/source.inl"
+#include "module/VulkanHandler/Component/Allocator/source.inl"
 
 void VulkanHandler::drawFrameImpl() {
     if(!chainInitialisation) {

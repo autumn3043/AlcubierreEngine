@@ -16,7 +16,6 @@ class AlcubierreEngineImpl {
         void InitEngineImpl();
 
         bool ShouldCloseImpl();
-
         void FrameImpl();
 
         int SetConfigFromJsonStringImpl(std::string jsonString);
