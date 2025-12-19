@@ -55,7 +55,7 @@ void VulkanEnvironmentComponent::FetchCreateData(AlcInstanceCreateInfo& ReturnBu
     } else {
         ReturnBundle._ppEnabledLayerNames;
     }
-    ReturnBundle._ppEnabledExtensionNames = CM->Get<std::vector<std::string>>({"renderer", "extensions"}, {});
+    ReturnBundle._ppEnabledExtensionNames = CM->Get<std::vector<std::string>>({"renderer", "extensions"}, {}, nullptr);
     ReturnBundle._ppEnabledExtensionNames.push_back("VK_EXT_debug_utils");
 }
 

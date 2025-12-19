@@ -309,12 +309,12 @@ int VulkanRenderchainComponent::CreateVertexBuffers() {
         int count = CM->Get<int>({"vertices_temp", CFGARRAY_SIZE_T}, 0);
         vertices_temp.resize(count);
         for(int i = 0; i < count; i++) {
-            float scale = static_cast<float>(CM->Get<double>({"scale"}));
-            float x = static_cast<float>(CM->Get<double>({"vertices_temp", std::to_string(i), "position", "x"})) * scale;
-            float y = static_cast<float>(CM->Get<double>({"vertices_temp", std::to_string(i), "position", "y"})) * scale;
-            float r = static_cast<float>(CM->Get<double>({"vertices_temp", std::to_string(i), "colour", "r"}));
-            float g = static_cast<float>(CM->Get<double>({"vertices_temp", std::to_string(i), "colour", "g"}));
-            float b = static_cast<float>(CM->Get<double>({"vertices_temp", std::to_string(i), "colour", "b"}));
+            float scale = CM->Get<float>({"scale"});
+            float x = CM->Get<float>({"vertices_temp", std::to_string(i), "position", "x"}) * scale;
+            float y = CM->Get<float>({"vertices_temp", std::to_string(i), "position", "y"}) * scale;
+            float r = CM->Get<float>({"vertices_temp", std::to_string(i), "colour", "r"});
+            float g = CM->Get<float>({"vertices_temp", std::to_string(i), "colour", "g"});
+            float b = CM->Get<float>({"vertices_temp", std::to_string(i), "colour", "b"});
             Vertex hold {.position = {x, y}, .colour = {r, g, b}};
             vertices_temp[i] = hold;
         }

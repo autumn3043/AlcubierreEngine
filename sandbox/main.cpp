@@ -1,7 +1,7 @@
 #include "AlcubierreEngine.h"
 
 #include <fstream>
-std::string ImportDeveloperConfig() {
+std::string importDeveloperConfig() {
     std::ifstream settingsFile("settings.json", std::ios::in);
     std::string rawString((std::istreambuf_iterator<char>(settingsFile)), std::istreambuf_iterator<char>());
     settingsFile.close();
@@ -11,13 +11,12 @@ std::string ImportDeveloperConfig() {
 int main() {
     AlcubierreEngine app;
 
-    app.SetConfigFromJsonString(ImportDeveloperConfig());
+    app.config.parse(importDeveloperConfig());
 
-    app.InitEngine();
+    app.initEngine();
 
-    while(!app.ShouldClose()) {
-        app.Frame();
-        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    while(!app.window.shouldClose()) {
+        app.graphics.frame();
     }
 
     return 0;

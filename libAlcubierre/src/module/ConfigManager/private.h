@@ -10,7 +10,7 @@
 
 class ConfigManagerException : public AlcEngineException {
     public:
-        ConfigManagerException(std::string message) : AlcEngineException(DebugReport(message, 0, "ConfigManager")) {}
+        ConfigManagerException(std::string message, int priority = 1) : AlcEngineException(DebugReport(message, priority, "ConfigManager")) {}
 };
 
 #include <nlohmann/json.hpp>
@@ -20,6 +20,7 @@ class ConfigManager : public WrapperBaseClass{
         int get(IConfigManager::Container& v_out);
         int set(IConfigManager::Container& v_in);
         int setParse(IConfigManager::Container& v_in);
+        int dump();
 
         class IConfigManagerImpl : public IConfigManager {
             public:
@@ -30,6 +31,7 @@ class ConfigManager : public WrapperBaseClass{
                 int getInternal(IConfigManager::Container& v_out) override { return Parent->get(v_out); }
                 int setInternal(IConfigManager::Container& v_in) override { return Parent->set(v_in); }
                 int setParseInternal(IConfigManager::Container& v_in) override { return Parent->setParse(v_in); }
+                int dump() override { return Parent->dump(); }
         };
 
         ConfigManager(void* registry);

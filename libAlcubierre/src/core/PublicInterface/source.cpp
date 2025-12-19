@@ -11,48 +11,55 @@ AlcubierreEngine::~AlcubierreEngine() {
     delete PrivatePtr;
 }
 
-void AlcubierreEngine::InitEngine() {
-    return PrivatePtr->InitEngineImpl();
-}
+void AlcubierreEngine::initEngine() { return PrivatePtr->initEngine(); }
 
-bool AlcubierreEngine::ShouldClose() {
-    return PrivatePtr->ShouldCloseImpl();
-}
+void AlcubierreEngine::Debug::log(std::string message, int priority) { return PrivatePtr->log(message, priority); }
 
-void AlcubierreEngine::Frame() {
-    return PrivatePtr->FrameImpl();
-}
+int AlcubierreEngine::Config::get(std::vector<std::string> key, bool* returnPtr) { return PrivatePtr->get<bool>(key, returnPtr); }
+int AlcubierreEngine::Config::get(std::vector<std::string> key, int* returnPtr) { return PrivatePtr->get<int>(key, returnPtr); }
+int AlcubierreEngine::Config::get(std::vector<std::string> key, float* returnPtr) { return PrivatePtr->get<float>(key, returnPtr); }
+int AlcubierreEngine::Config::get(std::vector<std::string> key, std::string* returnPtr) { return PrivatePtr->get<std::string>(key, returnPtr); }
+int AlcubierreEngine::Config::parse(std::string value) { return PrivatePtr->parse(value); }
+int AlcubierreEngine::Config::dump() {return PrivatePtr->dump(); }
 
-int AlcubierreEngine::SetConfigFromJsonString(std::string jsonString) {
-    return PrivatePtr->SetConfigFromJsonStringImpl(jsonString);
-}
+bool AlcubierreEngine::Window::shouldClose() { return PrivatePtr->shouldClose(); }
+
+int AlcubierreEngine::Graphics::frame() { return PrivatePtr->frame(); }
 
 AlcubierreEngineImpl::AlcubierreEngineImpl() {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr.FetchService(CONFIGURATION_MANAGER));
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registryMasterInstance.FetchService(CONFIGURATION_MANAGER));
     CM->Set<std::string>({"protected", "metadata", "engine_data", "name"}, "\"Alcubierre Engine\"");
     std::string engineVersion_str = "[" + std::to_string(ENGINE_VERSION[0]) + "," + std::to_string(ENGINE_VERSION[1]) + "," + std::to_string(ENGINE_VERSION[2]) + "]";
     CM->Set<std::vector<int>>({"protected", "metadata", "engine_data", "version"}, engineVersion_str);
 }
 
-AlcubierreEngineImpl::~AlcubierreEngineImpl() {
+AlcubierreEngineImpl::~AlcubierreEngineImpl() {}
+
+void AlcubierreEngineImpl::log(std::string& message, int& priority) {
+    std::string appName = dynamic_cast<IConfigManager*>(registryMasterInstance.FetchService(CONFIGURATION_MANAGER))->Get<std::string>({"metadata", "application_data", "name"}, "Application");
+    DM().Log(DebugReport(message, priority, appName));
 }
 
-void AlcubierreEngineImpl::InitEngineImpl() {
-    registry_ptr.FetchService(WINDOW_SURFACE); //Must come before Vulkan so it can dump to cfg. (Part of registry pre init hook TODO)
-    registry_ptr.FetchService(GRAPHICS_BACKEND);
+int AlcubierreEngineImpl::parse(std::string& value) {
+    return dynamic_cast<IConfigManager*>(registryMasterInstance.FetchService(CONFIGURATION_MANAGER))->SetRaw(value);
+}
+int AlcubierreEngineImpl::dump() {
+    return dynamic_cast<IConfigManager*>(registryMasterInstance.FetchService(CONFIGURATION_MANAGER))->dump();
 }
 
-bool AlcubierreEngineImpl::ShouldCloseImpl() {
-    return dynamic_cast<IWindowManager*>(registry_ptr.FetchService(WINDOW_MANAGER))->shouldClose();
+void AlcubierreEngineImpl::initEngine() {
+    registryMasterInstance.FetchService(WINDOW_SURFACE); //Must come before Vulkan so it can dump to cfg. (Part of registry pre init hook TODO)
+    registryMasterInstance.FetchService(GRAPHICS_BACKEND);
 }
 
-void AlcubierreEngineImpl::FrameImpl() {
-    IWindowManager* WM = dynamic_cast<IWindowManager*>(registry_ptr.FetchService(WINDOW_MANAGER));
+bool AlcubierreEngineImpl::shouldClose() {
+    return dynamic_cast<IWindowManager*>(registryMasterInstance.FetchService(WINDOW_MANAGER))->shouldClose();
+}
+
+int AlcubierreEngineImpl::frame() {
+    IWindowManager* WM = dynamic_cast<IWindowManager*>(registryMasterInstance.FetchService(WINDOW_MANAGER));
     WM->pollEvents();
-    IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(registry_ptr.FetchService(GRAPHICS_BACKEND));
+    IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(registryMasterInstance.FetchService(GRAPHICS_BACKEND));
     GB->drawFrame();
-}
-
-int AlcubierreEngineImpl::SetConfigFromJsonStringImpl(std::string jsonString) {
-    return dynamic_cast<IConfigManager*>(registry_ptr.FetchService(CONFIGURATION_MANAGER))->SetRaw(jsonString);
+    return 0;
 }

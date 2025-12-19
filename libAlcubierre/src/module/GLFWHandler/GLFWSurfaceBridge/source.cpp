@@ -30,7 +30,7 @@ int GLFWSurfaceBridge::init() {
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
         //VK extensions needed for GLFW
-            std::vector<std::string> extensions = CM->Get<std::vector<std::string>>({"renderer", "extensions"}, {});
+            std::vector<std::string> extensions = CM->Get<std::vector<std::string>>({"renderer", "extensions"}, {}, nullptr);
 
             uint32_t extensionsCount = 0;
             const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionsCount);

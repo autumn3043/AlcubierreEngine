@@ -190,7 +190,7 @@ void VulkanDeviceComponent::FetchDeviceExtensionArray(std::vector<std::string>& 
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
     //Stuff other modules need.
-    std::vector<std::string> requestedExtensions = CM->Get<std::vector<std::string>>({"device", "extensions"}, {});
+    std::vector<std::string> requestedExtensions = CM->Get<std::vector<std::string>>({"device", "extensions"}, {}, nullptr);
 
     //Stuff Vulkan needs.
     requestedExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);

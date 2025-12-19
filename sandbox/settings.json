@@ -7,13 +7,14 @@
 
     "metadata" : {
         "application_data" : {
-            "name" : "Alcubierre sandbox app",
+            "name" : "sandbox",
             "version" : [0, 0, 0]
         }
     },
 
     "presentation" : {
         "window" : {
+            "title" : "Alcubierre sandbox app",
             "width" : 800,
             "height" : 600,
             "maximised" : false,

@@ -17,8 +17,8 @@ default: $(OUTPUT)
 full: clean $(OUTPUT)
 
 $(OUTPUT): $(ALL_OBJS)
-	ar rcs build/$@ $^
 	@cp -u $(BASE_DIR)/PublicInterface/public.h build/AlcubierreEngine.h
+	ar rcs build/$@ $^
 
 %.o: %.cpp
 	g++ $(FLAGS) -o $@ -c $< > makelog 2>&1

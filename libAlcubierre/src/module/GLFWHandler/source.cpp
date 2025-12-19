@@ -43,7 +43,7 @@ int GLFWHandler::createWindow() {
     glfwWindowHint(GLFW_FOCUSED, GLFW_TRUE);
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 
-    std::string name = CM->Get<std::string>({"metadata", "application_data", "name"}, "default application name");
+    std::string name = CM->Get<std::string>({"presentation", "window", "title"}, "default window title");
     int width = CM->Get<int>({"presentation", "window", "width"}, 800);
     int height = CM->Get<int>({"presentation", "window", "height"}, 600);
     

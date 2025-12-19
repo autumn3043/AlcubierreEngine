@@ -10,20 +10,36 @@
 #include "core/Registry/interface/IGraphicsBackend.h"
 
 class AlcubierreEngineImpl {
+    private:
+        Registry registryMasterInstance;
+
+        const std::vector<int> ENGINE_VERSION = {0, 0, 0};
+
     public:
         AlcubierreEngineImpl();
         ~AlcubierreEngineImpl();
-        void InitEngineImpl();
+        void initEngine();
 
-        bool ShouldCloseImpl();
-        void FrameImpl();
+        //Debug
+            void log(std::string& message, int& priority);
 
-        int SetConfigFromJsonStringImpl(std::string jsonString);
+        //Config
+            template <typename T>
+            int get(std::vector<std::string>& key, T*& returnPtr) {
+                int result;
+                *returnPtr = dynamic_cast<IConfigManager*>(registryMasterInstance.FetchService(CONFIGURATION_MANAGER))->Get<T>(key, &result);
+                return result;
+            }
+            int parse(std::string& value);
+            int dump();
 
-    private:
-        Registry registry_ptr;
+        //Window
+            bool shouldClose();
 
-        const std::vector<int> ENGINE_VERSION = {0, 0, 0};
+        //Graphics
+            int frame();
+
+        //Input
 };
 
 #endif

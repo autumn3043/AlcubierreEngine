@@ -28,7 +28,7 @@ int ConfigManager::get(IConfigManager::Container& v_out) {
     //Does a value exist at this key?
     nlohmann::json* json = &RawConfig;
     for(int i = 0; i < v_out.key.size(); i++) {
-        if(v_out.key[i] == "SIZE_T") {
+        if(v_out.key[i] == CFGARRAY_SIZE_T) {
             if(json->is_primitive()) {
                 logIdentity("Stored value at key '" + fullkey(v_out.key) + "' was: " + getDescriptorFromJson(*json).Type() + " which is not an array or object type", 1);
                 return 1;
@@ -55,7 +55,7 @@ int ConfigManager::get(IConfigManager::Container& v_out) {
     //Does its type match the expected return type?
     if((*v_out.t_info != getDescriptorFromJson(*json))) {
         logIdentity("Stored value at key '" + fullkey(v_out.key) + "' was: " + getDescriptorFromJson(*json).Type() + " which did not match the requested type: " + v_out.t_info->Type(), 1);
-        return 1;
+        return 2;
     }
 
     //If yes to both, get, return and move a pointer to it.
@@ -134,6 +134,11 @@ int ConfigManager::setParse(IConfigManager::Container& v_in) {
     return 0;
 }
 
+int ConfigManager::dump() {
+    logIdentity(RawConfig.dump());
+    return 0;
+}
+
 IConfigManager::TypeDescriptor ConfigManager::getDescriptorFromJson(const nlohmann::json& json) {
     IConfigManager::TypeDescriptor desc;
 
@@ -151,7 +156,7 @@ IConfigManager::TypeDescriptor ConfigManager::getDescriptorFromJson(const nlohma
         break;
 
         case nlohmann::json::value_t::number_float:
-            desc = IConfigManager::TypeDescriptor(std::type_identity<double>{});
+            desc = IConfigManager::TypeDescriptor(std::type_identity<float>{});
         break;
 
         case nlohmann::json::value_t::string:
@@ -193,7 +198,7 @@ void* ConfigManager::getPointerToJson(const nlohmann::json& json) {
         break;
 
         case nlohmann::json::value_t::number_float:
-            hold = new double(json.get<double>());
+            hold = new float(json.get<float>());
         break;
 
         case nlohmann::json::value_t::string:

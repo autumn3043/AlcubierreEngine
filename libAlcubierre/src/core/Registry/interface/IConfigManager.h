@@ -22,42 +22,44 @@ class IConfigManager : public InterfaceBaseClass {
         struct is_vector<std::vector<U, Alloc>> : std::true_type {};
 
         template <typename T>
-        const T Get(std::string key) {
+        const T Get(std::string key, int* resultPtr = nullptr) {
             const std::vector<std::string> key_ = {key};
-            return Get<T>(key_, T(), true);
+            return Get<T>(key_, T(), true, resultPtr);
         }
 
         template <typename T>
-        const T Get(std::string key, T defaultValue) {
+        const T Get(std::string key, T defaultValue, int* resultPtr = nullptr) {
             const std::vector<std::string> key_ = {key};
-            return Get<T>(key_, defaultValue);
+            return Get<T>(key_, defaultValue, false, resultPtr);
         }
 
         template <typename T>
-        const T Get(std::initializer_list<std::string> key) {
+        const T Get(std::initializer_list<std::string> key, int* resultPtr = nullptr) {
             const std::vector<std::string> key_ = std::vector<std::string>(key);
-            return Get<T>(key, T(), true);
+            return Get<T>(key, T(), true, resultPtr);
         }
 
         template <typename T>
-        const T Get(std::initializer_list<std::string> key, T defaultValue) {
+        const T Get(std::initializer_list<std::string> key, T defaultValue, int* resultPtr = nullptr) {
             const std::vector<std::string> key_ = std::vector<std::string>(key);
-            return Get<T>(key_, defaultValue);
+            return Get<T>(key_, defaultValue, false, resultPtr);
         }
 
         template <typename T>
-        const T Get(const std::vector<std::string> key) {
-            return Get<T>(key, T(), true);
+        const T Get(const std::vector<std::string> key, int* resultPtr = nullptr) {
+            return Get<T>(key, T(), true, resultPtr);
         }
 
         template <typename T>
-        const T Get(const std::vector<std::string> key, T defaultValue, bool missingDefault = false) {
+        const T Get(const std::vector<std::string> key, T defaultValue, bool missingDefault = false, int* resultPtr = nullptr) {
             T hold;
             TypeDescriptor* descriptor = new TypeDescriptor(std::type_identity<T>{});
 
             Container item = Container(key, nullptr, descriptor);
+            int result = getInternal(item);
+            if(resultPtr) *resultPtr = result;
 
-            if(getInternal(item) == 0) {
+            if(result == 0) {
                 if(key[key.size() - 1] == CFGARRAY_SIZE_T) {
                     if constexpr (std::is_same_v<T, int>) {
                         hold = Extract<int>(item.ptr);
@@ -70,6 +72,7 @@ class IConfigManager : public InterfaceBaseClass {
 
             } else {
                 //Implementation promises that pointer is nullptr in this case.
+
                 if(!missingDefault) {
                     hold = defaultValue;
                 } else {
@@ -177,7 +180,7 @@ class IConfigManager : public InterfaceBaseClass {
             }
 
             bool operator==(const TypeDescriptor& other) const {
-                if(type == "void" || other.type == "void") return true; // T = void
+                if(type == "lossy" || other.type == "lossy") return true; // T = std::monostate (don't care)
                 else if(nested && other.nested) return *nested == *other.nested; //vector<T> == Vector<U>
                 else if(nested || other.nested) return false; //vector<T> != U
                 else if(type == other.type) return true; //T = T
@@ -199,14 +202,14 @@ class IConfigManager : public InterfaceBaseClass {
             else if constexpr (std::is_same_v<T, int64_t>) return "int";
             else if constexpr (std::is_same_v<T, uint64_t>) return "int";
             else if constexpr (std::is_same_v<T, long>) return "long";
-            else if constexpr (std::is_same_v<T, long long>) return "long long";
-            else if constexpr (std::is_same_v<T, unsigned>) return "unsigned int";
+            else if constexpr (std::is_same_v<T, long long>) return "long_long";
+            else if constexpr (std::is_same_v<T, unsigned>) return "unsigned_int";
             else if constexpr (std::is_same_v<T, float>) return "float";
             else if constexpr (std::is_same_v<T, double>) return "double";
             else if constexpr (std::is_same_v<T, std::string>) return "string";
             else if constexpr (std::is_same_v<T, std::nullptr_t>) return "nullptr";
-            else if constexpr (std::is_same_v<T, void*>) return "void*";
-            else if constexpr (std::is_same_v<T, std::monostate>) return "void";
+            else if constexpr (std::is_same_v<T, void*>) return "lossy";
+            else if constexpr (std::is_same_v<T, std::monostate>) return "lossy";
             else return "FAILED_GET_TYPE";
             //Congratulations, you have assigned a config value to a primitive type that *is* specified by templates, but that I forgot to account for. Amazing job. Dipshit.
             //"Why is this manually accounting" because typeid().name() is buns and im not pulling in a regex library to demangle it.
@@ -224,6 +227,7 @@ class IConfigManager : public InterfaceBaseClass {
         virtual int getInternal(Container& v_out) = 0; //Implementation reports status via int and fills out the ptr. Because the container is owned by the interface we can handle deletion smoothly. 
         virtual int setInternal(Container& v_in) = 0;
         virtual int setParseInternal(Container& v_in) = 0;
+        virtual int dump() = 0;
 };
 
 #endif
