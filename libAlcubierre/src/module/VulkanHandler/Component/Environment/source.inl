@@ -10,21 +10,21 @@ VulkanEnvironmentComponent::~VulkanEnvironmentComponent() {
     if(Surface != VK_NULL_HANDLE) {
         vkDestroySurfaceKHR(Instance, Surface, nullptr);
         Surface = VK_NULL_HANDLE;
-        DM().Log("Successfully destroyed Vulkan surface");
+        logIdentity("Successfully destroyed Vulkan surface");
     }
 
     try {
         PFN_vkDestroyDebugUtilsMessengerEXT DestroyFunction = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(Instance, "vkDestroyDebugUtilsMessengerEXT");
         if(DestroyFunction != nullptr) {
             DestroyFunction(Instance, DebugMessenger, nullptr);
-            DM().Log("Successfully destroyed Vulkan debug link");
+            logIdentity("Successfully destroyed Vulkan debug link");
         }
     } catch (...) {/*Do nothing for now*/}
 
     if(Instance != VK_NULL_HANDLE) {
         vkDestroyInstance(Instance, nullptr);
         Instance = VK_NULL_HANDLE;
-        DM().Log("Successfully destroyed Vulkan instance");
+        logIdentity("Successfully destroyed Vulkan instance");
     }
 }
 
@@ -37,7 +37,7 @@ int VulkanEnvironmentComponent::CreateVulkanInstance() {
         throw AlcEngineException("Failed to create Vulkan instance! " + std::to_string(hold));
         
     } else {
-        DM().Log("Successfully constructed Vulkan instance");
+        logIdentity("Successfully constructed Vulkan instance");
         return 0;
     }
 }
@@ -56,7 +56,6 @@ void VulkanEnvironmentComponent::FetchCreateData(AlcInstanceCreateInfo& ReturnBu
         ReturnBundle._ppEnabledLayerNames;
     }
     ReturnBundle._ppEnabledExtensionNames = CM->Get<std::vector<std::string>>({"renderer", "extensions"}, {}, nullptr);
-    ReturnBundle._ppEnabledExtensionNames.push_back("VK_EXT_debug_utils");
 }
 
 void VulkanEnvironmentComponent::FetchAppData(AlcApplicationInfo& ReturnBundle) {
@@ -83,11 +82,11 @@ int VulkanEnvironmentComponent::CreateDebugLink() {
         if(CreateStatus != VK_SUCCESS) {
             throw VulkanException("Issue creating debug callback loop"); 
         } else {
-            DM().Log("Successfully established Vulkan debug link");
+            logIdentity("Successfully established Vulkan debug link");
             return 0;
         }
     } else {
-        DM().Log("Debug extension not present, Vulkan failed to link", 2); 
+        logIdentity("Debug extension not present, Vulkan failed to link", 2); 
         return 1;
     }
 }
@@ -123,7 +122,7 @@ int VulkanEnvironmentComponent::CreateSurface() {
     int hold = static_cast<IWindowSurfaceBridge*>(registry_ptr->FetchService(WINDOW_SURFACE))->createWindowSurface(&Instance, &Surface);
 
     if(hold == 0) {
-        DM().Log("Successfully established Vulkan window surface bridge link");
+        logIdentity("Successfully established Vulkan window surface bridge link");
     } else {
         throw VulkanException("Failed to establish Vulkan wsb link");
     }

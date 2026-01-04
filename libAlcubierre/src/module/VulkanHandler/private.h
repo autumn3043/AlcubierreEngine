@@ -48,12 +48,18 @@ class VulkanHandler : public WrapperBaseClass {
 
                 IGraphicsBackendImpl(VulkanHandler* _parent) : Parent(_parent) {}
 
-                void drawFrame() override { return Parent->drawFrameImpl(); }
+                int createObjectBuffer(uint32_t& modelHash, std::vector<Vector>& vertices, std::vector<uint32_t>& indices) override { return Parent->createObjectBuffer(modelHash, vertices, indices); }
+                int clearFrame() override { return Parent->clearFrame(); }
+                int addObjectToFrame(uint32_t& modelHash, Vector& position) override { return Parent->addObjectToFrame(modelHash, position); }
+                int drawFrame() override { return Parent->drawFrame(); }
         };
 
         IGraphicsBackendImpl IGraphicsBackend_VulkanHandler;
 
-        void drawFrameImpl();
+        int createObjectBuffer(uint32_t& modelHash, std::vector<Vector>& vertices, std::vector<uint32_t>& indices);
+        int clearFrame();
+        int addObjectToFrame(uint32_t& modelHash, Vector& position);
+        int drawFrame();
 
         void recreateSwapchain();
 

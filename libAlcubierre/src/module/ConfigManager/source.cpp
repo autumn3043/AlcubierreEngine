@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+inline void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "ConfigManager"), Write); }
+
 ModuleRegistryBundle ConfigManager::bundle(
     [](void* registry) -> WrapperBaseClass* { return new ConfigManager(registry); },
     {CONFIGURATION_MANAGER},

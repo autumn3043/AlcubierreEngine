@@ -7,7 +7,7 @@ VulkanSwapchainComponent::VulkanSwapchainComponent(VulkanHandler* _parent, Regis
 VulkanSwapchainComponent::~VulkanSwapchainComponent() {
     vkDestroySwapchainKHR(parent->device->Device, Swapchain, nullptr);
     Swapchain = VK_NULL_HANDLE;
-    DM().Log("Successfully destroyed swapchain");
+    logIdentity("Successfully destroyed swapchain");
 }
 
 std::vector<AlcImageLayoutDetails> VulkanSwapchainComponent::imageLayoutPresets = {
@@ -28,7 +28,7 @@ int VulkanSwapchainComponent::CreateSwapchain() {
     frameHeight = std::clamp<uint32_t>(static_cast<uint32_t>(info.height_pix), surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height);
     frameExtent = { .width=frameWidth, .height=frameHeight };
 
-    // DM().Log(std::to_string(frameWidth) + "w " + std::to_string(frameHeight) + "h");
+    // logIdentity(std::to_string(frameWidth) + "w " + std::to_string(frameHeight) + "h");
 
     ChainInitInfo.imageExtent = frameExtent;
     ChainInitInfo.imageArrayLayers = 1;
@@ -45,7 +45,7 @@ int VulkanSwapchainComponent::CreateSwapchain() {
     VkResult hold = vkCreateSwapchainKHR(parent->device->Device, &ChainInitInfo, nullptr, &Swapchain);
 
     if(hold == VK_SUCCESS) {
-        DM().Log("Successfully created Vulkan swapchain");
+        logIdentity("Successfully created Vulkan swapchain");
         return FillSwapchainImages(ChainInitInfo);
     } else {
         throw VulkanException("Failed to create Vulkan swapchain due to VK error: " + std::to_string(hold));
@@ -80,7 +80,7 @@ int VulkanSwapchainComponent::FillSwapchainImages(VkSwapchainCreateInfoKHR& Chai
         SwapchainImageWrapper& image = Images.emplace_back(parent->device->Device, frameExtent);
         image.imageHandle = hold[i];
     }
-    if(imageCreateResult == VK_SUCCESS) DM().Log("Successfully created " + std::to_string(s) + " swapchain images");
+    if(imageCreateResult == VK_SUCCESS) logIdentity("Successfully created " + std::to_string(s) + " swapchain images");
     else throw VulkanException("An issue occurred when attempting to create "+ std::to_string(s) + " swapchain images");
 
     VkImageSubresourceRange ImageSubresourceRange {};
@@ -103,8 +103,8 @@ int VulkanSwapchainComponent::FillSwapchainImages(VkSwapchainCreateInfoKHR& Chai
         if(imageViewCreateResult == VK_SUCCESS) successes++;
     }
 
-    if(successes == Images.size()) DM().Log("Successfully allocated all image views");
-    else if(successes > 0) DM().Log("Failed to allocate " + std::to_string(Images.size() - successes) + " image views", 2);
+    if(successes == Images.size()) logIdentity("Successfully allocated all image views");
+    else if(successes > 0) logIdentity("Failed to allocate " + std::to_string(Images.size() - successes) + " image views", 2);
     else throw VulkanException("Failed to allocate any image views");
 
     return 0;
@@ -127,7 +127,7 @@ void VulkanSwapchainComponent::FetchSwapMode(VkPresentModeKHR& ReturnMode) {
             PreferredMode.push_back(VK_PRESENT_MODE_IMMEDIATE_KHR);
             continue;
         }
-        if(mode == "triple buffered") {
+        if(mode == "triple_buffered") {
             PreferredMode.push_back(VK_PRESENT_MODE_MAILBOX_KHR);
             continue;
         }
@@ -135,36 +135,36 @@ void VulkanSwapchainComponent::FetchSwapMode(VkPresentModeKHR& ReturnMode) {
             PreferredMode.push_back(VK_PRESENT_MODE_FIFO_KHR);
             continue;
         }
-        if(mode == "relaxed vsync") {
+        if(mode == "relaxed_vsync") {
             PreferredMode.push_back(VK_PRESENT_MODE_FIFO_RELAXED_KHR);
             continue;
         }
-        DM().Log("Presentation mode preference #" + std::to_string(i) + " '" + mode + "' is not a recognised mode and will be ignored", 1);
+        logIdentity("Presentation mode preference #" + std::to_string(i) + " '" + mode + "' is not a recognised mode and will be ignored", 1);
         PreferredMode_str.erase(PreferredMode_str.begin() + i);
     }
     for(int i = 0; i < PreferredMode.size(); i++) {
         for(const VkPresentModeKHR& mode : presentModes) {
             if(PreferredMode[i] == mode) {
                 ReturnMode = mode;
-                DM().Log("Selected presentation mode '" + PreferredMode_str[i] + "' for swapchain");
+                logIdentity("Selected presentation mode '" + PreferredMode_str[i] + "' for swapchain");
                 return;
             }
         }
-        DM().Log("Application preferred presentation mode '" + PreferredMode_str[i] + "' was not available", 1);
+        logIdentity("Application preferred presentation mode '" + PreferredMode_str[i] + "' was not available", 1);
     }
 
-    DM().Log("No presentation mode which the application indicated was acceptable was available", 2);
+    logIdentity("No presentation mode which the application indicated was acceptable was available", 2);
     int engineDefault = CM->Get<int>({"protected", "graphics", "default_presentation_mode"});
     for(const VkPresentModeKHR& mode : presentModes) {
         if(engineDefault == mode) {
             ReturnMode = mode;
             return;
         } else {
-            DM().Log("The engine fallback presentation mode was not available", 2);
+            logIdentity("The engine fallback presentation mode was not available", 2);
         }
     }
 
-    DM().Log("Since no listed presentation mode was available, falling back to the first mode indicated by the device", 2);
+    logIdentity("Since no listed presentation mode was available, falling back to the first mode indicated by the device", 2);
     ReturnMode = presentModes[0];
 }
 
@@ -190,7 +190,7 @@ void VulkanSwapchainComponent::FetchSwapSurfaceFormat(VkFormat& ReturnFormat, Vk
     //Just use any format
     ReturnFormat = surfaceFormats[0].format;
     ReturnColor = surfaceFormats[0].colorSpace;
-    DM().Log("No requested image format was available", 2);
+    logIdentity("No requested image format was available", 2);
 }
 
 //Undefine shorthands!!

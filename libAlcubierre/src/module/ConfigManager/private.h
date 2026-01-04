@@ -50,7 +50,6 @@ class ConfigManager : public WrapperBaseClass{
         IConfigManager::TypeDescriptor getDescriptorFromJson(const nlohmann::json& json);
         void* getPointerToJson(const nlohmann::json& json);
 
-        void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "ConfigManager"), Write); }
         std::string fullkey(const std::vector<std::string>& key);
         void popEmptyElements(nlohmann::json& json);
 };

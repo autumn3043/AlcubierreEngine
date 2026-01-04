@@ -14,38 +14,47 @@ class VulkanMemoryAllocatorComponent {
                 struct memoryBlock {
                     uint32_t memoryOffset;
                     uint32_t memorySize;
-                    uint32_t memoryEndIndex() { return memoryOffset + memorySize; }
+                    uint32_t memoryEndIndex() { return memoryOffset + memorySize; } //Actually returns the first index AFTER the end of the block
 
                     memoryBlock(uint32_t _memoryOffset, uint32_t _memorySize) : memoryOffset(_memoryOffset), memorySize(_memorySize) {};
                 };
 
                 struct bufferAllocationDetails {
                     MemoryHeap* parent;
+
                     VkDevice device;
-                    memoryBlock allocatedRegion;
                     VkDeviceMemory stagingAllocation;
                     VkBuffer stagingBuffer; //Reference saved so that we can attempt to destruct orphaned memory later
                     VkBuffer executiveBuffer = VK_NULL_HANDLE;
+
+                    uint32_t indiceOffset;
+
+                    memoryBlock usedRegion;
+                    memoryBlock allocatedRegion;
                     uint32_t allocationIndex;
 
-                    bufferAllocationDetails(MemoryHeap* _parent, VkDevice& _device, uint32_t _memoryOffset, uint32_t _memorySize, VkBuffer& _stagingBuffer, VkDeviceMemory& _stagingAllocation, uint32_t _allocationIndex) 
-                    : parent(_parent), device(_device), allocatedRegion(_memoryOffset, _memorySize), stagingBuffer(_stagingBuffer), stagingAllocation(_stagingAllocation), allocationIndex(_allocationIndex) {};
-                    ~bufferAllocationDetails();
+                    bufferAllocationDetails(MemoryHeap* _parent, VkDevice& _device, VkDeviceMemory& _stagingAllocation, VkBuffer& _stagingBuffer, uint32_t _memoryOffset, uint32_t _usedMemorySize, uint32_t _allocatedMemorySize, uint32_t _allocationIndex) 
+                    : parent(_parent), device(_device), stagingAllocation(_stagingAllocation), stagingBuffer(_stagingBuffer), usedRegion(_memoryOffset, _usedMemorySize), allocatedRegion(_memoryOffset, _allocatedMemorySize), allocationIndex(_allocationIndex) {};
+
+                    void cleanup();
                 };
 
                 MemoryHeap(VkDevice& _device, uint32_t deviceLocalMemoryTypeIndex, uint32_t hostVisibleMemoryTypeIndex, uint32_t _heapSize, uint32_t _graphicsComputeQueueIndex);
                 ~MemoryHeap();
 
                 //Buffer size specified in bytes
-                bufferAllocationDetails& bindBufferMemory(VkBuffer& buffer, uint32_t bufferSize);
+                bufferAllocationDetails& bindBufferMemory(VkBuffer& buffer, uint32_t usedBufferSize, uint32_t allocatedBufferSize);
                 int freeBufferMemory(bufferAllocationDetails& allocation);
 
                 void updateBlockSize(std::vector<memoryBlock>& blocks, uint32_t lower, uint32_t upper);
                 uint32_t smallestFreeBlockSize();
                 uint32_t largestFreeBlockSize();
 
+                std::string printMemoryLayout();
+
             protected:
                 std::vector<memoryBlock> freeBlocks;
+                std::vector<bufferAllocationDetails> subAllocations;
 
             private:
                 VkDevice& device;
@@ -54,14 +63,15 @@ class VulkanMemoryAllocatorComponent {
 
                 const uint32_t heapSize; //I suppose this places a hard limit on the size of a memory heap at 4.294967GB. Cost of switching to 64 bit ints is probably non-trivial
                 const uint32_t graphicsComputeQueueIndex;
-                const uint32_t maxFreeBlocks = 32; //A hard capacity limit prevents costly array reallocations, but has obvious drawbacks
+                const uint32_t maxFreeBlocks = 64; //A hard capacity limit prevents costly array reallocations, but has obvious drawbacks
 
                 bool blockCompositionChanged = true; //Must be made true at every allocation
 
-                std::vector<bufferAllocationDetails> subAllocations;
-
                 uint32_t largestFreeBlock;
                 uint32_t smallestFreeBlock;
+
+                std::string printAllocation(uint32_t index);
+                std::string printFree(uint32_t index);
         };
 
     private:
@@ -84,9 +94,11 @@ class VulkanMemoryAllocatorComponent {
         };
         MemoryHeap::bufferAllocationDetails& bindBufferMemory(VkBuffer& buffer, uint32_t bufferSize, HeapType type = STATIC);
         //We bind to staging memory, then handle copying to device memory in this component
-        int stageBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation, void* incomingVerticeData);
+        int stageBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation, void* vertexData, uint32_t vertexDataSize, void* indexData, uint32_t indexDataSize);
         int submitBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation, VkFence fence);
         int freeBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation);
+
+        void dump();
 };
 
 #endif

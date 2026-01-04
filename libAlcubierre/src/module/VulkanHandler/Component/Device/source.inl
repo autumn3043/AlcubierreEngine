@@ -8,7 +8,7 @@ VulkanDeviceComponent::~VulkanDeviceComponent() {
     if(Device != VK_NULL_HANDLE) {
         vkDestroyDevice(Device, nullptr);
         Device = VK_NULL_HANDLE;
-        DM().Log("Successfully destroyed Vulkan logical device");
+        logIdentity("Successfully destroyed Vulkan logical device");
     }
 }
 
@@ -40,7 +40,7 @@ int VulkanDeviceComponent::CreateLogicalDevice() {
         return 1;
 
     } else {
-        DM().Log("Successfully instantiated Vulkan logical device");
+        logIdentity("Successfully instantiated Vulkan logical device");
 
         return 0;
     }

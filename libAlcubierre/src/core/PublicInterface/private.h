@@ -8,6 +8,7 @@
 #include "core/Registry/interface/IConfigManager.h"
 #include "core/Registry/interface/IWindowManager.h"
 #include "core/Registry/interface/IGraphicsBackend.h"
+#include "core/Registry/interface/IDirector.h"
 
 class AlcubierreEngineImpl {
     private:

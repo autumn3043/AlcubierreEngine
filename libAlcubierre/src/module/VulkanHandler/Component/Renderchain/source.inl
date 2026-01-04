@@ -4,12 +4,12 @@ VulkanRenderchainComponent::VulkanRenderchainComponent(VulkanHandler* _parent, R
     CreateGraphicsPipeline();
     CreateTransferCommandPool();
     CreateGraphicalCommandPool();
-    CreateVertexBuffers();
 };
 
 VulkanRenderchainComponent::~VulkanRenderchainComponent() {
-    for(int i = 0; i < vertexBuffers.size(); i++) {
-        if(vertexBuffers[i]) delete vertexBuffers[i];
+    for(int i = 0; i < vertexBuffersInMemory.size(); i++) {
+        if(vertexBuffersInMemory[i]) delete vertexBuffersInMemory[i];
+        // parent->allocator->dump();
     }
     if(transferCommandPool) delete transferCommandPool;
     if(graphicalCommandPool) delete graphicalCommandPool;
@@ -25,7 +25,7 @@ int VulkanRenderchainComponent::CreateGraphicsPipeline() {
     for(int i = 0; i < shaderCount; i++) {
         shaders.emplace_back(parent->device->Device);
     }
-    DM().Log("Constructed " + std::to_string(shaderCount) + " shaders");
+    logIdentity("Constructed " + std::to_string(shaderCount) + " shaders");
 
     std::vector<ShaderModuleStage> shaderStages;
     int shaderStageCount = CM->Get<int>({"graphics", "shaders", "stages", CFGARRAY_SIZE_T}, 0);
@@ -35,12 +35,12 @@ int VulkanRenderchainComponent::CreateGraphicsPipeline() {
         std::string name = CM->Get<std::string>({"graphics", "shaders", "stages", std::to_string(i), "name"});
         int shaderIndex = CM->Get<int>({"graphics", "shaders", "stages", std::to_string(i), "shader"}, 0);
         if(shaderIndex > shaders.size() - 1) {
-            DM().Log("Shader stage " + std::to_string(i) + " requested shader " + std::to_string(shaderIndex) + " but only " + std::to_string(shaders.size()) + " existed so it used the default shader 0", 1);
+            logIdentity("Shader stage " + std::to_string(i) + " requested shader " + std::to_string(shaderIndex) + " but only " + std::to_string(shaders.size()) + " existed so it used the default shader 0", 1);
             shaderIndex = 0;
         }
         shaderStages.emplace_back(i, name, type, shaders[shaderIndex]);
     }
-    DM().Log("Prepared " + std::to_string(shaderStageCount) + " shader stages");
+    logIdentity("Prepared " + std::to_string(shaderStageCount) + " shader stages");
 
     if(pipeline) delete pipeline;
     pipeline = new GraphicsPipeline(parent->device->Device, parent->swapchain->ChainFormat, shaderStages);
@@ -73,7 +73,7 @@ VulkanRenderchainComponent::ShaderModule::~ShaderModule() {
     if(device != VK_NULL_HANDLE) {
         if(module) vkDestroyShaderModule(device, module, nullptr);
     } else {
-        DM().Log("Attempted to discard shader module, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
+        logIdentity("Attempted to discard shader module, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
     }
 }
 
@@ -205,9 +205,9 @@ VulkanRenderchainComponent::GraphicsPipeline::GraphicsPipeline(VkDevice& _device
     VkResult hold = vkCreateGraphicsPipelines(device, nullptr, 1, &pipeCreateInfo, nullptr, &pipeline);
 
     if(hold == VK_SUCCESS) {
-        DM().Log("Successfully created graphics pipeline");
+        logIdentity("Successfully created graphics pipeline");
     } else {
-        DM().Log("Failed to create Vulkan graphics pipeline due to error: " + std::to_string(hold), 2);
+        logIdentity("Failed to create Vulkan graphics pipeline due to error: " + std::to_string(hold), 2);
     }
 }
 
@@ -215,9 +215,9 @@ VulkanRenderchainComponent::GraphicsPipeline::~GraphicsPipeline() {
     if(device != VK_NULL_HANDLE) {
         if(pipeline) vkDestroyPipeline(device, pipeline, nullptr);
         if(layout) vkDestroyPipelineLayout(device, layout, nullptr);
-        DM().Log("Successfully destroyed graphics pipeline");
+        logIdentity("Successfully destroyed graphics pipeline");
     } else {
-        DM().Log("Tried to destroy graphics pipeline, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
+        logIdentity("Tried to destroy graphics pipeline, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
     }
 }
 
@@ -250,7 +250,7 @@ VulkanRenderchainComponent::CommandPool::CommandPool(VkDevice& _device, int queu
     VkResult hold = vkCreateCommandPool(device, &createInfo, nullptr, &commandPool);
 
     if(hold == VK_SUCCESS) {
-        DM().Log("Successfully created command pool");
+        logIdentity("Successfully created command pool");
     } else throw VulkanException("Failed to create command pool");
 
     buffers.reserve(bufferCount);
@@ -263,9 +263,9 @@ VulkanRenderchainComponent::CommandPool::~CommandPool() {
     if(device != VK_NULL_HANDLE) {
         if(commandPool) vkDestroyCommandPool(device, commandPool, nullptr);
         commandPool = VK_NULL_HANDLE;
-        DM().Log("Successfully destroyed command pool");
+        logIdentity("Successfully destroyed command pool");
     } else {
-        DM().Log("Tried to destroy command pool, but VkDevice handle was null, which would have caused a segfault. This memory will leak", 2);
+        logIdentity("Tried to destroy command pool, but VkDevice handle was null, which would have caused a segfault. This memory will leak", 2);
     }
 }
 
@@ -299,33 +299,13 @@ VulkanRenderchainComponent::CommandBuffer::~CommandBuffer() {
         if(semaphore) vkDestroySemaphore(device, semaphore, nullptr);
         semaphore = VK_NULL_HANDLE;
     } else {
-        DM().Log("Tried to destroy command buffer utilites, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
+        logIdentity("Tried to destroy command buffer utilites, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
     }
 }
 
-int VulkanRenderchainComponent::CreateVertexBuffers() {
-    //TEMP
-        IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
-        int count = CM->Get<int>({"vertices_temp", CFGARRAY_SIZE_T}, 0);
-        vertices_temp.resize(count);
-        for(int i = 0; i < count; i++) {
-            float scale = CM->Get<float>({"scale"});
-            float x = CM->Get<float>({"vertices_temp", std::to_string(i), "position", "x"}) * scale;
-            float y = CM->Get<float>({"vertices_temp", std::to_string(i), "position", "y"}) * scale;
-            float r = CM->Get<float>({"vertices_temp", std::to_string(i), "colour", "r"});
-            float g = CM->Get<float>({"vertices_temp", std::to_string(i), "colour", "g"});
-            float b = CM->Get<float>({"vertices_temp", std::to_string(i), "colour", "b"});
-            Vertex hold {.position = {x, y}, .colour = {r, g, b}};
-            vertices_temp[i] = hold;
-        }
+VulkanRenderchainComponent::VertexBuffer::VertexBuffer(VulkanMemoryAllocatorComponent* _allocator, VkDevice& _device, uint32_t _vertexCount, uint32_t _indexCount, uint32_t transferQueueIndex, uint32_t _modelHash) 
+    : allocator(_allocator), device(_device), vertexCount(_vertexCount), vertex_t_size(sizeof(Vertex)), indexCount(_indexCount), index_t_size(sizeof(uint32_t)), modelHash(_modelHash) {
 
-    vertexBuffers.resize(1);
-    vertexBuffers[0] = new VertexBuffer(parent->allocator, parent->device->Device, sizeof(vertices_temp[0]) * vertices_temp.size(), parent->device->getQueue(VK_QUEUE_TRANSFER_BIT).familyIndex);
-    vertexBuffers[0]->fillBufferMemory(vertices_temp);
-    return 0;
-}
-
-VulkanRenderchainComponent::VertexBuffer::VertexBuffer(VulkanMemoryAllocatorComponent* _allocator, VkDevice& _device, uint32_t _bufferSize, uint32_t transferQueueIndex) : allocator(_allocator), device(_device), bufferSize(_bufferSize) {
     VkBufferCreateInfo createInfo {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
@@ -342,8 +322,6 @@ VulkanRenderchainComponent::VertexBuffer::VertexBuffer(VulkanMemoryAllocatorComp
     }
 
     allocation = &allocator->bindBufferMemory(bufferInstance, bufferSize);
-
-    DM().Log("Successfully created and bound empty memory buffer sized " + std::to_string(bufferSize) + " bytes");
 }
 
 VulkanRenderchainComponent::VertexBuffer::~VertexBuffer() {
@@ -351,15 +329,15 @@ VulkanRenderchainComponent::VertexBuffer::~VertexBuffer() {
         allocator->freeBufferMemory(*allocation);
         vkDestroyBuffer(device, bufferInstance, nullptr);
         bufferInstance = VK_NULL_HANDLE;
-        DM().Log("Successfully freed vertex buffer");
+        logIdentity("Successfully freed vertex buffer");
     } else {
-        DM().Log("Tried to free vertex buffer, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
+        logIdentity("Tried to free vertex buffer, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
     }
 }
 
-int VulkanRenderchainComponent::VertexBuffer::fillBufferMemory(std::vector<Vertex>& external_membuffer) {
-    assert(allocation->allocatedRegion.memorySize == sizeof(external_membuffer[0]) * external_membuffer.size());
-    allocator->stageBufferMemory(*allocation, external_membuffer.data());
+int VulkanRenderchainComponent::VertexBuffer::fillBufferMemory(std::vector<Vertex>& vertexBuffer, std::vector<uint32_t>& indexBuffer) {
+    assert(allocation->allocatedRegion.memorySize >= bufferSize);
+    allocator->stageBufferMemory(*allocation, vertexBuffer.data(), vertexCount * vertex_t_size, indexBuffer.data(), indexCount * index_t_size);
     allocator->submitBufferMemory(*allocation, nullptr);
     return 0;
 }
@@ -412,19 +390,22 @@ int VulkanRenderchainComponent::RecordCommandBuffer(VkCommandBuffer& CommandBuff
 
     vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 
-    float offset[2] = { numberOfFrames * 0.01f, 0 };
-    vkCmdPushConstants(CommandBuffer, pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(offset), offset);
-
-    VkDeviceSize deviceOffset = 0;
-    vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &vertexBuffers[0]->allocation->executiveBuffer, &deviceOffset);
-
     VkViewport viewport = VkViewport(0.0f, 0.0f, static_cast<float>(image->extent.width), static_cast<float>(image->extent.height), 0.0f, 1.0f);
     vkCmdSetViewport(CommandBuffer, 0, 1, &viewport);
 
     VkRect2D scissor = VkRect2D(VkOffset2D(0.0f, 0.0f), image->extent);
     vkCmdSetScissor(CommandBuffer, 0, 1, &scissor);
 
-    vkCmdDraw(CommandBuffer, vertices_temp.size(), 1, 0, 0);
+    float offset[2] = { numberOfFrames * 0.01f, 0 };
+    vkCmdPushConstants(CommandBuffer, pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(offset), offset);
+
+    for(int i = 0; i < vertexBuffersInFrame.size(); i++) {
+        VertexBuffer*& buffer = vertexBuffersInMemory[vertexBuffersInFrame[i]];
+        VkDeviceSize zeroDeviceSize = 0;
+        vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &buffer->allocation->executiveBuffer, &zeroDeviceSize);
+        vkCmdBindIndexBuffer(CommandBuffer, buffer->allocation->executiveBuffer, buffer->bufferIndexBreakpointOffset, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(CommandBuffer, buffer->indexCount, 1, 0, 0, 0);
+    }
 
     vkCmdEndRendering(CommandBuffer);
 
@@ -475,20 +456,51 @@ int VulkanSwapchainComponent::SwapchainImageWrapper::TransitionImageLayout(VkCom
     return 0;
 }
 
-int VulkanRenderchainComponent::DrawFrame() {
+int VulkanRenderchainComponent::createObjectBuffer(uint32_t& modelHash, std::vector<Vector>& vertices, std::vector<uint32_t>& indices) {
+    VertexBuffer*& buffer = vertexBuffersInMemory.emplace_back(new VertexBuffer(parent->allocator, parent->device->Device, vertices.size(), indices.size(), parent->device->getQueue(VK_QUEUE_TRANSFER_BIT).familyIndex, modelHash));
+
+    std::vector<Vertex> translatedVertices(vertices.size());
+    for(int i = 0; i < vertices.size(); i++) {
+        translatedVertices[i] = { .position = {vertices[i].x, vertices[i].y}, .colour = {0.5f, 0.5f, 0.5f} };
+    }
+
+    buffer->fillBufferMemory(translatedVertices, indices);
+
+    return 0;
+}
+
+int VulkanRenderchainComponent::clearFrame() {
+    vertexBuffersInFrame.clear();
+    vertexBuffersInFrame.shrink_to_fit();
+
+    return 0;
+}
+
+int VulkanRenderchainComponent::addObjectToFrame(uint32_t& modelHash, Vector& position) {
+    for(int i = 0; i < vertexBuffersInMemory.size(); i++) {
+        if(vertexBuffersInMemory[i]->modelHash == modelHash) {
+            vertexBuffersInFrame.push_back(i);
+            return 0;
+        }
+    }
+
+    throw VulkanException("Requested model with hash [" + std::to_string(modelHash) + "] was not present in memory.");
+}
+
+int VulkanRenderchainComponent::drawFrame() {
     CommandBuffer& graphicsBuffer = graphicalCommandPool->buffers[currentFrame]; //Get (or wait for) next frame free out of max frames in flight
+    vkWaitForFences(parent->device->Device, 1, &graphicsBuffer.fence, VK_TRUE, graphicsBuffer.timeout);
+    
     VulkanDeviceComponent::DeviceQueue& graphicalQueue = parent->device->getQueue(VK_QUEUE_GRAPHICS_BIT);
     VulkanDeviceComponent::DeviceQueue& presentationQueue = parent->device->getQueue(VK_QUEUE_GRAPHICS_BIT, true);
     CommandBuffer& transferBuffer = transferCommandPool->buffers[0];
     VulkanDeviceComponent::DeviceQueue& transferQueue = parent->device->getQueue(VK_QUEUE_TRANSFER_BIT);
 
-    vkWaitForFences(parent->device->Device, 1, &graphicsBuffer.fence, VK_TRUE, graphicsBuffer.timeout);
-
     uint32_t imageIndex;
     VkResult result_acquireNextImage = vkAcquireNextImageKHR(parent->device->Device, parent->swapchain->Swapchain, graphicsBuffer.timeout, graphicsBuffer.semaphore, VK_NULL_HANDLE, &imageIndex);
 
     if(result_acquireNextImage == VK_ERROR_OUT_OF_DATE_KHR) {
-        DM().Log("Attempt to acquire next swapchain image indicated swapchain was out of date");
+        logIdentity("Attempt to acquire next swapchain image indicated swapchain was out of date");
         RecreateSwapchain();
         return 1;
     }
@@ -529,7 +541,7 @@ int VulkanRenderchainComponent::DrawFrame() {
     VkResult result_queuePresent = vkQueuePresentKHR(presentationQueue.queue, &presentInfo);
 
     if(result_queuePresent == VK_ERROR_OUT_OF_DATE_KHR) {
-        DM().Log("Attempt to present render pass to surface queue indicated swapchain was out of date or suboptimal");
+        logIdentity("Attempt to present render pass to surface queue indicated swapchain was out of date or suboptimal");
         RecreateSwapchain();
     }
 

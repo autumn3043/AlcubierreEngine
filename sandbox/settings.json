@@ -3,11 +3,14 @@
 {
     //if debug is false, the Vulkan Debug Callback will not be assigned and debug_layers will be ignored
     "debug" : true,
+    //all debug (validation) layers whose valid string interpretation is listed here will be loaded 
     "debug_layers" : ["VK_LAYER_KHRONOS_validation"],
 
     "metadata" : {
         "application_data" : {
+            //internal app name, *not window title*
             "name" : "sandbox",
+            //internal app version
             "version" : [0, 0, 0]
         }
     },
@@ -15,9 +18,12 @@
     "presentation" : {
         "window" : {
             "title" : "Alcubierre sandbox app",
+            //size of the window, also size of the framebuffer by default
             "width" : 800,
             "height" : 600,
+            //if true, above window size values are ignored 
             "maximised" : false,
+            //if true, the user may freely resize the window in their compositor. may result in significant performance issues on some systems (namely wayland)
             "permit_resize" : false
         }
     },
@@ -25,21 +31,27 @@
     "renderer" : {
         //if true, does not initialise the renderchain (graphics pipeline, shader modules, swapchain, command pools) until the first frame draw command is recieved
         "defer_renderchain_initialisation" : false,
-        "extensions" : []
+        //all vulkan *instance* extensions whose valid string interpretation is listed here will be loaded
+        "extensions" : ["VK_EXT_debug_utils"]
     },
 
     "graphics" : {
         "device" : {
+            //all vulkan *device* extensions whose valid string interpretation is listed here will be loaded
             "extensions" : [],
+            //candidate for internalising to engine
             "queues" : {
                 "graphics_capable_count" : 1,
                 "surface_capable_count" : 1, //surface_capable_count MUST <= graphics_count
                 "transfer_capable_count" : 1
             }
         },
+        //the first vulkan image format whose enumerative representative is listed here and is supported by the window surface will be used. refer to below api reference for enum codes
         //https://docs.vulkan.org/refpages/latest/refpages/source/VkFormat.html
         "acceptable_image_formats" : [50],
+        //the first presentation mode listed here which is found to be compatible will be used. valid modes are immediate, triple_buffered, vsync and relaxed_vsync
         "acceptable_presentation_modes" : ["vsync", "immediate"],
+        //candidate for internalising to engine
         "shaders" : {
             "count" : 1,
             "stages" : [
@@ -48,17 +60,32 @@
             ]
         },
         "max_frames_in_flight" : 2,
+        //rendering command timeout
         "command_timeout_seconds" : 5
     },
 
     "scale" : 0.75,
 
-    "vertices_temp" : [
-        {"position" : {"x" : 0.0, "y" : 0.0}, "colour" : {"r" : 1.0, "g" : 0.0, "b" : 0.0}},
-        {"position" : {"x" : 0.5, "y" : -1.0}, "colour" : {"r" : 0.0, "g" : 1.0, "b" : 0.0}},
-        {"position" : {"x" : 1.0, "y" : 0.0}, "colour" : {"r" : 0.0, "g" : 0.0, "b" : 1.0}},
-        {"position" : {"x" : 0.0, "y" : 0.0}, "colour" : {"r" : 1.0, "g" : 0.0, "b" : 0.0}},
-        {"position" : {"x" : -0.5, "y" : -1.0}, "colour" : {"r" : 0.0, "g" : 1.0, "b" : 0.0}},
-        {"position" : {"x" : -1.0, "y" : 0.0}, "colour" : {"r" : 0.0, "g" : 0.0, "b" : 1.0}}
+    "triangles" : [
+        {
+            "indices" : [0, 1, 2, 1, 2, 3],
+            "vertices" : [
+                {"position" : {"x" : 0.0, "y" : 0.0}, "colour" : {"r" : 1.0, "g" : 0.0, "b" : 0.0}},
+                {"position" : {"x" : 0.5, "y" : -1.0}, "colour" : {"r" : 0.0, "g" : 1.0, "b" : 0.0}},
+                {"position" : {"x" : 1.0, "y" : 0.0}, "colour" : {"r" : 0.0, "g" : 0.0, "b" : 1.0}},
+                {"position" : {"x" : 1.5, "y" : -1.0}, "colour" : {"r" : 0.0, "g" : 0.0, "b" : 1.0}}
+            ]
+        },
+        {
+            "indices" : [0, 1, 2, 3, 4, 5],
+            "vertices" : [
+                {"position" : {"x" : 0.0, "y" : 0.0}, "colour" : {"r" : 1.0, "g" : 0.0, "b" : 0.0}},
+                {"position" : {"x" : 0.5, "y" : -1.0}, "colour" : {"r" : 0.0, "g" : 1.0, "b" : 0.0}},
+                {"position" : {"x" : 1.0, "y" : 0.0}, "colour" : {"r" : 0.0, "g" : 0.0, "b" : 1.0}},
+                {"position" : {"x" : 0.5, "y" : -1.0}, "colour" : {"r" : 0.0, "g" : 1.0, "b" : 0.0}},
+                {"position" : {"x" : 1.0, "y" : 0.0}, "colour" : {"r" : 0.0, "g" : 0.0, "b" : 1.0}},
+                {"position" : {"x" : 1.5, "y" : -1.0}, "colour" : {"r" : 0.0, "g" : 0.0, "b" : 1.0}}
+            ]
+        }
     ]
 }

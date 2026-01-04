@@ -76,29 +76,36 @@ class VulkanRenderchainComponent {
         CommandPool* graphicalCommandPool = nullptr;
         CommandPool* transferCommandPool = nullptr;
 
-        int CreateVertexBuffers();
-            struct Vertex {
-                float position[2];
-                float colour[3];
-            };
-            class VertexBuffer {
-                public:
-                    VertexBuffer(VulkanMemoryAllocatorComponent* _allocator, VkDevice& _device, uint32_t _bufferSize, uint32_t transferQueueIndex);
-                    ~VertexBuffer();
+        struct Vertex {
+            float position[2];
+            float colour[3];
+        };
+        class VertexBuffer {
+            public:
+                VertexBuffer(VulkanMemoryAllocatorComponent* _allocator, VkDevice& _device, uint32_t _vertexCount, uint32_t _indexCount, uint32_t transferQueueIndex, uint32_t _modelHash);
+                ~VertexBuffer();
 
-                    int fillBufferMemory(std::vector<Vertex>& external_membuffer);
+                const uint32_t vertexCount;
+                const uint32_t vertex_t_size;
+                const uint32_t indexCount;
+                const uint32_t index_t_size;
+                const uint32_t bufferSize = vertexCount * vertex_t_size + indexCount * index_t_size;
+                const uint32_t bufferIndexBreakpointOffset = vertexCount * vertex_t_size;
 
-                    VkDevice& device;
-                    VulkanMemoryAllocatorComponent::MemoryHeap::bufferAllocationDetails* allocation;
+                int fillBufferMemory(std::vector<Vertex>& vertexBuffer, std::vector<uint32_t>& indexBuffer);
 
-                private:
-                    VkBuffer bufferInstance;
-                    uint32_t bufferSize;
+                VkDevice& device;
+                VulkanMemoryAllocatorComponent::MemoryHeap::bufferAllocationDetails* allocation;
 
-                    VulkanMemoryAllocatorComponent* allocator;
-            };
-        std::vector<VertexBuffer*> vertexBuffers;
-        std::vector<Vertex> vertices_temp;
+                const uint32_t modelHash;
+
+            private:
+                VkBuffer bufferInstance;
+
+                VulkanMemoryAllocatorComponent* allocator;
+        };
+        std::vector<VertexBuffer*> vertexBuffersInMemory;
+        std::vector<uint32_t> vertexBuffersInFrame;
 
         int RecreateSwapchain();
         int numberOfFrames = 0;
@@ -108,7 +115,10 @@ class VulkanRenderchainComponent {
         VulkanRenderchainComponent(VulkanHandler* _parent, Registry* _registry_ptr);
         ~VulkanRenderchainComponent();
 
-        int DrawFrame();
+        int createObjectBuffer(uint32_t& modelHash, std::vector<Vector>& vertices, std::vector<uint32_t>& indices);
+        int clearFrame();
+        int addObjectToFrame(uint32_t& modelHash, Vector& position);
+        int drawFrame();
 
         int maxFramesInFlight = 0;
         int currentFrame = 0;

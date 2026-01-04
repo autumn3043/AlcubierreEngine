@@ -91,7 +91,17 @@ void DebugManagerImpl::InternalLog(DebugReport* Report, bool Write) {
             << "]: ";
     }
 
-    oss << Report->Message;
+    std::string message = Report->Message;
+    std::string indent = "\n" + std::string(oss.str().size(), ' ');
+    if(message.contains('\n')) {
+        for(int i = 0; i < message.size(); i++)
+            if(message[i] == '\n') {
+                message.replace(i, 1, indent);
+                i += indent.size() - 1;
+            }
+    }
+
+    oss << message;
 
     std::string DebugMessage = oss.str();
 

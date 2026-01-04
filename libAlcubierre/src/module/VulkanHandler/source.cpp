@@ -1,5 +1,7 @@
 #include "module/VulkanHandler/private.h"
 #define NULL_BIT 0x0
+        
+inline void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "VulkanHandler"), Write); }
 
 ModuleRegistryBundle VulkanHandler::bundle(
     [](void* registry) -> WrapperBaseClass* { return new VulkanHandler(registry); },
@@ -45,10 +47,11 @@ void VulkanHandler::Init() {
         renderchain = new VulkanRenderchainComponent(this, registry_ptr);
         chainInitialisation = true;
     } else {
-        DM().Log("Deferring renderchain initialisation to first frame draw call", 1);
+        logIdentity("Deferring renderchain initialisation to first frame draw call", 1);
     }
 
-    DM().Log("Finished graphics backend init in " + std::to_string(bootstrapTimer.delta()) + " milliseconds. Awaiting frame draw command", 1);
+    logIdentity("Finished graphics backend init in " + std::to_string(bootstrapTimer.delta()) + " milliseconds. Awaiting frame draw command", 1);
+    allocator->dump();
 }
 
 //We want the components to be included in THIS translation unit
@@ -58,19 +61,13 @@ void VulkanHandler::Init() {
 #include "module/VulkanHandler/Component/Renderchain/source.inl"
 #include "module/VulkanHandler/Component/Allocator/source.inl"
 
-void VulkanHandler::drawFrameImpl() {
-    if(!chainInitialisation) {
-        DM().Log("Proceeding with deferred intialisation", 1);
-        swapchain = new VulkanSwapchainComponent(this, registry_ptr);
-        renderchain = new VulkanRenderchainComponent(this, registry_ptr);
-        chainInitialisation = true;
-    }
-
-    renderchain->DrawFrame();
-}
+int VulkanHandler::createObjectBuffer(uint32_t& modelHash, std::vector<Vector>& vertices, std::vector<uint32_t>& indices) { return renderchain->createObjectBuffer(modelHash, vertices, indices); }
+int VulkanHandler::clearFrame() { return renderchain->clearFrame(); }
+int VulkanHandler::addObjectToFrame(uint32_t& modelHash, Vector& position) { return renderchain->addObjectToFrame(modelHash, position); }
+int VulkanHandler::drawFrame() { return renderchain->drawFrame(); }
 
 void VulkanHandler::recreateSwapchain() {
-    DM().Log("Recreating Vulkan swapchain");
+    logIdentity("Recreating Vulkan swapchain");
     vkDeviceWaitIdle(device->Device);
     if(swapchain) delete swapchain;
     swapchain = new VulkanSwapchainComponent(this, registry_ptr);

@@ -12,21 +12,34 @@ enum ServiceID {
     CONFIGURATION_MANAGER = 1,
     WINDOW_MANAGER = 2,
     WINDOW_SURFACE = 3,
-    GRAPHICS_BACKEND = 4
+    GRAPHICS_BACKEND = 4,
+    MODEL_LOADER = 5,
+    DIRECTOR = 6
 };
 
 inline std::string ServiceID_str(ServiceID id) {
     switch (id) {
         case DEBUG_MESSENGER:
             return "DEBUG_MESSENGER";
+        break;
         case CONFIGURATION_MANAGER:
             return "CONFIGURATION_MANAGER";
+        break;
         case WINDOW_MANAGER:
             return "WINDOW_MANAGER";
+        break;
         case WINDOW_SURFACE:
             return "WINDOW_SURFACE";
+        break;
         case GRAPHICS_BACKEND:
             return "GRAPHICS_BACKEND";
+        break;
+        case MODEL_LOADER:
+            return "MODEL_LOADER";
+        break;
+        case DIRECTOR:
+            return "DIRECTOR";
+        break;
         default:
             return "UNKNOWN_SERVICE_ID";
     }
