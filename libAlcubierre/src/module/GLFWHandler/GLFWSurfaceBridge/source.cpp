@@ -3,6 +3,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "GLFWSurfaceBridge"), Write); }
+
 ModuleRegistryBundle GLFWSurfaceBridge::bundle(
     [](void* registry) -> WrapperBaseClass* { return new GLFWSurfaceBridge(registry); },
     {WINDOW_SURFACE},
@@ -48,7 +50,7 @@ int GLFWSurfaceBridge::init() {
 
             CM->Set<std::vector<std::string>>({"renderer", "extensions"}, extensionsStr);
 
-            DM().Log("Dumped GLFW-Vulkan bridge extensions to cfg");
+            logIdentity("Dumped GLFW-Vulkan bridge extensions to cfg");
     } catch (...) {
         throw;
     }
@@ -68,7 +70,7 @@ int GLFWSurfaceBridge::createWindowSurface(void* TargetInstance, void* TargetSur
     if(hold == VK_SUCCESS) {
         return 0;
     } else {
-        DM().Log("Failed to create WindowSurfaceBridge due to VK error: " + std::to_string(hold));
+        logIdentity("Failed to create WindowSurfaceBridge due to VK error: " + std::to_string(hold));
         return 1;
     }
 }

@@ -3,7 +3,7 @@
 // #include <tiny_obj_loader.h>
 #include <xxhash.h>
 
-inline void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "ResourceManager"), Write); }
+static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "ResourceManager"), Write); }
 
 ModuleRegistryBundle ResourceManager::bundle(
     [](void* registry) -> WrapperBaseClass* { return new ResourceManager(registry); },

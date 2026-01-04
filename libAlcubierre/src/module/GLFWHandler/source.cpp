@@ -1,5 +1,7 @@
 #include "module/GLFWHandler/private.h"
 
+static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "GLFWHandler"), Write); }
+
 ModuleRegistryBundle GLFWHandler::bundle(
     [](void* registry) -> WrapperBaseClass* { return new GLFWHandler(registry); },
     {WINDOW_MANAGER},
@@ -18,7 +20,7 @@ GLFWHandler::GLFWHandler(void* registry)
 GLFWHandler::~GLFWHandler() {
     if(Window) {
         glfwDestroyWindow(Window);
-        DM().Log("Successfully destroyed GLFW window");
+        logIdentity("Successfully destroyed GLFW window");
     }
     
     glfwTerminate();
@@ -52,7 +54,7 @@ int GLFWHandler::createWindow() {
     if(!Window) {
         throw GLFWException("Failed to create GLFW window");
     } else {
-        DM().Log("Constructed GLFW window with name '" + name + "' width " + std::to_string(width) + " and height " + std::to_string(height));
+        logIdentity("Constructed GLFW window with name '" + name + "' width " + std::to_string(width) + " and height " + std::to_string(height));
         return 0;
     }
 }

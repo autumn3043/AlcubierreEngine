@@ -5,6 +5,8 @@
 
 #include <climits>
 
+static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "Registry"), Write); }
+
 Registry::Registry() {
     PrivatePtr = new RegistryImpl(this);
 }
@@ -111,13 +113,13 @@ RegistryImpl::ModuleData::~ModuleData() {
 bool RegistryImpl::ModuleData::exists() { return Instance != nullptr; }
 int RegistryImpl::ModuleData::instantiate() { 
     if(exists()) destruct();
-    DM().Log("Instantiating module: " + Label, 1);
+    logIdentity("Instantiating module: " + Label, 1);
     Instance = std::unique_ptr<WrapperBaseClass>(Constructor(registry_ptr));
     return 0;
 }
 int RegistryImpl::ModuleData::destruct() { 
     Instance.reset();
-    DM().Log("Destructed module: " + Label, 1);
+    logIdentity("Destructed module: " + Label, 1);
     return 0;
 }
 const std::vector<ServiceID>& RegistryImpl::ModuleData::serviceArr() { return Provides; }

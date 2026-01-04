@@ -1,7 +1,7 @@
 #include "module/VulkanHandler/private.h"
 #define NULL_BIT 0x0
         
-inline void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "VulkanHandler"), Write); }
+static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "VulkanHandler"), Write); }
 
 ModuleRegistryBundle VulkanHandler::bundle(
     [](void* registry) -> WrapperBaseClass* { return new VulkanHandler(registry); },
