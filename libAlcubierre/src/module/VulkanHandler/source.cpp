@@ -61,11 +61,6 @@ void VulkanHandler::Init() {
 #include "module/VulkanHandler/Component/Renderchain/source.inl"
 #include "module/VulkanHandler/Component/Allocator/source.inl"
 
-int VulkanHandler::createObjectBuffer(uint32_t& modelHash, std::vector<Vector>& vertices, std::vector<uint32_t>& indices) { return renderchain->createObjectBuffer(modelHash, vertices, indices); }
-int VulkanHandler::clearFrame() { return renderchain->clearFrame(); }
-int VulkanHandler::addObjectToFrame(uint32_t& modelHash, Vector& position) { return renderchain->addObjectToFrame(modelHash, position); }
-int VulkanHandler::drawFrame() { return renderchain->drawFrame(); }
-
 void VulkanHandler::recreateSwapchain() {
     logIdentity("Recreating Vulkan swapchain");
     vkDeviceWaitIdle(device->Device);

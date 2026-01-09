@@ -82,7 +82,7 @@ class VulkanRenderchainComponent {
         };
         class VertexBuffer {
             public:
-                VertexBuffer(VulkanMemoryAllocatorComponent* _allocator, VkDevice& _device, uint32_t _vertexCount, uint32_t _indexCount, uint32_t transferQueueIndex, uint32_t _modelHash);
+                VertexBuffer(VulkanMemoryAllocatorComponent* _allocator, VkDevice& _device, uint32_t _vertexCount, uint32_t _indexCount, uint32_t transferQueueIndex, int _index);
                 ~VertexBuffer();
 
                 const uint32_t vertexCount;
@@ -97,15 +97,16 @@ class VulkanRenderchainComponent {
                 VkDevice& device;
                 VulkanMemoryAllocatorComponent::MemoryHeap::bufferAllocationDetails* allocation;
 
-                const uint32_t modelHash;
+                int index;
 
             private:
                 VkBuffer bufferInstance;
 
                 VulkanMemoryAllocatorComponent* allocator;
         };
+
         std::vector<VertexBuffer*> vertexBuffersInMemory;
-        std::vector<uint32_t> vertexBuffersInFrame;
+        std::vector<int> vertexBuffersInFrame;
 
         int RecreateSwapchain();
         int numberOfFrames = 0;
@@ -115,9 +116,11 @@ class VulkanRenderchainComponent {
         VulkanRenderchainComponent(VulkanHandler* _parent, Registry* _registry_ptr);
         ~VulkanRenderchainComponent();
 
-        int createObjectBuffer(uint32_t& modelHash, std::vector<Vector>& vertices, std::vector<uint32_t>& indices);
+        int createObjectBuffer(int*& modelBufferIndex, IGraphicsBackend::modelData& data);
+        int addObjectToFrame(int& modelBufferIndex, IGraphicsBackend::placementData& data);
+        int discardObjectBuffer(int& modelBufferIndex);
+
         int clearFrame();
-        int addObjectToFrame(uint32_t& modelHash, Vector& position);
         int drawFrame();
 
         int maxFramesInFlight = 0;

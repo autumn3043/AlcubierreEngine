@@ -7,10 +7,22 @@ class IGraphicsBackend : public InterfaceBaseClass {
     public:
         std::string token() override { return "IGraphicsBackend"; }
 
-        virtual int createObjectBuffer(uint32_t& modelHash, std::vector<Vector>& vertices, std::vector<uint32_t>& indices) = 0;
+        struct modelData {
+            std::vector<Vector> vertices;
+            std::vector<uint32_t> indices;
+        };
+
+        virtual int createObjectBuffer(int*& modelBufferIndex, modelData& data) = 0;
+
+        struct placementData {
+            Vector position;
+        };
+
+        virtual int addObjectToFrame(int& modelBufferIndex, placementData& data) = 0;
+
+        virtual int discardObjectBuffer(int& modelBufferIndex) = 0;
 
         virtual int clearFrame() = 0;
-        virtual int addObjectToFrame(uint32_t& modelHash, Vector& position) = 0;
         virtual int drawFrame() = 0;
 };
 

@@ -7,9 +7,8 @@ VulkanRenderchainComponent::VulkanRenderchainComponent(VulkanHandler* _parent, R
 };
 
 VulkanRenderchainComponent::~VulkanRenderchainComponent() {
-    for(int i = 0; i < vertexBuffersInMemory.size(); i++) {
-        if(vertexBuffersInMemory[i]) delete vertexBuffersInMemory[i];
-        // parent->allocator->dump();
+    for(VertexBuffer* buffer : vertexBuffersInMemory) {
+        delete buffer;
     }
     if(transferCommandPool) delete transferCommandPool;
     if(graphicalCommandPool) delete graphicalCommandPool;
@@ -303,8 +302,8 @@ VulkanRenderchainComponent::CommandBuffer::~CommandBuffer() {
     }
 }
 
-VulkanRenderchainComponent::VertexBuffer::VertexBuffer(VulkanMemoryAllocatorComponent* _allocator, VkDevice& _device, uint32_t _vertexCount, uint32_t _indexCount, uint32_t transferQueueIndex, uint32_t _modelHash) 
-    : allocator(_allocator), device(_device), vertexCount(_vertexCount), vertex_t_size(sizeof(Vertex)), indexCount(_indexCount), index_t_size(sizeof(uint32_t)), modelHash(_modelHash) {
+VulkanRenderchainComponent::VertexBuffer::VertexBuffer(VulkanMemoryAllocatorComponent* _allocator, VkDevice& _device, uint32_t _vertexCount, uint32_t _indexCount, uint32_t transferQueueIndex, int _index) 
+    : allocator(_allocator), device(_device), vertexCount(_vertexCount), vertex_t_size(sizeof(Vertex)), indexCount(_indexCount), index_t_size(sizeof(uint32_t)), index(_index) {
 
     VkBufferCreateInfo createInfo {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -456,35 +455,41 @@ int VulkanSwapchainComponent::SwapchainImageWrapper::TransitionImageLayout(VkCom
     return 0;
 }
 
-int VulkanRenderchainComponent::createObjectBuffer(uint32_t& modelHash, std::vector<Vector>& vertices, std::vector<uint32_t>& indices) {
-    VertexBuffer*& buffer = vertexBuffersInMemory.emplace_back(new VertexBuffer(parent->allocator, parent->device->Device, vertices.size(), indices.size(), parent->device->getQueue(VK_QUEUE_TRANSFER_BIT).familyIndex, modelHash));
+int VulkanRenderchainComponent::createObjectBuffer(int*& modelBufferIndex, IGraphicsBackend::modelData& data) {
+    VertexBuffer*& buffer = vertexBuffersInMemory.emplace_back(new VertexBuffer(parent->allocator, parent->device->Device, data.vertices.size(), data.indices.size(), parent->device->getQueue(VK_QUEUE_TRANSFER_BIT).familyIndex, vertexBuffersInMemory.size()));
+    modelBufferIndex = &buffer->index;
 
-    std::vector<Vertex> translatedVertices(vertices.size());
-    for(int i = 0; i < vertices.size(); i++) {
-        translatedVertices[i] = { .position = {vertices[i].x, vertices[i].y}, .colour = {0.5f, 0.5f, 0.5f} };
-    }
+    //temp
+        std::vector<Vertex> translatedVertices(data.vertices.size());
+        for(int i = 0; i < data.vertices.size(); i++) {
+            translatedVertices[i] = { .position = {data.vertices[i].x, data.vertices[i].y}, .colour = {0.5f, 0.5f, 0.5f} };
+        }
 
-    buffer->fillBufferMemory(translatedVertices, indices);
+        buffer->fillBufferMemory(translatedVertices, data.indices);
+    
+    return 0;
+}
+
+int VulkanRenderchainComponent::addObjectToFrame(int& modelBufferIndex, IGraphicsBackend::placementData& data) {
+    vertexBuffersInFrame.push_back(modelBufferIndex);
+
+    return 0;
+}
+
+int VulkanRenderchainComponent::discardObjectBuffer(int& modelBufferIndex) {
+    clearFrame(); //Indices will be invalidated, could cause segfault
+
+    std::swap(vertexBuffersInMemory[modelBufferIndex], vertexBuffersInMemory.back());
+    vertexBuffersInMemory[modelBufferIndex]->index = modelBufferIndex;
+    vertexBuffersInMemory.pop_back();
 
     return 0;
 }
 
 int VulkanRenderchainComponent::clearFrame() {
     vertexBuffersInFrame.clear();
-    vertexBuffersInFrame.shrink_to_fit();
 
     return 0;
-}
-
-int VulkanRenderchainComponent::addObjectToFrame(uint32_t& modelHash, Vector& position) {
-    for(int i = 0; i < vertexBuffersInMemory.size(); i++) {
-        if(vertexBuffersInMemory[i]->modelHash == modelHash) {
-            vertexBuffersInFrame.push_back(i);
-            return 0;
-        }
-    }
-
-    throw VulkanException("Requested model with hash [" + std::to_string(modelHash) + "] was not present in memory.");
 }
 
 int VulkanRenderchainComponent::drawFrame() {

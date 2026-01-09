@@ -50,14 +50,17 @@ int AlcubierreEngineImpl::dump() {
 void AlcubierreEngineImpl::initEngine() {
     registryMasterInstance.FetchService(WINDOW_SURFACE); //Must come before Vulkan so it can dump to cfg. (Part of registry pre init hook TODO)
     registryMasterInstance.FetchService(GRAPHICS_BACKEND);
+
     IDirector* DR = dynamic_cast<IDirector*>(registryMasterInstance.FetchService(DIRECTOR));
     DR->createScene();
-
     Vector position(0.0f, 0.0f, 0.0f);
-    std::vector<Vector> vertices = {{-0.25f, -0.25f, 0.0f}, {0.0f, 0.25f, 0.0f}, {0.25f, -0.25f, 0.0f}};
-    std::vector<uint32_t> indices = {0, 1, 2};
+    std::vector<Vector> vertices = {{-0.25f, -0.25f, 0.0f}, {0.0f, 0.25f, 0.0f}, {0.25f, -0.25f, 0.0f}, {0.5f, 0.25f, 0.0f}};
+    std::vector<uint32_t> indices = {0, 1, 2, 1, 2, 3};
     DR->createActor(position, vertices, indices);
     DR->createActor(position, vertices, indices);
+    std::vector<Vector> vertices2 = {{-0.25f, -0.25f, 0.0f}, {0.0f, 0.25f, 0.0f}, {0.25f, -0.25f, 0.0f}};
+    std::vector<uint32_t> indices2 = {0, 1, 2};
+    DR->createActor(position, vertices2, indices2);
 }
 
 bool AlcubierreEngineImpl::shouldClose() {

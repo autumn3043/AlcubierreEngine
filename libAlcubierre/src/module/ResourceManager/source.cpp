@@ -31,36 +31,29 @@ int ResourceManager::Init() {
 
 //Model loading
     bool ResourceManager::isLoaded(uint32_t& modelHash) {
-        for(int i = 0; i < loadedModels.size(); i++) {
-            if(loadedModels[i].hash == modelHash) {
-                logIdentity("Detected reuse of existing loaded model");
-                return true;
-            }
-        }
-
-        return false;
+        return modelsInMemory.contains(modelHash);
     }
 
     uint32_t ResourceManager::load(std::vector<Vector>& modelVertices, std::vector<uint32_t>& modelIndices, bool explicitCreation) {
         uint32_t modelHash = generateHash(modelVertices.data(), sizeof(Vector) * modelVertices.size());
 
-        //TODO: Gracefully handle explicitly created duplicates (which need their own unique hash)
-            explicitCreation = false;
-
-        if(explicitCreation || !isLoaded(modelHash)) {
-            //tinyobj time
-            //Load needs to use raw .obj data when tinyobjloader is implemented
-
+        if(!isLoaded(modelHash)) {
             IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(registry_ptr->FetchService(GRAPHICS_BACKEND));
 
-            GB->createObjectBuffer(modelHash, modelVertices, modelIndices);
+            IGraphicsBackend::modelData data = {
+                .vertices = modelVertices,
+                .indices = modelIndices
+            };
 
-            loadedModels.push_back({modelHash});
-
-            logIdentity("Loaded model with hash [" + std::to_string(modelHash) + "] into a buffer");
+            modelsInMemory.emplace(modelHash, nullptr);
+            GB->createObjectBuffer(modelsInMemory[modelHash], data);
         }
 
         return modelHash;
+    }
+
+    int ResourceManager::getModelIndex(uint32_t& modelHash) {
+        return *modelsInMemory[modelHash];
     }
 
     uint32_t ResourceManager::generateHash(void* data, uint32_t dataSize) {
@@ -104,11 +97,16 @@ int ResourceManager::Init() {
 
     int ResourceManager::Scene::render() {
         IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(parent->registry_ptr->FetchService(GRAPHICS_BACKEND));
+        IModelLoader* ML = dynamic_cast<IModelLoader*>(parent->registry_ptr->FetchService(MODEL_LOADER));
 
         GB->clearFrame();
 
         for(int i = 0; i < actors.size(); i++) {
-            GB->addObjectToFrame(actors[i].modelHash, actors[i].worldPosition);
+            IGraphicsBackend::placementData data = {
+                .position = actors[i].worldPosition
+            };
+            int index = ML->getModelIndex(actors[i].modelHash);
+            GB->addObjectToFrame(index, data);
         }
 
         return GB->drawFrame();

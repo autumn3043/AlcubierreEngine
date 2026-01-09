@@ -37,7 +37,8 @@ class ResourceManager : public WrapperBaseClass {
                     IModelLoaderImpl(ResourceManager* _parent) : parent(_parent) {}
 
                     bool isLoaded(uint32_t& modelHash) override { return parent->isLoaded(modelHash); }
-                    uint32_t load(std::vector<Vector>& modelData, std::vector<uint32_t>& modelIndices, bool explicitCreation) override { return parent->load(modelData, modelIndices, explicitCreation); }                    
+                    uint32_t load(std::vector<Vector>& modelData, std::vector<uint32_t>& modelIndices, bool explicitCreation) override { return parent->load(modelData, modelIndices, explicitCreation); }
+                    int getModelIndex(uint32_t& modelHash) override { return parent->getModelIndex(modelHash); }                    
             };
 
             IModelLoaderImpl IModelLoader_ResourceManager;
@@ -45,14 +46,11 @@ class ResourceManager : public WrapperBaseClass {
         private:
             bool isLoaded(uint32_t& modelHash);
             uint32_t load(std::vector<Vector>& modelVertices, std::vector<uint32_t>& modelIndices, bool explicitCreation);
+            int getModelIndex(uint32_t& modelHash);
             const uint32_t hashSeed = 1427359827;
             uint32_t generateHash(void* data, uint32_t dataSize);
 
-            struct Model {
-                uint32_t hash;
-            };
-
-            std::vector<Model> loadedModels;
+            std::unordered_map<uint32_t, int*> modelsInMemory;
 
     //Scene & rendering management
         public:
@@ -102,7 +100,6 @@ class ResourceManager : public WrapperBaseClass {
             };
 
             std::vector<Scene> scenes;
-            std::vector<uint32_t> modelHashes;
 };
 
 #endif
