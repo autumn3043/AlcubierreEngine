@@ -37,7 +37,7 @@ class ResourceManager : public WrapperBaseClass {
                     IModelLoaderImpl(ResourceManager* _parent) : parent(_parent) {}
 
                     bool isLoaded(uint32_t& modelHash) override { return parent->isLoaded(modelHash); }
-                    uint32_t load(std::vector<Vector>& modelData, std::vector<uint32_t>& modelIndices, bool explicitCreation) override { return parent->load(modelData, modelIndices, explicitCreation); }
+                    uint32_t load(std::string& model, bool explicitCreation) override { return parent->load(model, explicitCreation); }
                     int getModelIndex(uint32_t& modelHash) override { return parent->getModelIndex(modelHash); }                    
             };
 
@@ -45,10 +45,10 @@ class ResourceManager : public WrapperBaseClass {
 
         private:
             bool isLoaded(uint32_t& modelHash);
-            uint32_t load(std::vector<Vector>& modelVertices, std::vector<uint32_t>& modelIndices, bool explicitCreation);
+            uint32_t load(std::string& model, bool explicitCreation);
             int getModelIndex(uint32_t& modelHash);
             const uint32_t hashSeed = 1427359827;
-            uint32_t generateHash(void* data, uint32_t dataSize);
+            uint32_t generateHash(const void* data, int dataSize);
 
             std::unordered_map<uint32_t, int*> modelsInMemory;
 
@@ -61,7 +61,7 @@ class ResourceManager : public WrapperBaseClass {
                     IDirectorImpl(ResourceManager* _parent) : parent(_parent) {}
 
                     int createScene() override { return parent->createScene(); }
-                    int createActor(Vector& worldPosition, std::vector<Vector>& modelVertices, std::vector<uint32_t>& modelIndices) override { return parent->createActor(worldPosition, modelVertices, modelIndices); }
+                    int createActor(Vector& worldPosition, std::string& model) override { return parent->createActor(worldPosition, model); }
                     int renderScene() override { return parent->renderScene(); }
             };
 
@@ -69,12 +69,12 @@ class ResourceManager : public WrapperBaseClass {
 
         private:
             int createScene();
-            int createActor(Vector& worldPosition, std::vector<Vector>& modelVertices, std::vector<uint32_t>& modelIndices);
+            int createActor(Vector& worldPosition, std::string& model);
             int renderScene();
 
             class Actor {
                 public:
-                    Actor(ResourceManager* _parent, Vector& _worldPosition, std::vector<Vector>& modelVertices, std::vector<uint32_t>& modelIndices);
+                    Actor(ResourceManager* _parent, Vector& _worldPosition, std::string& model);
                     ~Actor() {};
 
                     Vector worldPosition;
@@ -90,7 +90,7 @@ class ResourceManager : public WrapperBaseClass {
                     Scene(ResourceManager* _parent) : parent(_parent) {};
                     ~Scene() {};
 
-                    int createActor(Vector& worldPosition, std::vector<Vector>& modelVertices, std::vector<uint32_t>& modelIndices);
+                    int createActor(Vector& worldPosition, std::string& model);
                     int render();
 
                 private:

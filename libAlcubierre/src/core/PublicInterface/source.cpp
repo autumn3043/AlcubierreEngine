@@ -24,6 +24,7 @@ int AlcubierreEngine::Config::dump() {return PrivatePtr->dump(); }
 
 bool AlcubierreEngine::Window::shouldClose() { return PrivatePtr->shouldClose(); }
 
+int AlcubierreEngine::Graphics::placeActor(std::vector<int> position, std::string& model) { return PrivatePtr->placeActor(position, model); }
 int AlcubierreEngine::Graphics::frame() { return PrivatePtr->frame(); }
 
 AlcubierreEngineImpl::AlcubierreEngineImpl() {
@@ -53,18 +54,16 @@ void AlcubierreEngineImpl::initEngine() {
 
     IDirector* DR = dynamic_cast<IDirector*>(registryMasterInstance.FetchService(DIRECTOR));
     DR->createScene();
-    Vector position(0.0f, 0.0f, 0.0f);
-    std::vector<Vector> vertices = {{-0.25f, -0.25f, 0.0f}, {0.0f, 0.25f, 0.0f}, {0.25f, -0.25f, 0.0f}, {0.5f, 0.25f, 0.0f}};
-    std::vector<uint32_t> indices = {0, 1, 2, 1, 2, 3};
-    DR->createActor(position, vertices, indices);
-    DR->createActor(position, vertices, indices);
-    std::vector<Vector> vertices2 = {{-0.25f, -0.25f, 0.0f}, {0.0f, 0.25f, 0.0f}, {0.25f, -0.25f, 0.0f}};
-    std::vector<uint32_t> indices2 = {0, 1, 2};
-    DR->createActor(position, vertices2, indices2);
 }
 
 bool AlcubierreEngineImpl::shouldClose() {
     return dynamic_cast<IWindowManager*>(registryMasterInstance.FetchService(WINDOW_MANAGER))->shouldClose();
+}
+
+int AlcubierreEngineImpl::placeActor(std::vector<int> position, std::string& model) {
+    IDirector* DR = dynamic_cast<IDirector*>(registryMasterInstance.FetchService(DIRECTOR));
+    Vector pos = {position[0], position[1], position[2]};
+    return DR->createActor(pos, model);
 }
 
 int AlcubierreEngineImpl::frame() {

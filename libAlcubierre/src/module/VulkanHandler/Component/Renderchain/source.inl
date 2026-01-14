@@ -334,9 +334,10 @@ VulkanRenderchainComponent::VertexBuffer::~VertexBuffer() {
     }
 }
 
-int VulkanRenderchainComponent::VertexBuffer::fillBufferMemory(std::vector<Vertex>& vertexBuffer, std::vector<uint32_t>& indexBuffer) {
+int VulkanRenderchainComponent::VertexBuffer::fillBufferMemory(void* data, uint32_t dataSize) {
     assert(allocation->allocatedRegion.memorySize >= bufferSize);
-    allocator->stageBufferMemory(*allocation, vertexBuffer.data(), vertexCount * vertex_t_size, indexBuffer.data(), indexCount * index_t_size);
+
+    allocator->stageBufferMemory(*allocation, data, dataSize);
     allocator->submitBufferMemory(*allocation, nullptr);
     return 0;
 }
@@ -465,7 +466,9 @@ int VulkanRenderchainComponent::createObjectBuffer(int*& modelBufferIndex, IGrap
             translatedVertices[i] = { .position = {data.vertices[i].x, data.vertices[i].y}, .colour = {0.5f, 0.5f, 0.5f} };
         }
 
-        buffer->fillBufferMemory(translatedVertices, data.indices);
+        std::vector<std::byte> rawDataBuffer(data.vertices.size() +  data.indices.size());
+
+        buffer->fillBufferMemory(rawDataBuffer.data(), rawDataBuffer.size());
     
     return 0;
 }

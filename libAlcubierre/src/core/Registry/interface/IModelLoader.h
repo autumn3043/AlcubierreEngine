@@ -8,7 +8,7 @@ class IModelLoader : public InterfaceBaseClass {
         std::string token() override { return "IModelLoader"; }
 
         virtual bool isLoaded(uint32_t& modelHash) = 0;
-        virtual uint32_t load(std::vector<Vector>& modelData, std::vector<uint32_t>& modelIndices, bool explicitCreation = false) = 0;
+        virtual uint32_t load(std::string& model, bool explicitCreation = false) = 0;
         virtual int getModelIndex(uint32_t& modelHash) = 0;
 };
 

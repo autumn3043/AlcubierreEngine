@@ -92,7 +92,7 @@ class VulkanRenderchainComponent {
                 const uint32_t bufferSize = vertexCount * vertex_t_size + indexCount * index_t_size;
                 const uint32_t bufferIndexBreakpointOffset = vertexCount * vertex_t_size;
 
-                int fillBufferMemory(std::vector<Vertex>& vertexBuffer, std::vector<uint32_t>& indexBuffer);
+                int fillBufferMemory(void* data, uint32_t dataSize);
 
                 VkDevice& device;
                 VulkanMemoryAllocatorComponent::MemoryHeap::bufferAllocationDetails* allocation;

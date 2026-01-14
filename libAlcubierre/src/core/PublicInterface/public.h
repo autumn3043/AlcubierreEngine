@@ -52,6 +52,7 @@ class AlcubierreEngine {
                 AlcubierreEngineImpl*& PrivatePtr;
 
             public:
+                int placeActor(std::vector<int> position, std::string& model);
                 int frame();
 
                 Graphics(AlcubierreEngineImpl*& _PrivatePtr) : PrivatePtr(_PrivatePtr) {};

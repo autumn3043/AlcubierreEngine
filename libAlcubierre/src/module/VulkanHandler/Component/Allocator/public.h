@@ -79,7 +79,7 @@ class VulkanMemoryAllocatorComponent {
         VulkanDeviceComponent::DeviceQueue* transferQueue = nullptr;
         VkCommandPool transientCommandPool = VK_NULL_HANDLE;
 
-        uint32_t memoryHeapSize = 8000; //In bytes (all memory sizes are in bytes in this class unless otherwise stated)
+        uint32_t memoryHeapSize = 1000000; //In bytes (all memory sizes are in bytes in this class unless otherwise stated)
         uint32_t deviceLocalMemoryTypeIndex;
         uint32_t hostVisibleMemoryTypeIndex;
         std::vector<MemoryHeap> memoryHeapsStatic;
@@ -94,7 +94,7 @@ class VulkanMemoryAllocatorComponent {
         };
         MemoryHeap::bufferAllocationDetails& bindBufferMemory(VkBuffer& buffer, uint32_t bufferSize, HeapType type = STATIC);
         //We bind to staging memory, then handle copying to device memory in this component
-        int stageBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation, void* vertexData, uint32_t vertexDataSize, void* indexData, uint32_t indexDataSize);
+        int stageBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation, void* data, uint32_t dataSize);
         int submitBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation, VkFence fence);
         int freeBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation);
 

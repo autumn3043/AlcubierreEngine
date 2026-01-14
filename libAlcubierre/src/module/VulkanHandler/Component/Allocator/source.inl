@@ -72,12 +72,11 @@ VulkanMemoryAllocatorComponent::MemoryHeap::bufferAllocationDetails& VulkanMemor
     return memoryHeapsStatic[heapIndex].bindBufferMemory(buffer, bufferSize, allocatingBufferSize);
 }
 
-int VulkanMemoryAllocatorComponent::stageBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation, void* vertexData, uint32_t vertexDataSize, void* indexData, uint32_t indexDataSize) {
+int VulkanMemoryAllocatorComponent::stageBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation, void* data, uint32_t dataSize) {
     void* hostMemoryBuffer;
     vkMapMemory(parent->device->Device, bufferAllocation.stagingAllocation, bufferAllocation.allocatedRegion.memoryOffset, bufferAllocation.allocatedRegion.memorySize, NULL_BIT, &hostMemoryBuffer);
     std::byte* hostBufferIndex = static_cast<std::byte*>(hostMemoryBuffer);
-    memcpy(hostBufferIndex, vertexData, vertexDataSize);
-    memcpy(hostBufferIndex + vertexDataSize, indexData, indexDataSize);
+    memcpy(hostBufferIndex, data, dataSize);
     vkUnmapMemory(parent->device->Device, bufferAllocation.stagingAllocation);
     return 0;
 }

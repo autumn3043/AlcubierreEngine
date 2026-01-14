@@ -8,7 +8,7 @@ class IDirector : public InterfaceBaseClass {
         std::string token() override { return "IDirector"; }
 
         virtual int createScene() = 0;
-        virtual int createActor(Vector& worldPosition, std::vector<Vector>& modelVertices, std::vector<uint32_t>& modelIndices) = 0;
+        virtual int createActor(Vector& worldPosition, std::string& model) = 0;
         virtual int renderScene() = 0;
 };
 

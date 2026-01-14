@@ -7,8 +7,8 @@ PLATFORM ?= dev
 #DEV
 ifeq ($(PLATFORM), dev)
 	COMPILER = g++
-	COMPILEFLAGS = -fsanitize=address -std=c++23 -g -O0 -I$(ENGINE_DIR)
-	LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lwayland-client -lwayland-cursor -lwayland-egl -lxxhash
+	COMPILEFLAGS = -fsanitize=address -std=c++23 -g -O3 -I$(ENGINE_DIR)
+	LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lwayland-client -lwayland-cursor -lwayland-egl -lxxhash -ltinyobjloader
 	OUTPUT = Sandbox
 endif
 

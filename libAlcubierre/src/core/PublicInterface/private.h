@@ -38,6 +38,7 @@ class AlcubierreEngineImpl {
             bool shouldClose();
 
         //Graphics
+            int placeActor(std::vector<int> position, std::string& model);
             int frame();
 
         //Input

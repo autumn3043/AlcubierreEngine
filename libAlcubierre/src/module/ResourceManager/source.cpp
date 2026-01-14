@@ -1,6 +1,6 @@
 #include "module/ResourceManager/private.h"
 
-// #include <tiny_obj_loader.h>
+#include <tiny_obj_loader.h>
 #include <xxhash.h>
 
 static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "ResourceManager"), Write); }
@@ -34,19 +34,53 @@ int ResourceManager::Init() {
         return modelsInMemory.contains(modelHash);
     }
 
-    uint32_t ResourceManager::load(std::vector<Vector>& modelVertices, std::vector<uint32_t>& modelIndices, bool explicitCreation) {
-        uint32_t modelHash = generateHash(modelVertices.data(), sizeof(Vector) * modelVertices.size());
+    uint32_t ResourceManager::load(std::string& model, bool explicitCreation) {
+
+        uint32_t modelHash = generateHash(model.c_str(), model.size());
 
         if(!isLoaded(modelHash)) {
+            std::vector<Vector> modelVertices;
+            std::vector<uint32_t> modelIndices;
+
+            tinyobj::ObjReader reader;
+            tinyobj::ObjReaderConfig readerConfig;
+            reader.ParseFromString(model, std::string(), readerConfig);
+
+            tinyobj::attrib_t attributes = reader.GetAttrib();
+            std::vector<tinyobj::shape_t> shapes = reader.GetShapes();
+            std::vector<tinyobj::material_t> materials = reader.GetMaterials();
+
+            if(!reader.Warning().empty()) logIdentity("[tinyobj]: " + reader.Warning(), 1);
+            if(!reader.Error().empty()) logIdentity("[tinyobj]: " + reader.Error(), 2);
+
+            for(int i = 0; i < shapes.size(); i++) {
+                tinyobj::shape_t& shape = shapes[i];
+
+                for(int j = 0; j < shape.mesh.indices.size(); j++) {
+                    tinyobj::index_t& index = shape.mesh.indices[j];
+
+                    float x = attributes.vertices[3 * index.vertex_index + 0];
+                    float y = attributes.vertices[3 * index.vertex_index + 1];
+                    float z = attributes.vertices[3 * index.vertex_index + 2];
+
+                    modelVertices.push_back({x, y, z});
+                }
+            }
+
+            //temp
+                for(int i = 0; i < modelVertices.size(); i++) {
+                    modelIndices.push_back(i);
+                }
+
             IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(registry_ptr->FetchService(GRAPHICS_BACKEND));
 
-            IGraphicsBackend::modelData data = {
+            IGraphicsBackend::modelData modelData = {
                 .vertices = modelVertices,
                 .indices = modelIndices
             };
 
             modelsInMemory.emplace(modelHash, nullptr);
-            GB->createObjectBuffer(modelsInMemory[modelHash], data);
+            GB->createObjectBuffer(modelsInMemory[modelHash], modelData);
         }
 
         return modelHash;
@@ -56,7 +90,7 @@ int ResourceManager::Init() {
         return *modelsInMemory[modelHash];
     }
 
-    uint32_t ResourceManager::generateHash(void* data, uint32_t dataSize) {
+    uint32_t ResourceManager::generateHash(const void* data, int dataSize) {
         return XXH32(data, dataSize, hashSeed);
     }    
 
@@ -68,10 +102,10 @@ int ResourceManager::Init() {
         return sceneIndex;
     }
 
-    int ResourceManager::createActor(Vector& worldPosition, std::vector<Vector>& modelVertices, std::vector<uint32_t>& modelIndices) {
+    int ResourceManager::createActor(Vector& worldPosition, std::string& model) {
         Scene& scene = scenes[0];
 
-        return scene.createActor(worldPosition, modelVertices, modelIndices);
+        return scene.createActor(worldPosition, model);
     }
 
     int ResourceManager::renderScene() {
@@ -80,22 +114,24 @@ int ResourceManager::Init() {
         return scene.render();
     }
 
-    ResourceManager::Actor::Actor(ResourceManager* _parent, Vector& _worldPosition, std::vector<Vector>& modelVertices, std::vector<uint32_t>& modelIndices) : parent(_parent), worldPosition(_worldPosition) {
+    ResourceManager::Actor::Actor(ResourceManager* _parent, Vector& _worldPosition, std::string& model) : parent(_parent), worldPosition(_worldPosition) {
         IModelLoader* ML = dynamic_cast<IModelLoader*>(parent->registry_ptr->FetchService(MODEL_LOADER));
 
-        modelHash = ML->load(modelVertices, modelIndices); //If model is already loaded, does nothing, otherwise, generate a memory buffer for it
+        modelHash = ML->load(model); //If model is already loaded, does nothing, otherwise, generate a memory buffer for it
 
         logIdentity("Created a new actor at " + std::to_string(_worldPosition.x) + "x, " + std::to_string(_worldPosition.y) + "y, " + std::to_string(_worldPosition.x) + "z");
     }
 
-    int ResourceManager::Scene::createActor(Vector& worldPosition, std::vector<Vector>& modelVertices, std::vector<uint32_t>& modelIndices) {
+    int ResourceManager::Scene::createActor(Vector& worldPosition, std::string& model) {
         int actorIndex = actors.size();
-        actors.emplace_back(parent, worldPosition, modelVertices, modelIndices);
+        actors.emplace_back(parent, worldPosition, model);
 
         return actorIndex;
     }
 
     int ResourceManager::Scene::render() {
+        if(actors.size() == 0) return 1;
+        
         IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(parent->registry_ptr->FetchService(GRAPHICS_BACKEND));
         IModelLoader* ML = dynamic_cast<IModelLoader*>(parent->registry_ptr->FetchService(MODEL_LOADER));
 
