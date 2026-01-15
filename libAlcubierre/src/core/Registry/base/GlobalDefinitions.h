@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <cassert>
 
 struct Vector {
     Vector(float _x, float _y, float _z) : val(_x, _y, _z) {};

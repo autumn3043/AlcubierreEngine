@@ -8,12 +8,40 @@
 #include <vector>
 #include <variant>
 #include <stdexcept>
+#include <functional>
 
 #define CFGARRAY_SIZE_T "SIZE_T"
 
 class IConfigManager : public InterfaceBaseClass {
     public:
         std::string token() override { return "IConfigManager"; }
+
+        struct key_t {
+            std::vector<std::string> steps;
+
+            key_t(const char* _key) : steps({std::string(_key)}) {}
+            key_t(std::string _key) : steps({_key}) {}
+            key_t(std::initializer_list<std::string> _steps) : steps(std::vector<std::string>(_steps)) {}
+            key_t(std::vector<std::string> _steps) : steps(_steps) {}
+
+            const std::string toString() const { return toString(steps.size()); }
+            const std::string toString(int depth) const {
+                assert(depth <= steps.size());
+
+                std::string fullkey;
+
+                for(int i = 0; i < depth; i++) {
+                    fullkey += steps[i];
+                    if(i + 1 < depth) fullkey += "/";
+                }
+
+                return fullkey;
+            }
+
+            bool operator==(const key_t& other) const {
+                return steps == other.steps;
+            }
+        };
 
         template <typename T>
         struct is_vector : std::false_type {};
@@ -22,36 +50,12 @@ class IConfigManager : public InterfaceBaseClass {
         struct is_vector<std::vector<U, Alloc>> : std::true_type {};
 
         template <typename T>
-        const T Get(std::string key, int* resultPtr = nullptr) {
-            const std::vector<std::string> key_ = {key};
-            return Get<T>(key_, T(), true, resultPtr);
+        const T Get(key_t key, int* resultPtr = nullptr) {
+            return Get<T>(key, T(), resultPtr, true);
         }
 
         template <typename T>
-        const T Get(std::string key, T defaultValue, int* resultPtr = nullptr) {
-            const std::vector<std::string> key_ = {key};
-            return Get<T>(key_, defaultValue, false, resultPtr);
-        }
-
-        template <typename T>
-        const T Get(std::initializer_list<std::string> key, int* resultPtr = nullptr) {
-            const std::vector<std::string> key_ = std::vector<std::string>(key);
-            return Get<T>(key, T(), true, resultPtr);
-        }
-
-        template <typename T>
-        const T Get(std::initializer_list<std::string> key, T defaultValue, int* resultPtr = nullptr) {
-            const std::vector<std::string> key_ = std::vector<std::string>(key);
-            return Get<T>(key_, defaultValue, false, resultPtr);
-        }
-
-        template <typename T>
-        const T Get(const std::vector<std::string> key, int* resultPtr = nullptr) {
-            return Get<T>(key, T(), true, resultPtr);
-        }
-
-        template <typename T>
-        const T Get(const std::vector<std::string> key, T defaultValue, bool missingDefault = false, int* resultPtr = nullptr) {
+        const T Get(key_t key, T defaultValue, int* resultPtr = nullptr, bool missingDefault = false) {
             T hold;
             TypeDescriptor* descriptor = new TypeDescriptor(std::type_identity<T>{});
 
@@ -60,7 +64,7 @@ class IConfigManager : public InterfaceBaseClass {
             if(resultPtr) *resultPtr = result;
 
             if(result == 0) {
-                if(key[key.size() - 1] == CFGARRAY_SIZE_T) {
+                if(key.steps[key.steps.size() - 1] == CFGARRAY_SIZE_T) {
                     if constexpr (std::is_same_v<T, int>) {
                         hold = Extract<int>(item.ptr);
                     } else {
@@ -76,12 +80,7 @@ class IConfigManager : public InterfaceBaseClass {
                 if(!missingDefault) {
                     hold = defaultValue;
                 } else {
-                    std::string fullkey;
-                    for(int i = 0; i < key.size(); i++) {
-                        fullkey += key[i];
-                        if(i + 1 < key.size()) fullkey += "/";
-                    }
-                    throw std::runtime_error("Failed to get value at key " + fullkey + " because it did not exist. Because no default value was provided this is a FATAL error");
+                    throw std::runtime_error("Failed to get value at key " + key.toString() + " because it did not exist. Because no default value was provided this is a FATAL error");
                 }
             }
             
@@ -112,19 +111,7 @@ class IConfigManager : public InterfaceBaseClass {
         }
 
         template <typename T>
-        int Set(std::string key, std::string value) {
-            const std::vector<std::string> key_ = {key};
-            return Set<T>(key_, value);
-        }
-
-        template <typename T>
-        int Set(std::initializer_list<std::string> key, std::string value) {
-            const std::vector<std::string> key_ = std::vector<std::string>(key);
-            return Set<T>(key_, value);
-        }
-
-        template <typename T>
-        int Set(const std::vector<std::string> key, std::string value) {
+        int Set(key_t key, std::string value) {
             TypeDescriptor* descriptor = new TypeDescriptor(std::type_identity<T>{});
 
             Container item = Container(key, &value, descriptor);
@@ -136,7 +123,8 @@ class IConfigManager : public InterfaceBaseClass {
         }
 
         int SetRaw(std::string value) {
-            Container item = Container(std::vector<std::string>(0), &value, nullptr);
+            key_t dummy = key_t(std::string());
+            Container item = Container(dummy, &value, nullptr);
             int hold = setParseInternal(item);
 
             return hold;
@@ -209,7 +197,7 @@ class IConfigManager : public InterfaceBaseClass {
             else if constexpr (std::is_same_v<T, std::string>) return "string";
             else if constexpr (std::is_same_v<T, std::nullptr_t>) return "nullptr";
             else if constexpr (std::is_same_v<T, void*>) return "lossy";
-            else if constexpr (std::is_same_v<T, std::monostate>) return "lossy";
+            else if constexpr (std::is_same_v<T, std::monostate>) return "lossy"; //This doesn't really work, because we can't return metadata about the object like array size through this.
             else return "FAILED_GET_TYPE";
             //Congratulations, you have assigned a config value to a primitive type that *is* specified by templates, but that I forgot to account for. Amazing job. Dipshit.
             //"Why is this manually accounting" because typeid().name() is buns and im not pulling in a regex library to demangle it.
@@ -217,17 +205,18 @@ class IConfigManager : public InterfaceBaseClass {
         }
 
         struct Container {
-            const std::vector<std::string>& key;
+            key_t& key;
             void* ptr;
             TypeDescriptor* t_info;
             
-            Container(const std::vector<std::string>& _key, void* value, TypeDescriptor* _t_info) : key(_key), ptr(value), t_info(_t_info) {}
+            Container(key_t& _key, void* value, TypeDescriptor* _t_info) : key(_key), ptr(value), t_info(_t_info) {}
         };
 
         virtual int getInternal(Container& v_out) = 0; //Implementation reports status via int and fills out the ptr. Because the container is owned by the interface we can handle deletion smoothly. 
         virtual int setInternal(Container& v_in) = 0;
         virtual int setParseInternal(Container& v_in) = 0;
-        virtual int dump() = 0;
+        virtual int dump() = 0; //Print current config contents to DebugManager.
+        virtual int registerCallback(key_t key, std::function<void()> fn) = 0; //CM->registerCallback(key, [this](){functionName();});
 };
 
 #endif

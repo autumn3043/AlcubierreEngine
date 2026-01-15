@@ -8,6 +8,19 @@
 
 #include "core/DebugManager/public.h"
 
+#include <unordered_map>
+#include <xxhash.h>
+
+namespace std {
+    template <>
+    struct hash<IConfigManager::key_t> {
+        uint32_t operator()(const IConfigManager::key_t& key) const noexcept {
+            std::string keyString = key.toString();
+            return XXH32(keyString.c_str(), sizeof(const char) * keyString.length(), 1);
+        }
+    };
+}
+
 class ConfigManagerException : public AlcEngineException {
     public:
         ConfigManagerException(std::string message, int priority = 1) : AlcEngineException(DebugReport(message, priority, "ConfigManager")) {}
@@ -21,6 +34,7 @@ class ConfigManager : public WrapperBaseClass{
         int set(IConfigManager::Container& v_in);
         int setParse(IConfigManager::Container& v_in);
         int dump();
+        int registerCallback(IConfigManager::key_t& key, std::function<void()> fn);
 
         class IConfigManagerImpl : public IConfigManager {
             public:
@@ -32,6 +46,7 @@ class ConfigManager : public WrapperBaseClass{
                 int setInternal(IConfigManager::Container& v_in) override { return Parent->set(v_in); }
                 int setParseInternal(IConfigManager::Container& v_in) override { return Parent->setParse(v_in); }
                 int dump() override { return Parent->dump(); }
+                int registerCallback(IConfigManager::key_t key, std::function<void()> fn) override { return Parent->registerCallback(key, fn); }
         };
 
         ConfigManager(void* registry);
@@ -49,9 +64,8 @@ class ConfigManager : public WrapperBaseClass{
 
         IConfigManager::TypeDescriptor getDescriptorFromJson(const nlohmann::json& json);
         void* getPointerToJson(const nlohmann::json& json);
-
-        std::string fullkey(const std::vector<std::string>& key);
         void popEmptyElements(nlohmann::json& json);
+        std::unordered_map<IConfigManager::key_t, std::vector<std::function<void()>>> callbacks;
 };
 
 #endif

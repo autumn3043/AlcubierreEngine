@@ -20,6 +20,7 @@ class AlcubierreEngineImpl {
         AlcubierreEngineImpl();
         ~AlcubierreEngineImpl();
         void initEngine();
+        void changedWindowNameCallback();
 
         //Debug
             void log(std::string& message, int& priority);

@@ -27,12 +27,14 @@ int ConfigManager::init() {
 }
 
 int ConfigManager::get(IConfigManager::Container& v_out) {
+    IConfigManager::key_t& key = v_out.key;
+
     //Does a value exist at this key?
     nlohmann::json* json = &RawConfig;
-    for(int i = 0; i < v_out.key.size(); i++) {
-        if(v_out.key[i] == CFGARRAY_SIZE_T) {
+    for(int i = 0; i < key.steps.size(); i++) {
+        if(key.steps[i] == CFGARRAY_SIZE_T) {
             if(json->is_primitive()) {
-                logIdentity("Stored value at key '" + fullkey(v_out.key) + "' was: " + getDescriptorFromJson(*json).Type() + " which is not an array or object type", 1);
+                logIdentity("Stored value at key '" + key.toString() + "' was: " + getDescriptorFromJson(*json).Type() + " which is not an array or object type", 1);
                 return 1;
             } else {
                 v_out.ptr = new int(json->size());
@@ -41,22 +43,21 @@ int ConfigManager::get(IConfigManager::Container& v_out) {
         } else if(json->is_array()) {
             int arrayKey;
             try {
-                arrayKey = std::stoi(v_out.key[i]);
+                arrayKey = std::stoi(key.steps[i]);
                 json = &((*json)[arrayKey]);
             } catch (std::invalid_argument& exception) {
-                std::vector<std::string> thisKey = v_out.key;
-                thisKey.erase(thisKey.begin() + i, thisKey.end());
-                logIdentity("The value at key '" + fullkey(thisKey) + "' is an array but the subsequent keynotch was '" + v_out.key[i] + "' which is not a numeric array index", 1);
+                logIdentity("The value at key '" + key.toString(i) + "' is an array but the subsequent keynotch was '" + key.steps[i] + "' which is not a numeric array index", 1);
+                return 1;
             }
-        } else if(!json->contains(v_out.key[i])) {
-            logIdentity("Failed to get value at key '" + fullkey(v_out.key) +"' because it did not exist", 0);
+        } else if(!json->contains(key.steps[i])) {
+            logIdentity("Failed to get value at key '" + key.toString() +"' because it did not exist", 0);
             return 1;
-        } else json = &((*json)[v_out.key[i]]);
+        } else json = &((*json)[key.steps[i]]);
     }
 
     //Does its type match the expected return type?
     if((*v_out.t_info != getDescriptorFromJson(*json))) {
-        logIdentity("Stored value at key '" + fullkey(v_out.key) + "' was: " + getDescriptorFromJson(*json).Type() + " which did not match the requested type: " + v_out.t_info->Type(), 1);
+        logIdentity("Stored value at key '" + key.toString() + "' was: " + getDescriptorFromJson(*json).Type() + " which did not match the requested type: " + v_out.t_info->Type(), 1);
         return 2;
     }
 
@@ -76,13 +77,15 @@ int ConfigManager::set(IConfigManager::Container& v_in) {
         return 1;
     } 
 
+    IConfigManager::key_t& key = v_in.key;
+
     try {
         nlohmann::json* json = &RawConfig;
 
-        for(int i = 0; i < v_in.key.size(); i++) {
-            const std::string& notch = v_in.key[i];
+        for(int i = 0; i < key.steps.size(); i++) {
+            const std::string& notch = key.steps[i];
 
-            if(i + 1 < v_in.key.size()) {
+            if(i + 1 < key.steps.size()) {
                 if(!json->contains(notch)) {
                     (*json)[notch] = nlohmann::json::object();
                 }
@@ -91,29 +94,28 @@ int ConfigManager::set(IConfigManager::Container& v_in) {
             } else {
                 if(!json->contains(notch)) {
                     (*json)[notch] = parsed;
-                    return 0;
-                }
-
-                if((*json)[notch].is_array() && (*json)[notch].empty() && parsed.is_array()) {
+                } else if((*json)[notch].is_array() && (*json)[notch].empty() && parsed.is_array()) {
                     (*json)[notch] = parsed;
-                    return 0;
-                }
-                
-                if(*v_in.t_info == getDescriptorFromJson((*json)[notch])) {
+                } else if(*v_in.t_info == getDescriptorFromJson((*json)[notch])) {
                     (*json)[notch].swap(parsed);
-                    return 0;
-                } 
-
-                logIdentity("Failed to insert key '" + fullkey(v_in.key) + "' of type: " + v_in.t_info->Type() + " due to mismatch with stored type: " + getDescriptorFromJson((*json)[notch]).Type(), 1);
-                return 1;
+                } else {
+                    logIdentity("Failed to insert key '" + key.toString() + "' of type: " + v_in.t_info->Type() + " due to mismatch with stored type: " + getDescriptorFromJson((*json)[notch]).Type(), 1);
+                    return 1;
+                }
             }
         }
     } catch (const std::exception& E) {
-        logIdentity("Failed to insert key '" + fullkey(v_in.key) + "' of type: " + v_in.t_info->Type() + "\nVerbose error: " + E.what() + "\n" + RawConfig.dump(), 2);
+        logIdentity("Failed to insert key '" + key.toString() + "' of type: " + v_in.t_info->Type() + "\nVerbose error: " + E.what() + "\n" + RawConfig.dump(), 2);
         return 1;
     }
 
-    return -1;
+    if(callbacks.contains(key)) {
+        for(std::function<void()> fn : callbacks[key]) {
+            fn();
+        }
+    }
+
+    return 0;
 }
 
 int ConfigManager::setParse(IConfigManager::Container& v_in) {
@@ -141,6 +143,17 @@ int ConfigManager::dump() {
     return 0;
 }
 
+int ConfigManager::registerCallback(IConfigManager::key_t& key, std::function<void()> fn) {
+    if(!callbacks.contains(key)) {
+        callbacks.insert({key, std::vector<std::function<void()>>()});
+    }
+
+    callbacks[key].emplace_back(fn);
+
+    return 0;
+}
+
+//TODO: When migrating to C++26, update this to use reflection and not be switch case hell
 IConfigManager::TypeDescriptor ConfigManager::getDescriptorFromJson(const nlohmann::json& json) {
     IConfigManager::TypeDescriptor desc;
 
@@ -220,15 +233,6 @@ void* ConfigManager::getPointerToJson(const nlohmann::json& json) {
     }
 
     return std::move(hold);
-}
-
-std::string ConfigManager::fullkey(const std::vector<std::string>& key) {
-    std::string hold;
-    for(int i = 0; i < key.size(); i++) {
-        hold += key[i];
-        if(i + 1 < key.size()) hold += "/";
-    }
-    return hold;
 }
 
 void ConfigManager::popEmptyElements(nlohmann::json& json) {

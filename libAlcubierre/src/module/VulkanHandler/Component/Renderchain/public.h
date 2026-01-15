@@ -1,8 +1,6 @@
 #ifndef ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_RENDERCHAIN_PUBLIC_H
 #define ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_RENDERCHAIN_PUBLIC_H
 
-#include <cassert>
-
 class VulkanRenderchainComponent {
     private:
         VulkanHandler* parent = nullptr;

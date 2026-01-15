@@ -3,6 +3,8 @@
 
 #include "core/DebugManager/public.h"
 
+static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "PublicInterface"), Write); }
+
 AlcubierreEngine::AlcubierreEngine() {
     PrivatePtr = new AlcubierreEngineImpl();
 }
@@ -62,7 +64,7 @@ bool AlcubierreEngineImpl::shouldClose() {
 
 int AlcubierreEngineImpl::placeActor(std::vector<int> position, std::string& model) {
     IDirector* DR = dynamic_cast<IDirector*>(registryMasterInstance.FetchService(DIRECTOR));
-    Vector pos = {position[0], position[1], position[2]};
+    Vector pos = {static_cast<float>(position[0]), static_cast<float>(position[1]), static_cast<float>(position[2])};
     return DR->createActor(pos, model);
 }
 
