@@ -5,74 +5,6 @@ class VulkanRenderchainComponent {
     private:
         VulkanHandler* parent = nullptr;
         Registry*& registry_ptr;
-        
-        int CreateGraphicsPipeline();
-            struct ShaderModule {
-                ShaderModule(VkDevice& _device);
-                ~ShaderModule();
-
-                VkDevice& device;
-                
-                VkShaderModule module = VK_NULL_HANDLE;
-            };
-
-            struct ShaderModuleStage {
-                ShaderModuleStage(int _index, std::string _name, std::string _type, ShaderModule& shader);
-                ~ShaderModuleStage() = default;
-
-                int index;
-                std::string name;
-                VkShaderStageFlagBits type;
-                VkPipelineShaderStageCreateInfo createInfo;
-            };
-
-            class GraphicsPipeline {
-                public:
-                    GraphicsPipeline(VkDevice& _device, VkFormat& format, std::vector<ShaderModuleStage>& shaderStages);
-                    ~GraphicsPipeline();
-
-                    const VkDevice& device;
-
-                    VkPipeline pipeline = VK_NULL_HANDLE;
-                    VkPipelineLayout layout = VK_NULL_HANDLE;
-            };
-        GraphicsPipeline* pipeline = nullptr;
-
-        int CreateTransferCommandPool();
-        int CreateGraphicalCommandPool();
-            class CommandPool;
-
-            struct CommandBuffer {
-                VkDevice& device;
-
-                CommandBuffer(VkDevice& _device, VkCommandPool& commandPool, int _timeout);
-                ~CommandBuffer();
-
-                const int timeout;
-                
-                VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-                VkSemaphore semaphore = VK_NULL_HANDLE;
-                VkFence fence = VK_NULL_HANDLE;
-            };
-
-            class CommandPool {
-                public:
-                    CommandPool(VkDevice& _device, int queueIndex, int bufferCount, int commandTimeoutSeconds);
-                    ~CommandPool();
-
-                    std::vector<CommandBuffer> buffers;
-
-                private:
-                    VkDevice& device;
-
-                    int bufferCount;
-                    int commandTimeout;
-
-                    VkCommandPool commandPool = VK_NULL_HANDLE;
-
-            };
-        CommandPool* graphicalCommandPool = nullptr;
-        CommandPool* transferCommandPool = nullptr;
 
         struct Vertex {
             float position[2];
@@ -106,23 +38,82 @@ class VulkanRenderchainComponent {
         std::vector<VertexBuffer*> vertexBuffersInMemory;
         std::vector<int> vertexBuffersInFrame;
 
-        int RecreateSwapchain();
-        int numberOfFrames = 0;
-        int RecordCommandBuffer(VkCommandBuffer& CommandBuffer, VulkanSwapchainComponent::SwapchainImageWrapper* image);
+        int CreateGraphicsPipelines();
+            class graphicsPipeline {
+                public:
+                    graphicsPipeline();
+                    ~graphicsPipeline();
+                    
+                    virtual int init(VkDevice& _device, VkFormat& format) = 0;
+                    virtual int recordPass(VkCommandBuffer& commandBuffer, VulkanSwapchainComponent::SwapchainImageWrapper* image, std::vector<VertexBuffer*>& buffersInMemory, std::vector<int>& buffersInFrame) = 0;
+
+                protected:
+                    VkDevice device = VK_NULL_HANDLE;
+
+                    VkPipeline pipeline = VK_NULL_HANDLE;
+                    VkPipelineLayout layout = VK_NULL_HANDLE;
+
+                    VkShaderModule shaderModule = VK_NULL_HANDLE;
+            };
+
+            class opaqueGeometryPipe : public graphicsPipeline {
+                public:
+                    int init(VkDevice& _device, VkFormat& format) override;
+                    int recordPass(VkCommandBuffer& commandBuffer, VulkanSwapchainComponent::SwapchainImageWrapper* image, std::vector<VertexBuffer*>& buffersInMemory, std::vector<int>& buffersInFrame) override;
+            };
+            opaqueGeometryPipe pipeline_geometry;
+
+
+        int CreateCommandPools();
+            class CommandPool;
+
+            struct CommandBuffer {
+                VkDevice& device;
+
+                CommandBuffer(VkDevice& _device, VkCommandPool& commandPool, int _timeout);
+                ~CommandBuffer();
+
+                const int timeout;
+                
+                VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+                VkSemaphore semaphore = VK_NULL_HANDLE;
+                VkFence fence = VK_NULL_HANDLE;
+            };
+
+            class CommandPool {
+                public:
+                    CommandPool(VkDevice& _device, int queueIndex, int bufferCount, int commandTimeoutSeconds);
+                    ~CommandPool();
+
+                    std::vector<CommandBuffer> buffers;
+
+                private:
+                    VkDevice& device;
+
+                    int bufferCount;
+                    int commandTimeout;
+
+                    VkCommandPool commandPool = VK_NULL_HANDLE;
+
+            };
+            CommandPool* graphicalCommandPool = nullptr;
+            CommandPool* transferCommandPool = nullptr;
+
+        int RecordCommandBuffer(VkCommandBuffer& CommandBuffer, VulkanSwapchainComponent::SwapchainImageWrapper* image, std::vector<graphicsPipeline*> pipelines);
         
     public:
         VulkanRenderchainComponent(VulkanHandler* _parent, Registry* _registry_ptr);
         ~VulkanRenderchainComponent();
 
-        int createObjectBuffer(int*& modelBufferIndex, IGraphicsBackend::modelData& data);
-        int addObjectToFrame(int& modelBufferIndex, IGraphicsBackend::placementData& data);
-        int discardObjectBuffer(int& modelBufferIndex);
-
-        int clearFrame();
         int drawFrame();
 
         int maxFramesInFlight = 0;
         int currentFrame = 0;
+
+        int createObjectBuffer(int*& modelBufferIndex, IGraphicsBackend::modelData& data);
+        int addObjectToFrame(int& modelBufferIndex, IGraphicsBackend::placementData& data);
+        int discardObjectBuffer(int& modelBufferIndex);
+        int clearFrame();
 };
 
 #endif

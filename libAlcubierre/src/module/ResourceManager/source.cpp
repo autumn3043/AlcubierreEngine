@@ -1,7 +1,6 @@
 #include "module/ResourceManager/private.h"
 
 #include <tiny_obj_loader.h>
-#include <xxhash.h>
 
 static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "ResourceManager"), Write); }
 
@@ -91,7 +90,7 @@ int ResourceManager::Init() {
     }
 
     uint32_t ResourceManager::generateHash(const void* data, int dataSize) {
-        return XXH32(data, dataSize, hashSeed);
+        return dynamic_cast<IHashGenerator*>(registry_ptr->FetchService(HASH_GENERATOR))->hash32(data, dataSize);
     }    
 
 //Scene & rendering management

@@ -52,7 +52,7 @@ int VulkanSwapchainComponent::CreateSwapchain() {
     }
 }
 
-VulkanSwapchainComponent::SwapchainImageWrapper::SwapchainImageWrapper(VkDevice& _device, VkExtent2D _extent) : device(_device), extent(_extent) {
+VulkanSwapchainComponent::SwapchainImageWrapper::SwapchainImageWrapper(VulkanSwapchainComponent* _parent, VkDevice& _device, VkExtent2D _extent) : parent(_parent), device(_device), extent(_extent) {
     layoutDetails = imageLayoutPresets[LAYOUT_DETAILS_PRESET_UNDEFINED];
 
     VkSemaphoreCreateInfo CreateInfo { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
@@ -67,6 +67,48 @@ VulkanSwapchainComponent::SwapchainImageWrapper::~SwapchainImageWrapper() {
     semaphore = VK_NULL_HANDLE;
 }
 
+int VulkanSwapchainComponent::SwapchainImageWrapper::TransitionImageLayout(VkCommandBuffer& CommandBuffer, LAYOUT_DETAILS_PRESET preset) {
+    AlcImageLayoutDetails& target = parent->imageLayoutPresets[preset];
+
+    VkImageMemoryBarrier2 imageMemoryBarrier {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .pNext = nullptr,
+
+        .srcStageMask = layoutDetails.stageMask,
+        .srcAccessMask = layoutDetails.accessMask,
+        .dstStageMask = target.stageMask,
+        .dstAccessMask = target.accessMask,
+        .oldLayout = layoutDetails.layout,
+        .newLayout = target.layout,
+        .srcQueueFamilyIndex = layoutDetails.queueIndex,
+        .dstQueueFamilyIndex = target.queueIndex,
+
+        .image = imageHandle,
+
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+
+    VkDependencyInfo dependencyInfo {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .pNext = nullptr,
+        .dependencyFlags = {},
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &imageMemoryBarrier
+    };
+
+    vkCmdPipelineBarrier2(CommandBuffer, &dependencyInfo);
+
+    layoutDetails = target;
+
+    return 0;
+}
+
 int VulkanSwapchainComponent::FillSwapchainImages(VkSwapchainCreateInfoKHR& ChainInitInfo) {
     ChainFormat = ChainInitInfo.imageFormat;
 
@@ -77,7 +119,7 @@ int VulkanSwapchainComponent::FillSwapchainImages(VkSwapchainCreateInfoKHR& Chai
     VkResult imageCreateResult = vkGetSwapchainImagesKHR(parent->device->Device, Swapchain, &s, hold.data());
     Images.reserve(s);
     for(int i = 0; i < s; i++) {
-        SwapchainImageWrapper& image = Images.emplace_back(parent->device->Device, frameExtent);
+        SwapchainImageWrapper& image = Images.emplace_back(this, parent->device->Device, frameExtent);
         image.imageHandle = hold[i];
     }
     if(imageCreateResult == VK_SUCCESS) logIdentity("Successfully created " + std::to_string(s) + " swapchain images");

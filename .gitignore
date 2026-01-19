@@ -37,3 +37,7 @@ Progress\ Notes.txt
 libAlcubierre/build/*
 *.log
 *.spv
+
+libAlcubierre/src/extern/*/*
+!libAlcubierre/src/extern/*/info.txt
+!libAlcubierre/src/extern/*/install.sh

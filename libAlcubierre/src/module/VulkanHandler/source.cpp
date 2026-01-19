@@ -57,9 +57,9 @@ void VulkanHandler::Init() {
 //We want the components to be included in THIS translation unit
 #include "module/VulkanHandler/Component/Environment/source.inl"
 #include "module/VulkanHandler/Component/Device/source.inl"
+#include "module/VulkanHandler/Component/Allocator/source.inl"
 #include "module/VulkanHandler/Component/Swapchain/source.inl"
 #include "module/VulkanHandler/Component/Renderchain/source.inl"
-#include "module/VulkanHandler/Component/Allocator/source.inl"
 
 void VulkanHandler::recreateSwapchain() {
     logIdentity("Recreating Vulkan swapchain");

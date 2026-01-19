@@ -14,7 +14,9 @@ enum ServiceID {
     WINDOW_SURFACE = 3,
     GRAPHICS_BACKEND = 4,
     MODEL_LOADER = 5,
-    DIRECTOR = 6
+    DIRECTOR = 6,
+    HASH_GENERATOR = 7,
+    DISK_INTERFACE = 8
 };
 
 inline std::string ServiceID_str(ServiceID id) {
@@ -39,6 +41,12 @@ inline std::string ServiceID_str(ServiceID id) {
         break;
         case DIRECTOR:
             return "DIRECTOR";
+        break;
+        case HASH_GENERATOR:
+            return "HASH_GENERATOR";
+        break;
+        case DISK_INTERFACE:
+            return "DISK_INTERFACE";
         break;
         default:
             return "UNKNOWN_SERVICE_ID";

@@ -1,11 +1,12 @@
-#ifndef ALCENGINE_MODULE_RESOURCEMANAGER
-#define ALCENGINE_MODULE_RESOURCEMANAGER
+#ifndef ALCENGINE_MODULE_RESOURCEMANAGER_H
+#define ALCENGINE_MODULE_RESOURCEMANAGER_H
 
 #include "core/Registry/public.h"
 
 //Services
 //Depends
 #include "core/Registry/interface/IGraphicsBackend.h"
+#include "core/Registry/interface/IHashGenerator.h"
 //Provides
 #include "core/Registry/interface/IModelLoader.h"
 #include "core/Registry/interface/IDirector.h"

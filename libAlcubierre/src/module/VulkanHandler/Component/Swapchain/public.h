@@ -19,13 +19,14 @@ class VulkanSwapchainComponent {
         
         class SwapchainImageWrapper {
             public:
+                VulkanSwapchainComponent* parent;
                 const VkDevice& device;
                 const VkExtent2D extent;
 
-                SwapchainImageWrapper(VkDevice& _device, VkExtent2D _extent);
+                SwapchainImageWrapper(VulkanSwapchainComponent* _parent, VkDevice& _device, VkExtent2D _extent);
                 ~SwapchainImageWrapper();
 
-                int TransitionImageLayout(VkCommandBuffer& CommandBuffer, AlcImageLayoutDetails& layoutDetails_target);
+                int TransitionImageLayout(VkCommandBuffer& CommandBuffer, LAYOUT_DETAILS_PRESET preset);
 
                 VkImage imageHandle = VK_NULL_HANDLE;
                 VkImageView imageView = VK_NULL_HANDLE;

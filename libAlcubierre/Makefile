@@ -1,16 +1,19 @@
-FLAGS = -std=c++23 -I./ -I./src -g -O0 -MMD -MF $*.d
+FLAGS = -std=c++23 -I./src -g -O0 -MMD -MF $*.d
 
 OUTPUT = libAlcubierre.a
 
 BASE_DIR = src/core
 MODULE_DIR = src/module
+EXTERNAL_DIR = src/extern
 
 BASE_SRCS = $(shell find $(BASE_DIR) -name source.cpp)
 MODULE_SRCS = $(shell find $(MODULE_DIR) -name source.cpp)
+EXTERNAL_SRCS = $(shell find $(EXTERNAL_DIR) -name *.cpp)
 
 BASE_OBJS = $(BASE_SRCS:.cpp=.o)
 MODULE_OBJS = $(MODULE_SRCS:.cpp=.o)
-ALL_OBJS = $(BASE_OBJS) $(MODULE_OBJS)
+EXTERNAL_OBJS = $(EXTERNAL_SRCS:.cpp=.o)
+ALL_OBJS = $(BASE_OBJS) $(MODULE_OBJS) $(EXTERNAL_OBJS)
 
 default: $(OUTPUT)
 
@@ -18,6 +21,7 @@ full: clean $(OUTPUT)
 
 $(OUTPUT): $(ALL_OBJS)
 	@cp -u $(BASE_DIR)/PublicInterface/public.h build/AlcubierreEngine.h
+	@{ for f in $(EXTERNAL_DIR)/*; do if [ -f "$$f/LICENSE" ]; then name=$${f##*/}; printf '%s\n\n' "<----- $$name ----->"; cat "$$f/LICENSE"; printf '\n\n'; fi; done; } > build/THIRD_PARTY_LICENSES.txt
 	ar rcs build/$@ $^
 
 %.o: %.cpp

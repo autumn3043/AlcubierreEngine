@@ -1,9 +1,16 @@
-slangc ./basic_shader.slang \
+slangc ./vertex.slang \
     -target spirv \
     -profile spirv_1_4 \
     -emit-spirv-directly \
     -fvk-use-entrypoint-name \
-    -entry vertMain \
-    -entry fragMain \
-    -o ./basic_shader.spv
-cp ./basic_shader.spv /home/autumn/development/Alcubierre/AlcubierreEngine/sandbox/basic_shader.spv
+    -entry vertex \
+    -o ./vertex.spv
+cp ./vertex.spv /home/autumn/development/Alcubierre/AlcubierreEngine/sandbox/vertex.spv
+slangc ./fragment.slang \
+    -target spirv \
+    -profile spirv_1_4 \
+    -emit-spirv-directly \
+    -fvk-use-entrypoint-name \
+    -entry fragment \
+    -o ./fragment.spv
+cp ./fragment.spv /home/autumn/development/Alcubierre/AlcubierreEngine/sandbox/fragment.spv
