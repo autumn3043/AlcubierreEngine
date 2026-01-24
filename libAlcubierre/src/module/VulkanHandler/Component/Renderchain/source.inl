@@ -1,4 +1,4 @@
-#include "extern/spirv_reflect/spirv_reflect.h"
+#include "spirv_reflect.h"
 
 VulkanRenderchainComponent::VulkanRenderchainComponent(VulkanHandler* _parent, Registry* _registry_ptr) : parent(_parent), registry_ptr(_registry_ptr) {
     maxFramesInFlight = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER))->Get<int>({"graphics", "max_frames_in_flight"}, 2);

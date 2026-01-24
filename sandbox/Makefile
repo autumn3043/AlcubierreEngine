@@ -8,7 +8,7 @@ PLATFORM ?= dev
 ifeq ($(PLATFORM), dev)
 	COMPILER = g++
 	COMPILEFLAGS = -fsanitize=address -std=c++23 -g -O3 -I$(ENGINE_DIR)
-	LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lwayland-client -lwayland-cursor -lwayland-egl -lxxhash -ltinyobjloader
+	LINKFLAGS = -ldl -lpthread -lwayland-client -lwayland-cursor -lwayland-egl
 	OUTPUT = Sandbox
 endif
 
@@ -16,7 +16,7 @@ endif
 ifeq ($(PLATFORM), linux)
 	COMPILER = g++
 	COMPILEFLAGS = -std=c++23 -g -O0 -I$(ENGINE_DIR)
-	LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lwayland-client -lwayland-cursor -lwayland-egl
+	LINKFLAGS = -ldl -lpthread -lwayland-client -lwayland-cursor -lwayland-egl
 	OUTPUT = Sandbox
 endif
 
@@ -27,14 +27,14 @@ endif
 ifeq ($(PLATFORM), windows)
 	COMPILER = x86_64-w64-mingw32-g++
 	COMPILEFLAGS = -std=c++23 -g -O0 -I$(ENGINE_DIR) -I/home/autumn/.lib/windows/include
-	LINKFLAGS = -L/home/autumn/.lib/windows/lib -lglfw3 -lvulkan-1 -lgdi32 -lstdc++
+	LINKFLAGS = -L/home/autumn/.lib/windows/lib -lgdi32 -lstdc++
 	OUTPUT = Sandbox.exe
 endif
 
 TARGET = ./main.cpp
 
 build:
-	$(COMPILER) $(COMPILEFLAGS) -o $(OUTPUT) $(TARGET) -Wl,--whole-archive $(ENGINE_DIR)/libAlcubierre.a -Wl,--no-whole-archive $(LINKFLAGS) > makelog 2>&1
+	$(COMPILER) $(COMPILEFLAGS)  $(TARGET) -L$(ENGINE_DIR) -lAlcubierre -Wl,-rpath,'$(ENGINE_DIR)' $(LINKFLAGS) -o $(OUTPUT)> makelog 2>&1
 
 test: build
 	LSAN_OPTIONS=suppressions=$(SUPPRESSIONS_FILE) ./$(OUTPUT)

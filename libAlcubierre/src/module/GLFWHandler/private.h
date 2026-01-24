@@ -16,7 +16,7 @@ class GLFWException : public AlcEngineException {
         GLFWException(std::string message) : AlcEngineException(DebugReport(message)) {}
 };
 
-#include <GLFW/glfw3.h>
+#include "GLFW/glfw3.h"
 
 class GLFWHandler : public WrapperBaseClass{
     public:

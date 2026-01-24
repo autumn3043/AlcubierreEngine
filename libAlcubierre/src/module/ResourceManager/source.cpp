@@ -1,6 +1,6 @@
 #include "module/ResourceManager/private.h"
 
-#include <tiny_obj_loader.h>
+#include "tiny_obj_loader.h"
 
 static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "ResourceManager"), Write); }
 

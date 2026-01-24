@@ -22,7 +22,7 @@ void Hasher::init() {
     hashSeed = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&dummy));
 }
 
-#include <xxhash.h>
+#include "xxhash.h"
 uint32_t Hasher::hash32(const void* data, size_t dataSize) {
     return XXH32(data, dataSize, hashSeed);
 }

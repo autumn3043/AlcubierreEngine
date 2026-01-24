@@ -1,7 +1,7 @@
 #include "module/GLFWHandler/GLFWSurfaceBridge/private.h"
 
 #define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include "GLFW/glfw3.h"
 
 static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "GLFWSurfaceBridge"), Write); }
 

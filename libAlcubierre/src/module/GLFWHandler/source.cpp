@@ -2,7 +2,7 @@
 
 static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "GLFWHandler"), Write); }
 
-ModuleRegistryBundle GLFWHandler::bundle(
+ModuleRegistryBundle GLFWHandler::bundle (
     [](void* registry) -> WrapperBaseClass* { return new GLFWHandler(registry); },
     {WINDOW_MANAGER},
     {},
