@@ -8,6 +8,7 @@
 #include "core/Registry/interface/IConfigManager.h"
 #include "core/Registry/interface/IWindowSurfaceBridge.h"
 #include "core/Registry/interface/IWindowManager.h"
+#include "core/Registry/interface/IShaders.h"
 //Provides
 #include "core/Registry/interface/IGraphicsBackend.h"
 
@@ -26,7 +27,9 @@ class VulkanHandler;
 #include "module/VulkanHandler/Component/Device/public.h"
 #include "module/VulkanHandler/Component/Allocator/public.h"
 #include "module/VulkanHandler/Component/Swapchain/public.h"
-#include "module/VulkanHandler/Component/Renderchain/public.h"
+#include "module/VulkanHandler/Component/Shaders/public.h"
+#include "module/VulkanHandler/Component/Pipelines/public.h"
+#include "module/VulkanHandler/Component/Buffers/public.h"
 
 class VulkanHandler : public WrapperBaseClass {
     public:
@@ -66,5 +69,7 @@ class VulkanHandler : public WrapperBaseClass {
         
         const uint32_t API_VERSION = VK_API_VERSION_1_4;
 };
+
+#define NULL_BIT 0x0
 
 #endif

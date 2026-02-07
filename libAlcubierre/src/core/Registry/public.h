@@ -16,7 +16,8 @@ enum ServiceID {
     MODEL_LOADER = 5,
     DIRECTOR = 6,
     HASH_GENERATOR = 7,
-    DISK_INTERFACE = 8
+    DISK_INTERFACE = 8,
+    SHADER_LOADER = 9
 };
 
 inline std::string ServiceID_str(ServiceID id) {
@@ -48,6 +49,9 @@ inline std::string ServiceID_str(ServiceID id) {
         case DISK_INTERFACE:
             return "DISK_INTERFACE";
         break;
+        case SHADER_LOADER:
+            return "SHADER_LOADER";
+        break;
         default:
             return "UNKNOWN_SERVICE_ID";
     }
@@ -73,7 +77,7 @@ class Registry {
             return queue;
         }
 
-        InterfaceBaseClass*& FetchService(ServiceID id);
+        InterfaceBaseClass* FetchService(ServiceID id);
 
         Registry();
         ~Registry();

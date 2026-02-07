@@ -1,7 +1,16 @@
 #include "module/VulkanHandler/private.h"
-#define NULL_BIT 0x0
         
 static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "VulkanHandler"), Write); }
+
+//We want the components to be included in THIS translation unit
+#include "module/VulkanHandler/Component/Environment/source.inl"
+#include "module/VulkanHandler/Component/Device/source.inl"
+#include "module/VulkanHandler/Component/Allocator/source.inl"
+#include "module/VulkanHandler/Component/Swapchain/source.inl"
+#include "module/VulkanHandler/Component/Shaders/source.inl"
+#include "module/VulkanHandler/Component/Pipelines/source.inl"
+#include "module/VulkanHandler/Component/Buffers/source.inl"
+
 
 ModuleRegistryBundle VulkanHandler::bundle(
     [](void* registry) -> WrapperBaseClass* { return new VulkanHandler(registry); },
@@ -53,13 +62,6 @@ void VulkanHandler::Init() {
     logIdentity("Finished graphics backend init in " + std::to_string(bootstrapTimer.delta()) + " milliseconds. Awaiting frame draw command", 1);
     allocator->dump();
 }
-
-//We want the components to be included in THIS translation unit
-#include "module/VulkanHandler/Component/Environment/source.inl"
-#include "module/VulkanHandler/Component/Device/source.inl"
-#include "module/VulkanHandler/Component/Allocator/source.inl"
-#include "module/VulkanHandler/Component/Swapchain/source.inl"
-#include "module/VulkanHandler/Component/Renderchain/source.inl"
 
 void VulkanHandler::recreateSwapchain() {
     logIdentity("Recreating Vulkan swapchain");

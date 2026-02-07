@@ -7,9 +7,13 @@ class IModelLoader : public InterfaceBaseClass {
     public:
         std::string token() override { return "IModelLoader"; }
 
-        virtual bool isLoaded(uint32_t& modelHash) = 0;
-        virtual uint32_t load(std::string& model, bool explicitCreation = false) = 0;
-        virtual int getModelIndex(uint32_t& modelHash) = 0;
+        struct rawModelData {
+            void* data;
+            uint32_t size;
+        };
+
+        virtual uint32_t loadModel(rawModelData& model) = 0;
+        virtual Mesh3D* fetchModel(uint32_t& modelHash) = 0;
 };
 
 #endif

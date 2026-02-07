@@ -6,143 +6,80 @@ static void logIdentity(std::string message, int level = 0, bool Write = true) {
 
 ModuleRegistryBundle ResourceManager::bundle(
     [](void* registry) -> WrapperBaseClass* { return new ResourceManager(registry); },
-    {MODEL_LOADER, DIRECTOR},
+    {MODEL_LOADER},
     {GRAPHICS_BACKEND},
     "ResourceManager"
 );
 
 ResourceManager::ResourceManager(void* registry) 
     :   IModelLoader_ResourceManager(this),
-        IDirector_ResourceManager(this),
         registry_ptr(static_cast<Registry*>(registry))
     {
-        Services = {{MODEL_LOADER, &IModelLoader_ResourceManager}, {DIRECTOR, &IDirector_ResourceManager}};
-        Init();
+        Services = {{MODEL_LOADER, &IModelLoader_ResourceManager}};
+        init();
     }
 
 ResourceManager::~ResourceManager() {
     
 }
 
-int ResourceManager::Init() {
-    return 0;
+Mesh3D* IModelLoader::loadModel(uint32_t& modelHash, rawModelData& model) override {
+    if(!parent->isLoaded(modelHash)) parent->load(modelHash, model);
+    return parent->getMesh(modelHash);
+} 
+
+Mesh3D* IModelLoader::fetchModel(uint32_t& modelHash) override {
+    if(!parent->isLoaded(modelHash)) throw ResourceManagerException("Requested mesh was not loaded");
+    return parent->getMesh(modelHash);
 }
 
-//Model loading
-    bool ResourceManager::isLoaded(uint32_t& modelHash) {
-        return modelsInMemory.contains(modelHash);
+int ResourceManager::init() {}
+
+bool ResourceManager::isLoaded(uint32_t& modelHash) {
+    return modelsInMemory.contains(modelHash);
+}
+
+Mesh3D* ResourceManager::load(uint32_t& modelHash, rawModelData& modelData) {
+    std::vector<Vector3> modelVertices;
+    std::vector<uint32_t> modelIndices;
+
+    tinyobj::ObjReader reader;
+    tinyobj::ObjReaderConfig readerConfig;
+    std::string modelAsString = std::string(reinterpret_cast<const char*>(modelData.data), modelData.size);
+    reader.ParseFromString(modelAsString, std::string(), readerConfig);
+
+    tinyobj::attrib_t attributes = reader.GetAttrib();
+    std::vector<tinyobj::shape_t> shapes = reader.GetShapes();
+    std::vector<tinyobj::material_t> materials = reader.GetMaterials();
+
+    if(!reader.Warning().empty()) logIdentity("[tinyobj]: " + reader.Warning(), 1);
+    if(!reader.Error().empty()) logIdentity("[tinyobj]: " + reader.Error(), 2);
+
+    for(int i = 0; i < shapes.size(); i++) {
+        tinyobj::shape_t& shape = shapes[i];
+
+        for(int j = 0; j < shape.mesh.indices.size(); j++) {
+            tinyobj::index_t& index = shape.mesh.indices[j];
+
+            float x = attributes.vertices[3 * index.vertex_index + 0];
+            float y = attributes.vertices[3 * index.vertex_index + 1];
+            float z = attributes.vertices[3 * index.vertex_index + 2];
+
+            modelVertices.push_back(x, y, z);
+        }
     }
 
-    uint32_t ResourceManager::load(std::string& model, bool explicitCreation) {
-
-        uint32_t modelHash = generateHash(model.c_str(), model.size());
-
-        if(!isLoaded(modelHash)) {
-            std::vector<Vector> modelVertices;
-            std::vector<uint32_t> modelIndices;
-
-            tinyobj::ObjReader reader;
-            tinyobj::ObjReaderConfig readerConfig;
-            reader.ParseFromString(model, std::string(), readerConfig);
-
-            tinyobj::attrib_t attributes = reader.GetAttrib();
-            std::vector<tinyobj::shape_t> shapes = reader.GetShapes();
-            std::vector<tinyobj::material_t> materials = reader.GetMaterials();
-
-            if(!reader.Warning().empty()) logIdentity("[tinyobj]: " + reader.Warning(), 1);
-            if(!reader.Error().empty()) logIdentity("[tinyobj]: " + reader.Error(), 2);
-
-            for(int i = 0; i < shapes.size(); i++) {
-                tinyobj::shape_t& shape = shapes[i];
-
-                for(int j = 0; j < shape.mesh.indices.size(); j++) {
-                    tinyobj::index_t& index = shape.mesh.indices[j];
-
-                    float x = attributes.vertices[3 * index.vertex_index + 0];
-                    float y = attributes.vertices[3 * index.vertex_index + 1];
-                    float z = attributes.vertices[3 * index.vertex_index + 2];
-
-                    modelVertices.push_back({x, y, z});
-                }
-            }
-
-            //temp
-                for(int i = 0; i < modelVertices.size(); i++) {
-                    modelIndices.push_back(i);
-                }
-
-            IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(registry_ptr->FetchService(GRAPHICS_BACKEND));
-
-            IGraphicsBackend::modelData modelData = {
-                .vertices = modelVertices,
-                .indices = modelIndices
-            };
-
-            modelsInMemory.emplace(modelHash, nullptr);
-            GB->createObjectBuffer(modelsInMemory[modelHash], modelData);
+    //Temp: obj file precompiler
+        for(int i = 0; i < modelVertices.size(); i++) {
+            modelIndices.push_back(i);
         }
 
-        return modelHash;
-    }
+    IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(registry_ptr->FetchService(GRAPHICS_BACKEND));
+    modelsInMemory.emplace(modelHash, {.vertexCount = modelVertices.size(), .indiceCount = modelIndices.size()});
+    GB->loadMeshToBuffer(&modelsInMemory.back(), modelVertices, modelIndices);
+    return &modelsInMemory.back();
+}
 
-    int ResourceManager::getModelIndex(uint32_t& modelHash) {
-        return *modelsInMemory[modelHash];
-    }
-
-    uint32_t ResourceManager::generateHash(const void* data, int dataSize) {
-        return dynamic_cast<IHashGenerator*>(registry_ptr->FetchService(HASH_GENERATOR))->hash32(data, dataSize);
-    }    
-
-//Scene & rendering management
-    int ResourceManager::createScene() {
-        int sceneIndex = scenes.size();
-        scenes.emplace_back(this);
-
-        return sceneIndex;
-    }
-
-    int ResourceManager::createActor(Vector& worldPosition, std::string& model) {
-        Scene& scene = scenes[0];
-
-        return scene.createActor(worldPosition, model);
-    }
-
-    int ResourceManager::renderScene() {
-        Scene& scene = scenes[0];
-
-        return scene.render();
-    }
-
-    ResourceManager::Actor::Actor(ResourceManager* _parent, Vector& _worldPosition, std::string& model) : parent(_parent), worldPosition(_worldPosition) {
-        IModelLoader* ML = dynamic_cast<IModelLoader*>(parent->registry_ptr->FetchService(MODEL_LOADER));
-
-        modelHash = ML->load(model); //If model is already loaded, does nothing, otherwise, generate a memory buffer for it
-
-        logIdentity("Created a new actor at " + std::to_string(_worldPosition.x) + "x, " + std::to_string(_worldPosition.y) + "y, " + std::to_string(_worldPosition.x) + "z");
-    }
-
-    int ResourceManager::Scene::createActor(Vector& worldPosition, std::string& model) {
-        int actorIndex = actors.size();
-        actors.emplace_back(parent, worldPosition, model);
-
-        return actorIndex;
-    }
-
-    int ResourceManager::Scene::render() {
-        if(actors.size() == 0) return 1;
-        
-        IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(parent->registry_ptr->FetchService(GRAPHICS_BACKEND));
-        IModelLoader* ML = dynamic_cast<IModelLoader*>(parent->registry_ptr->FetchService(MODEL_LOADER));
-
-        GB->clearFrame();
-
-        for(int i = 0; i < actors.size(); i++) {
-            IGraphicsBackend::placementData data = {
-                .position = actors[i].worldPosition
-            };
-            int index = ML->getModelIndex(actors[i].modelHash);
-            GB->addObjectToFrame(index, data);
-        }
-
-        return GB->drawFrame();
-    }
+Mesh3D* ResourceManager::getMesh(uint32_t modelHash) {
+    return modelsInMemory[modelHash];
+}

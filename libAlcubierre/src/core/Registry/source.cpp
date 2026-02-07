@@ -52,7 +52,7 @@ int RegistryImpl::GracefulDeconstruct(ModuleData& module) {
     return 1;
 }
 
-InterfaceBaseClass*& RegistryImpl::FetchService(ServiceID id) {
+InterfaceBaseClass* RegistryImpl::FetchService(ServiceID id) {
     if(!Services.contains(id)) throw AlcEngineException("Requested service '" + ServiceID_str(id) + "' does not exist.");
     if(Services[id].first.size() == 0) throw AlcEngineException("Requested service '" + ServiceID_str(id) + "' is not provided by any module.");
     

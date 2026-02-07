@@ -32,8 +32,6 @@ int GLFWHandler::init() {
     return 0;
 }
 
-#include <cstring>
-
 int GLFWHandler::createWindow() {    
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 

@@ -6,99 +6,119 @@ class VulkanMemoryAllocatorComponent {
         VulkanHandler* parent = nullptr;
         Registry*& registry_ptr;
 
-        //Static memory heaps are for meshes, textures, anything persistent and/or medium-large
-        //Dynamic memory heaps are for buffers that will be rewritten per frame, so computed geometry or anything with a high update rate
     public:
-        class MemoryHeap {
+        VulkanMemoryAllocatorComponent(VulkanHandler* _parent, Registry*& _registry_ptr);
+        ~VulkanMemoryAllocatorComponent();
+
+    private:
+        //Needs to match staging buffers
+        uint32_t VERTEXBUFFERSIZE;
+        uint32_t INDEXBUFFERSIZE;
+        
+        uint32_t GRAPHICSQUEUEINDEX;
+        uint32_t TRANSFERQUEUEINDEX;
+        uint32_t LOCALMEMORYINDEX;
+        uint32_t HOSTMEMORYINDEX;
+
+    public:
+        Mesh3D* storeMesh(uint32_t id, std::vector<Vector3> vertices, std::vector<uint32_t> indices);
+        int discardMesh(uint32_t id);
+
+        struct bufferSetHandle {
+            VkBuffer& vertexBuffer;
+            VkBuffer& indexBuffer;
+        };
+
+        bufferSetHandle fetchBufferSet(uint32_t id);
+
+        std::string dumpMemoryLayout();
+
+    private:
+        class BufferSet {
             public:
-                struct memoryBlock {
-                    uint32_t memoryOffset;
-                    uint32_t memorySize;
-                    uint32_t memoryEndIndex() { return memoryOffset + memorySize; } //Actually returns the first index AFTER the end of the block
+                BufferSet(VkDevice& _device, uint32_t _id, uint32_t vertexBufferSize, uint32_t indexBufferSize, uint32_t _queueIndex, uint32_t _memoryTypeIndex);
+                ~BufferSet();
 
-                    memoryBlock(uint32_t _memoryOffset, uint32_t _memorySize) : memoryOffset(_memoryOffset), memorySize(_memorySize) {};
-                };
-
-                struct bufferAllocationDetails {
-                    MemoryHeap* parent;
-
-                    VkDevice device;
-                    VkDeviceMemory stagingAllocation;
-                    VkBuffer stagingBuffer; //Reference saved so that we can attempt to destruct orphaned memory later
-                    VkBuffer executiveBuffer = VK_NULL_HANDLE;
-
-                    uint32_t indiceOffset;
-
-                    memoryBlock usedRegion;
-                    memoryBlock allocatedRegion;
-                    uint32_t allocationIndex;
-
-                    bufferAllocationDetails(MemoryHeap* _parent, VkDevice& _device, VkDeviceMemory& _stagingAllocation, VkBuffer& _stagingBuffer, uint32_t _memoryOffset, uint32_t _usedMemorySize, uint32_t _allocatedMemorySize, uint32_t _allocationIndex) 
-                    : parent(_parent), device(_device), stagingAllocation(_stagingAllocation), stagingBuffer(_stagingBuffer), usedRegion(_memoryOffset, _usedMemorySize), allocatedRegion(_memoryOffset, _allocatedMemorySize), allocationIndex(_allocationIndex) {};
-
-                    void cleanup();
-                };
-
-                MemoryHeap(VkDevice& _device, uint32_t deviceLocalMemoryTypeIndex, uint32_t hostVisibleMemoryTypeIndex, uint32_t _heapSize, uint32_t _graphicsComputeQueueIndex);
-                ~MemoryHeap();
-
-                //Buffer size specified in bytes
-                bufferAllocationDetails& bindBufferMemory(VkBuffer& buffer, uint32_t usedBufferSize, uint32_t allocatedBufferSize);
-                int freeBufferMemory(bufferAllocationDetails& allocation);
-
-                void updateBlockSize(std::vector<memoryBlock>& blocks, uint32_t lower, uint32_t upper);
-                uint32_t smallestFreeBlockSize();
-                uint32_t largestFreeBlockSize();
-
-                std::string printMemoryLayout();
+                uint32_t id;
 
             protected:
-                std::vector<memoryBlock> freeBlocks;
-                std::vector<bufferAllocationDetails> subAllocations;
+                struct memoryBlock {
+                    memoryBlock(uint32_t _offset, uint32_t _size) : offset(_offset), size(_size) {};
+                    
+                    uint32_t offset;
+                    uint32_t size;
+                    uint32_t endIndex() { return offset + size; } //Actually returns the first index AFTER the end of the block
+                };
+
+            private:
+                class MemoryBuffer {
+                    public:
+                        MemoryBuffer(VkDevice& _device, VkDeviceMemory& allocation, uint32_t offset, uint32_t _size, uint32_t _queueIndex, bool index = false);
+                        ~MemoryBuffer();
+
+                    private:
+                        VkDevice& device;
+                        VkBuffer instance = VK_NULL_HANDLE;
+
+                        std::vector<memoryBlock> freeBlocks;
+                        std::vector<memoryBlock> allocatedBlocks;
+
+                        memoryBlock& largestFreeBlock;
+                        memoryBlock& smallestFreeBlock;
+                        int recalculateBlockSizes();
+                        bool blockCompositionChanged = true;
+
+                    public:
+                        memoryBlock* storeMesh(uint32_t id, void* data, uint32_t dataSize);
+                        int discardMesh(uint32_t id);
+
+                        VkBuffer& handle();
+
+                        uint32_t largestFreeBlockSize();
+                        uint32_t smallestFreeBlockSize();
+
+                        std::string dump();
+                };
 
             private:
                 VkDevice& device;
-                VkDeviceMemory executiveAllocation;
-                VkDeviceMemory stagingAllocation;
 
-                const uint32_t heapSize; //I suppose this places a hard limit on the size of a memory heap at 4.294967GB. Cost of switching to 64 bit ints is probably non-trivial
-                const uint32_t graphicsComputeQueueIndex;
-                const uint32_t maxFreeBlocks = 64; //A hard capacity limit prevents costly array reallocations, but has obvious drawbacks
+                VkDeviceMemory allocation;
 
-                bool blockCompositionChanged = true; //Must be made true at every allocation
+                MemoryBuffer* vertexBuffer = nullptr;
+                MemoryBuffer* indexBuffer = nullptr;
 
-                uint32_t largestFreeBlock;
-                uint32_t smallestFreeBlock;
+                struct meshMemoryLocation {
+                    memoryBlock* vertexMemoryBlock;
+                    memoryBlock* indexMemoryBlock;
+                };
+                std::unordered_map<uint32_t, meshMemoryLocation> meshes;
 
-                std::string printAllocation(uint32_t index);
-                std::string printFree(uint32_t index);
+            public:
+                int storeMesh(Mesh3D* out, uint32_t id, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
+                int discardMesh(uint32_t id);
+
+                uint32_t largestFreeVertexBlockSize();
+                uint32_t smallestFreeVertexBlockSize();
+                uint32_t largestFreeIndexBlockSize();
+                uint32_t smallestFreeIndexBlockSize();
+
+                bufferSetHandle handle();
+
+                std::string dump();
         };
+        
+        std::unordered_map<uint32_t Mesh3D> meshes;
 
-    private:
-        VulkanDeviceComponent::DeviceQueue* executiveQueue = nullptr;
-        VulkanDeviceComponent::DeviceQueue* transferQueue = nullptr;
-        VkCommandPool transientCommandPool = VK_NULL_HANDLE;
+        VkCommandPool stagingCommandPool = VK_NULL_HANDLE;
+        VkCommandBuffer stagingCommandBuffer = VK_NULL_HANDLE;
+        BufferSet* stagingSet = nullptr;
 
-        uint32_t memoryHeapSize = 1000000; //In bytes (all memory sizes are in bytes in this class unless otherwise stated)
-        uint32_t deviceLocalMemoryTypeIndex;
-        uint32_t hostVisibleMemoryTypeIndex;
-        std::vector<MemoryHeap> memoryHeapsStatic;
+        std::unordered_map<uint32_t, BufferSet*> bufferSets;
+        uint32_t buffersEver = 0;
 
-    public:
-        VulkanMemoryAllocatorComponent(VulkanHandler* _parent, Registry* _registry_ptr);
-        ~VulkanMemoryAllocatorComponent();
-
-        enum HeapType {
-            STATIC = 0,
-            DYNAMIC = 1
-        };
-        MemoryHeap::bufferAllocationDetails& bindBufferMemory(VkBuffer& buffer, uint32_t bufferSize, HeapType type = STATIC);
-        //We bind to staging memory, then handle copying to device memory in this component
-        int stageBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation, void* data, uint32_t dataSize);
-        int submitBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation, VkFence fence);
-        int freeBufferMemory(MemoryHeap::bufferAllocationDetails& bufferAllocation);
-
-        void dump();
+        BufferSet* instantiateBufferSet();
+        BufferSet* pickBufferSet(uint32_t vertexCount, uint32_t indexCount);
 };
 
 #endif

@@ -172,7 +172,7 @@ void VulkanDeviceComponent::FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo
     }
 }
 
-VulkanDeviceComponent::DeviceQueue& VulkanDeviceComponent::getQueue(VkQueueFlags type, bool surfaceSupport = false) {
+VulkanDeviceComponent::DeviceQueue& VulkanDeviceComponent::getQueue(VkQueueFlags type, bool surfaceSupport) {
     DeviceQueue& hold = queues[0];
     int holdPriority = -1;
 

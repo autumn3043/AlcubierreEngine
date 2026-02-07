@@ -1,15 +1,3 @@
-# Outline:
-# 1. If necessary, libraries which are being directly included should be pulled from GIT and built, retaining only the output and relevant headers
-# 2. Libraries which are being linked should be fetched
-# 3. All modules should be iterated over and built into an object file. These object files should be kept in build/src/ along with a .d file to track when rebuilds are necessary
-# 4. Final output is an so or a dll depending on platform, built from every module's object file, all external library object files and linked as necessary
-
-# Additional functionalities:
-# Rebuild specific modules on demand from the command line
-# Copy public header into build/AlcubierreEngine.h
-# Concatenate all third party licenses into build/THIRD_PARTY_LICENSES.md
-# Command line utility to clean (delete) existing output, objects, or external libraries, or all of these at once
-
 #CMAKE SETUP
 cmake_minimum_required(VERSION 4.2.1)
 set(CMAKE_CXX_STANDARD 23)
@@ -59,6 +47,8 @@ add_library(Alcubierre SHARED)
         module/ResourceManager
         module/Hasher
         module/DiskInterface
+        module/ShaderProcessor
+        module/Director
     )
 
     foreach(source IN LISTS SOURCES)

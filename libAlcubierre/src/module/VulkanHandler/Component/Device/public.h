@@ -21,7 +21,7 @@ class VulkanDeviceComponent {
             DeviceQueue(VkQueueFlags _supportedQueueTypes, int _familyIndex, bool _surfaceSupport = false, int _priority = 1) : supportedQueueTypes(_supportedQueueTypes), familyIndex(static_cast<uint32_t>(_familyIndex)), surfaceSupport(_surfaceSupport), priority(_priority) {};
         };
 
-        DeviceQueue& getQueue(VkQueueFlags type, bool surfaceSupport);
+        DeviceQueue& getQueue(VkQueueFlags type, bool surfaceSupport = false);
 
     private:
         VulkanHandler* parent = nullptr;

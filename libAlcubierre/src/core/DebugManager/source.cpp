@@ -61,7 +61,7 @@ int DebugManager::SetLogToConsoleMinVerbosity(int minVerbosity) {
     }
 
     void DebugManager::Log(DebugReport Report, bool Write) {
-    PrivatePtr->InternalLog(&Report, Write);
+        PrivatePtr->InternalLog(&Report, Write);
     }
 
 DebugManagerImpl::DebugManagerImpl() {
