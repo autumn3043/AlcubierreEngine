@@ -62,7 +62,7 @@ class DebugManager{
 
                 Punchcard();
             private:
-                int entry;
+                uint64_t entry;
         };
 
         int SetLogToLogfileMinVerbosity(int minVerbosity);

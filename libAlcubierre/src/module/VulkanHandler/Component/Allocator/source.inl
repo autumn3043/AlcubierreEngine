@@ -164,7 +164,9 @@ VulkanMemoryAllocatorComponent::BufferSet::~BufferSet() {
 
 VulkanMemoryAllocatorComponent::meshHandle VulkanMemoryAllocatorComponent::BufferSet::storeMesh(MeshHash id, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) {
     VkDeviceSize verticesSize = sizeof(Vector3) * vertices.size();
+    assert(verticesSize < largestFreeVertexBlockSize());
     VkDeviceSize indicesSize = sizeof(uint32_t) * indices.size();
+    assert(indicesSize < largestFreeIndexBlockSize());
     vertexMemoryBlocks.emplace(id, vertexBuffer->acquireMemory(vertices.data(), verticesSize));
     indexMemoryBlocks.emplace(id, indexBuffer->acquireMemory(indices.data(), indicesSize));
     return meshHandle(
@@ -382,9 +384,10 @@ std::string VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::dump() {
     }
 
     std::string hold;
-    for(int i = 0; i < memoryMap.size(); i++) {
-        hold += memoryMap[i];
+    for (std::map<uint64_t, std::string>::iterator it = memoryMap.begin(); it != memoryMap.end(); it++) {
+        hold += it->second;
     }
+
     return hold;
 }
 

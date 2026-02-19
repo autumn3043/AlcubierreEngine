@@ -23,8 +23,18 @@ GLFWSurfaceBridge::GLFWSurfaceBridge(void* registry)
 GLFWSurfaceBridge::~GLFWSurfaceBridge() {}
 
 int GLFWSurfaceBridge::init() {
+    //Test if we are on Wayland, because this is the only stupid way to do it in GLFW.
     glfwInit();
+    uint32_t extensionsCount = 0;
+    glfwGetRequiredInstanceExtensions(&extensionsCount);
 
+    if(extensionsCount == 0) {
+        //We are not on Wayland.
+        glfwTerminate();
+        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+        glfwInit();
+    } 
+    
     try {
         IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
@@ -34,7 +44,6 @@ int GLFWSurfaceBridge::init() {
         //VK extensions needed for GLFW
             std::vector<std::string> extensions = CM->Get<std::vector<std::string>>({"renderer", "extensions"}, {}, nullptr);
 
-            uint32_t extensionsCount = 0;
             const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionsCount);
 
             for(uint32_t i = 0; i < extensionsCount; i++) {

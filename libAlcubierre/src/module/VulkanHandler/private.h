@@ -42,6 +42,7 @@ class VulkanHandler : public WrapperBaseClass {
         VulkanSwapchainComponent* swapchain = nullptr;
         VulkanPipelineComponent* pipelines = nullptr;
         VulkanRenderchainComponent* renderchain = nullptr;
+        DebugManager::Punchcard timeToFirstLive;
 
         void Init();
 

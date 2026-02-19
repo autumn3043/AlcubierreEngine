@@ -31,6 +31,8 @@ int ResourceManager::init() {
 }
 
 int ResourceManager::load(IModelLoader::rawModelData& modelData) {
+    DebugManager::Punchcard modelLoadTimer;
+
     std::vector<Vector3> modelVertices;
     std::vector<uint32_t> modelIndices;
 
@@ -64,6 +66,8 @@ int ResourceManager::load(IModelLoader::rawModelData& modelData) {
         for(int i = 0; i < modelVertices.size(); i++) {
             modelIndices.emplace_back(i);
         }
+
+    logIdentity("Finished loading model in " + std::to_string(modelLoadTimer.delta()) + " milliseconds", 1);
 
     IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(registry_ptr->FetchService(GRAPHICS_BACKEND));
     modelsInMemory.emplace_back(modelData.hash);

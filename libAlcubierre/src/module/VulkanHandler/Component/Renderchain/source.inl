@@ -203,6 +203,11 @@ int VulkanRenderchainComponent::drawFrame() {
 
     VkResult result_queuePresent = vkQueuePresentKHR(presentationQueue.queue, &presentInfo);
 
+    if(framesEver == 0) {
+        vkWaitForFences(parent->device->Device, 1, &frame->fence_frameInFlight, VK_TRUE, frame->timeout);
+        logIdentity("Time to first live measured at " + std::to_string(parent->timeToFirstLive.delta()) + " milliseconds", 1);
+    }
+
     currentFrameIndex = (currentFrameIndex + 1) % frames.size();
     framesEver++;
 
@@ -216,7 +221,9 @@ int VulkanRenderchainComponent::updateUniformBuffer(char* buffer, VulkanSwapchai
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBuffer ubo {};
-    ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 correction = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(10.0f));
+    ubo.model = correction * rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * scale;
     ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(image->extent.width) / static_cast<float>(image->extent.height), 0.1f, 10.0f);
     ubo.proj[1][1] *= -1;
@@ -292,7 +299,6 @@ int VulkanRenderchainComponent::recordCommandBuffer(Frame* frame, VulkanSwapchai
             } 
         }
     }
-
     vkCmdEndRendering(commandBuffer);
     vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, queryPool, frame->queryPoolBaseIndex + 1);
 

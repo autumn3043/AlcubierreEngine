@@ -22,10 +22,8 @@ int main() {
 
     app.initEngine();
 
-    std::string vikingRoomObj = importObjFile("viking_room.obj");
-    app.graphics.placeActor({0, 0, 0}, vikingRoomObj);
-    std::string triangleObj = importObjFile("triangle.obj");
-    app.graphics.placeActor({0, 1, 0}, triangleObj);
+    std::string obj = importObjFile("rat.obj");
+    app.graphics.placeActor({0, 0, 0}, obj);
 
     while(!app.window.shouldClose()) {
         app.graphics.frame();

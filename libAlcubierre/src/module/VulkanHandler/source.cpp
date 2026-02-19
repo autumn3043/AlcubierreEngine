@@ -57,6 +57,8 @@ void VulkanHandler::Init() {
 
     logIdentity("Finished graphics backend init in " + std::to_string(bootstrapTimer.delta()) + " milliseconds. Awaiting frame draw command", 1);
     allocator->dumpMemoryLayout();
+
+    timeToFirstLive.punch();
 }
 
 void VulkanHandler::recreateSwapchain() {

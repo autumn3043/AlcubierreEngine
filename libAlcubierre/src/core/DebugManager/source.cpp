@@ -136,6 +136,6 @@ void DebugManager::Punchcard::punch() {
 #include <cmath>
 
 uint64_t DebugManager::Punchcard::delta(int digits) {
-    int rawDelta = std::chrono::system_clock::now().time_since_epoch().count() - entry;
+    uint64_t rawDelta = std::chrono::system_clock::now().time_since_epoch().count() - entry;
     return rawDelta / pow(10, (9 - digits));
 }
