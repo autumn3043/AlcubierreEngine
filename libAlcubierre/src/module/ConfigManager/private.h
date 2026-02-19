@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <xxhash.h>
 
+//OPT: This is called on every key in memory every time any key is added or adjusted. Rehashing is bad, cache.
 namespace std {
     template <>
     struct hash<IConfigManager::key_t> {

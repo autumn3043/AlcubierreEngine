@@ -1,6 +1,6 @@
 #include "module/ShaderProcessor/private.h"
 
-static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "shaderProcessor"), Write); } //Not strictly necessary, but convenient.
+static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "shaderProcessor"), Write); }
 
 ModuleRegistryBundle shaderProcessor::bundle(
     [](void* registry) -> WrapperBaseClass* { return new shaderProcessor(registry); },
@@ -24,8 +24,7 @@ shaderProcessor::shaderProcessor(void* registry)
 void shaderProcessor::init() {
     vertexShader.dataArray = reinterpret_cast<uint32_t*>(__output_vertex_spv);
     vertexShader.dataArraySize = __output_vertex_spv_len;
-    logIdentity(std::to_string(vertexShader.dataArraySize));
-
+    
     fragmentShader.dataArray = reinterpret_cast<uint32_t*>(__output_fragment_spv);
     fragmentShader.dataArraySize = __output_fragment_spv_len;
 }

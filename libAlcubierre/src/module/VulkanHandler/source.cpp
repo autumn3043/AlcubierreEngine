@@ -7,9 +7,8 @@ static void logIdentity(std::string message, int level = 0, bool Write = true) {
 #include "module/VulkanHandler/Component/Device/source.inl"
 #include "module/VulkanHandler/Component/Allocator/source.inl"
 #include "module/VulkanHandler/Component/Swapchain/source.inl"
-#include "module/VulkanHandler/Component/Shaders/source.inl"
 #include "module/VulkanHandler/Component/Pipelines/source.inl"
-#include "module/VulkanHandler/Component/Buffers/source.inl"
+#include "module/VulkanHandler/Component/Renderchain/source.inl"
 
 
 ModuleRegistryBundle VulkanHandler::bundle(
@@ -33,6 +32,7 @@ VulkanHandler::~VulkanHandler() {
     }
 
     if(renderchain) delete renderchain;
+    if(pipelines) delete pipelines;
     if(swapchain) delete swapchain;
     if(allocator) delete allocator;
     if(device) delete device;
@@ -49,18 +49,14 @@ void VulkanHandler::Init() {
 
     environment = new VulkanEnvironmentComponent(this, registry_ptr);
     device = new VulkanDeviceComponent(this, registry_ptr);
+    graphicsRenderingQueue = device->fetchQueueHandle(VulkanDeviceComponent::queueType::GRAPHICS);
     allocator = new VulkanMemoryAllocatorComponent(this, registry_ptr);
-
-    if(!CM->Get<bool>({"renderer", "defer_renderchain_initialisation"}, false)) {
-        swapchain = new VulkanSwapchainComponent(this, registry_ptr);
-        renderchain = new VulkanRenderchainComponent(this, registry_ptr);
-        chainInitialisation = true;
-    } else {
-        logIdentity("Deferring renderchain initialisation to first frame draw call", 1);
-    }
+    swapchain = new VulkanSwapchainComponent(this, registry_ptr);
+    pipelines = new VulkanPipelineComponent(this, registry_ptr);
+    renderchain = new VulkanRenderchainComponent(this, registry_ptr);
 
     logIdentity("Finished graphics backend init in " + std::to_string(bootstrapTimer.delta()) + " milliseconds. Awaiting frame draw command", 1);
-    allocator->dump();
+    allocator->dumpMemoryLayout();
 }
 
 void VulkanHandler::recreateSwapchain() {

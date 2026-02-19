@@ -202,6 +202,7 @@ class IConfigManager : public InterfaceBaseClass {
             //Congratulations, you have assigned a config value to a primitive type that *is* specified by templates, but that I forgot to account for. Amazing job. Dipshit.
             //"Why is this manually accounting" because typeid().name() is buns and im not pulling in a regex library to demangle it.
             //Just add a constexpr line to account for your type I guess. Remember that templates are made at compile so you can't do custom types because they don't exist in this translation unit.
+            //FUTURE: Reflection in c++26 should allow an escape from nested if hell.
         }
 
         struct Container {

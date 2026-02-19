@@ -107,9 +107,14 @@ struct AlcDeviceFeatures {
             .pNext = nullptr
         };
 
+        VkPhysicalDeviceVulkan12Features featuresVk1_2 {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+            .pNext = &featuresVk1_3
+        };
+
         VkPhysicalDeviceVulkan11Features featuresVk1_1 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
-            .pNext = &featuresVk1_3
+            .pNext = &featuresVk1_2
         };
 
         VkPhysicalDeviceExtendedDynamicStateFeaturesEXT featuresDynamicState{

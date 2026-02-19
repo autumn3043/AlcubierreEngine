@@ -1,6 +1,14 @@
 #ifndef ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_ALLOCATOR_PUBLIC_H
 #define ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_ALLOCATOR_PUBLIC_H
 
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <deque>
+#include <map>
+
+//VkDeviceSize is defined as uint64_t
+
 class VulkanMemoryAllocatorComponent {
     private:
         VulkanHandler* parent = nullptr;
@@ -12,70 +20,104 @@ class VulkanMemoryAllocatorComponent {
 
     private:
         //Needs to match staging buffers
-        uint32_t VERTEXBUFFERSIZE;
-        uint32_t INDEXBUFFERSIZE;
+        VkDeviceSize VERTEXBUFFERSIZE;
+        VkDeviceSize INDEXBUFFERSIZE;
         
-        uint32_t GRAPHICSQUEUEINDEX;
-        uint32_t TRANSFERQUEUEINDEX;
-        uint32_t LOCALMEMORYINDEX;
-        uint32_t HOSTMEMORYINDEX;
+        int GRAPHICSQUEUEINDEX;
+        int TRANSFERQUEUEINDEX;
+        int LOCALMEMORYINDEX;
+        int HOSTMEMORYINDEX;
+
+        int WORKERTHREADBUFFERCOUNT;
+
+        VulkanDeviceComponent::QueueHandle* graphicsQueue;
+        VulkanDeviceComponent::QueueHandle transferQueue;
 
     public:
-        Mesh3D* storeMesh(uint32_t id, std::vector<Vector3> vertices, std::vector<uint32_t> indices);
-        int discardMesh(uint32_t id);
+        int storeMesh(MeshHash hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
+        int discardMesh(MeshHash hash);
 
-        struct bufferSetHandle {
-            VkBuffer& vertexBuffer;
-            VkBuffer& indexBuffer;
+        bool checkMeshTransferIndexValidity(uint64_t& index);
+
+        struct meshHandle {
+            struct meshHandlePart {
+                VkBuffer* buffer;
+                VkDeviceSize offset;
+                int count;
+                VkDeviceSize size;
+
+                uint64_t memoryValidAfter;
+                bool memoryValidSignal = false;
+                bool memoryValid(VulkanMemoryAllocatorComponent* allocator) { if(!memoryValidSignal) memoryValidSignal = allocator->checkMeshTransferIndexValidity(memoryValidAfter); return memoryValidSignal; };
+
+                meshHandlePart(VkBuffer* _buffer, VkDeviceSize _offset, int _count, VkDeviceSize _size) : buffer(_buffer), offset(_offset), count(_count), size(_size) {};
+            };
+            meshHandlePart vertices;
+            meshHandlePart indices;
+
+            bool memoryValid(VulkanMemoryAllocatorComponent* allocator) { return vertices.memoryValid(allocator) && indices.memoryValid(allocator); };
+
+            uint64_t bufferSetId; //Don't use this to query buffer set, renderchain just groups meshHandles.
+            //(For now)
+
+            meshHandle(uint64_t _bufferSetId, meshHandlePart _vertices, meshHandlePart _indices) : bufferSetId(_bufferSetId), vertices(_vertices), indices(_indices) {}
         };
 
-        bufferSetHandle fetchBufferSet(uint32_t id);
+        meshHandle* fetchMesh(uint32_t hash);
 
         std::string dumpMemoryLayout();
 
     private:
         class BufferSet {
             public:
-                BufferSet(VkDevice& _device, uint32_t _id, uint32_t vertexBufferSize, uint32_t indexBufferSize, uint32_t _queueIndex, uint32_t _memoryTypeIndex);
+                BufferSet(VkDevice& _device, uint64_t _setId, VkDeviceSize vertexBufferSize, VkDeviceSize indexBufferSize, int _queueIndex, int _memoryTypeIndex, bool staging = false);
                 ~BufferSet();
-
-                uint32_t id;
 
             protected:
                 struct memoryBlock {
-                    memoryBlock(uint32_t _offset, uint32_t _size) : offset(_offset), size(_size) {};
+                    memoryBlock(VkDeviceSize _offset, VkDeviceSize _size) : offset(_offset), size(_size) {};
                     
-                    uint32_t offset;
-                    uint32_t size;
-                    uint32_t endIndex() { return offset + size; } //Actually returns the first index AFTER the end of the block
+                    VkDeviceSize offset;
+                    VkDeviceSize size;
+                    VkDeviceSize endIndex() { return offset + size; } //Actually returns the first index AFTER the end of the block
+
+                    bool operator==(const memoryBlock& other) const { return offset == other.offset; };
+                    const memoryBlock operator+(const memoryBlock& other) = delete;
+
+                    memoryBlock(memoryBlock&& other) : offset(other.offset), size(other.size) {};
+                    memoryBlock& operator=(memoryBlock&& other) {offset = other.offset; size = other.size; return *this;}
+                    memoryBlock(const memoryBlock& other) : offset(other.offset), size(other.size) {}; //We need a copy constructor to return values in acquireMemory
                 };
 
             private:
                 class MemoryBuffer {
                     public:
-                        MemoryBuffer(VkDevice& _device, VkDeviceMemory& allocation, uint32_t offset, uint32_t _size, uint32_t _queueIndex, bool index = false);
+                        MemoryBuffer(VkDevice& _device, VkDeviceSize* size, VkDeviceSize* alignment, uint32_t _queueIndex, VkBufferUsageFlags _usage);
                         ~MemoryBuffer();
 
                     private:
                         VkDevice& device;
                         VkBuffer instance = VK_NULL_HANDLE;
+                        VkDeviceSize alignment;
 
-                        std::vector<memoryBlock> freeBlocks;
+                        std::vector<memoryBlock> freeBlocks; //Order not guaranteed.
                         std::vector<memoryBlock> allocatedBlocks;
 
-                        memoryBlock& largestFreeBlock;
-                        memoryBlock& smallestFreeBlock;
+                        memoryBlock* largestFreeBlock;
+                        memoryBlock* smallestFreeBlock;
                         int recalculateBlockSizes();
                         bool blockCompositionChanged = true;
 
+                        int coalesce(int& index);
+
                     public:
-                        memoryBlock* storeMesh(uint32_t id, void* data, uint32_t dataSize);
-                        int discardMesh(uint32_t id);
+                        memoryBlock acquireMemory(void* data, VkDeviceSize dataSize);
+                        int releaseMemory(memoryBlock& block);
 
                         VkBuffer& handle();
 
-                        uint32_t largestFreeBlockSize();
-                        uint32_t smallestFreeBlockSize();
+                        VkDeviceSize largestFreeBlockSize();
+                        VkDeviceSize smallestFreeBlockSize();
 
                         std::string dump();
                 };
@@ -88,37 +130,93 @@ class VulkanMemoryAllocatorComponent {
                 MemoryBuffer* vertexBuffer = nullptr;
                 MemoryBuffer* indexBuffer = nullptr;
 
-                struct meshMemoryLocation {
-                    memoryBlock* vertexMemoryBlock;
-                    memoryBlock* indexMemoryBlock;
-                };
-                std::unordered_map<uint32_t, meshMemoryLocation> meshes;
+                std::unordered_map<MeshHash, memoryBlock> vertexMemoryBlocks;
+                std::unordered_map<MeshHash, memoryBlock> indexMemoryBlocks;
 
             public:
-                int storeMesh(Mesh3D* out, uint32_t id, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
-                int discardMesh(uint32_t id);
+                uint64_t setId;
 
-                uint32_t largestFreeVertexBlockSize();
-                uint32_t smallestFreeVertexBlockSize();
-                uint32_t largestFreeIndexBlockSize();
-                uint32_t smallestFreeIndexBlockSize();
+                meshHandle storeMesh(MeshHash id, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
+                int discardMesh(MeshHash id);
 
-                bufferSetHandle handle();
+                VkDeviceSize largestFreeVertexBlockSize();
+                VkDeviceSize smallestFreeVertexBlockSize();
+                VkDeviceSize largestFreeIndexBlockSize();
+                VkDeviceSize smallestFreeIndexBlockSize();
+                int storedCount();
+
+                VkDeviceMemory& allocationHandle();
 
                 std::string dump();
         };
-        
-        std::unordered_map<uint32_t Mesh3D> meshes;
 
-        VkCommandPool stagingCommandPool = VK_NULL_HANDLE;
-        VkCommandBuffer stagingCommandBuffer = VK_NULL_HANDLE;
+        std::unordered_map<MeshHash, meshHandle> meshes;
+
         BufferSet* stagingSet = nullptr;
+        std::unordered_map<MeshHash, meshHandle> meshesPendingUpload;
+        
+        void* hostVisibleMemoryAccess = nullptr;
+        char* hostVisibleMemoryAccessBaseIndex = nullptr;
 
-        std::unordered_map<uint32_t, BufferSet*> bufferSets;
-        uint32_t buffersEver = 0;
+        std::unordered_map<int, BufferSet*> bufferSets;
+        uint64_t buffersEver = 0;
 
         BufferSet* instantiateBufferSet();
-        BufferSet* pickBufferSet(uint32_t vertexCount, uint32_t indexCount);
+        BufferSet* pickBufferSet(VkDeviceSize verticeDataSize, VkDeviceSize indiceDataSize);
+
+    private:
+        struct transferOperation {
+            struct region {
+                VkBuffer* buffer;
+                VkDeviceSize offset;
+                VkDeviceSize size;
+
+                region(VkBuffer* _buffer, VkDeviceSize _offset, VkDeviceSize _size) : buffer(_buffer), offset(_offset), size(_size) {}
+                region() {}
+            };
+            region source;
+            region destination;
+
+            transferOperation(region _source, region _destination) : source(_source), destination(_destination) {}
+            transferOperation() {}
+        };
+
+        class transferWorkerThread {
+            public:
+                transferWorkerThread(VkDevice& _device, VulkanDeviceComponent::QueueHandle* _transferQueue, int bufferCount);
+                ~transferWorkerThread();
+
+            private:
+                std::thread workerThread;
+                bool running = false;
+
+                void thread();
+
+            public:
+                uint64_t addTransferOperationToQueue(transferOperation operation);
+                uint64_t transferQueuePage();
+
+            private:
+                void executeOperation(transferOperation& operation, VkCommandBuffer& buffer, VkFence& fence);
+
+            private:
+                uint64_t requestCount = 0;
+                VkSemaphore completedCount;
+                std::atomic<uint64_t> nextSignalValue{1};
+
+                VkDevice& device;
+                VulkanDeviceComponent::QueueHandle* transferQueue = nullptr;
+
+                std::deque<transferOperation> operationQueue;
+                std::mutex operationQueue_mutex;
+                std::condition_variable operationQueue_conditional;
+
+                VkCommandPool transferCommandPool = VK_NULL_HANDLE;
+                std::vector<VkCommandBuffer> commandBuffers;
+                std::vector<VkFence> fences;
+        };
+
+        transferWorkerThread* worker = nullptr;
 };
 
 #endif

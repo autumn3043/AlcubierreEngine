@@ -25,23 +25,23 @@ class ResourceManager : public WrapperBaseClass {
         ResourceManager(void* registry);
         ~ResourceManager();
 
-        void init();
+        int init();
 
         class IModelLoaderImpl : public IModelLoader {
             public:
                 ResourceManager* parent;
 
-                IModelLoaderImpl(ResourceManager* _parent) : parent(_parent) {}                
+                IModelLoaderImpl(ResourceManager* _parent) : parent(_parent) {} 
+
+                int loadModel(rawModelData model) override { return parent->load(model); }               
         };
 
         IModelLoaderImpl IModelLoader_ResourceManager;
 
     private:
-        bool isLoaded(uint32_t& modelHash);
-        Mesh3D* load(uint32_t& modelHash, rawModelData& modelData);
-        Mesh3D* getModel(uint32_t modelHash);
-
-        std::unordered_map<uint32_t, Mesh3D> modelsInMemory;
+        int load(IModelLoader::rawModelData& modelData);
+        
+        std::vector<uint32_t> modelsInMemory;
 };
 
 #endif

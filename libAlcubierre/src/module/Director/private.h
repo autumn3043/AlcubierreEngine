@@ -5,7 +5,6 @@
 
 //Services
 //Depends
-#include "core/Registry/interface/IModelLoader.h"
 #include "core/Registry/interface/IGraphicsBackend.h"
 //Provides
 #include "core/Registry/interface/IDirector.h"
@@ -30,7 +29,16 @@ class Director : public WrapperBaseClass {
             public:
                 IDirectorImpl(Director* _parent) : parent(_parent) {}
 
-                int renderFrame() override { return parent->renderFrame(); }               
+                int renderFrame() override { return parent->renderFrame(); }
+
+                int createObject(WorldObject_Handle& object) override { return parent->createObject(object); }
+                int destroyObject(WorldObject_Handle& object) override { return parent->destroyObject(object); }
+                int attachMesh(WorldObject_Handle& object, uint32_t meshHash) override { return parent->attachMesh(object, meshHash); }
+                int setPosition(WorldObject_Handle& object, Vector3 newPosition) override { return parent->setPosition(object, newPosition); }
+
+                int createScene(Scene_Handle& scene) override { return parent->createScene(scene); }
+                int destroyScene(Scene_Handle& scene) override { return parent->destroyScene(scene); }
+                int addToScene(Scene_Handle& scene, WorldObject_Handle& object) override { return parent->addToScene(scene, object); } 
         };
         IDirectorImpl IDirector_Director;
 
@@ -43,49 +51,56 @@ class Director : public WrapperBaseClass {
             public:
                 uint64_t uniqueId;
 
-                WorldObject(int _index);
+                WorldObject(uint64_t _uniqueId);
                 ~WorldObject();
 
-                int assignMesh(uint32_t modelId);
+                int attachMesh(uint32_t meshHash);
                 int moveto(Vector3 _position);
 
                 Vector3 position = {0, 0, 0};
-                uint32_t meshId;
+
+                bool hasMesh = false;
+                uint32_t meshHash;
         };
 
         class Scene {
             public:
                 uint64_t uniqueId;
 
-                Scene(int _memoryIndex);
+                Scene(uint64_t _uniqueId);
                 ~Scene();
 
-                int addObject(WorldObject* object);
-                int removeObject(WorldObject* object);
+                int addObject(uint64_t* object);
 
-            private:
-                int memoryIndex;
-
-                std::unordered_map<uint32_t, std::unordered_map<uint64_t, WorldObject*>> buffers;
+                std::vector<uint64_t> sceneObjectIds;
         };
 
-        //These 32 bit integers will overflow back to 0 after 4294967295 objects have been created. If this happens, ids could clash. No guarantee id 0 won't exist anymore even after the lifetimes of some number of objects.
-        //Update: made them 64 bit. Was concerned about reaching that object limit via particles or other dynamics. 
-        //Non trivial as each id is copied x times, where x is the number of scenes the object is in, or the number of objects the scene contains. Making those ids references could help, but move constructors would complain.
-        std::vector<WorldObject*> objects;
+        std::unordered_map<uint64_t, WorldObject> objects;
         uint64_t objectsEver = 0;
-
-        std::vector<Scene*> scenes;
+        std::unordered_map<uint64_t, Scene> scenes;
         uint64_t scenesEver = 0;
 
     public:
         int renderFrame();
 
-        WorldObject* createObject();
-        int destroyObject(WorldObject* object);
+        int createObject(IDirector::WorldObject_Handle& object) {object.ptr = createObjectImpl(); return 0;}
+        int destroyObject(IDirector::WorldObject_Handle& object) {return destroyObjectImpl(static_cast<uint64_t*>(object.ptr));}
+        int attachMesh(IDirector::WorldObject_Handle& object, uint32_t meshHash) {return attachMeshImpl(static_cast<uint64_t*>(object.ptr), meshHash);}
+        int setPosition(IDirector::WorldObject_Handle& object, Vector3 newPosition) {return setPositionImpl(static_cast<uint64_t*>(object.ptr), newPosition);}
 
-        Scene* createScene();
-        int destroyScene(Scene* scene);
+        int createScene(IDirector::Scene_Handle& scene) {scene.ptr = createSceneImpl(); return 0;}
+        int destroyScene(IDirector::Scene_Handle& scene) {return destroySceneImpl(static_cast<uint64_t*>(scene.ptr));}
+        int addToScene(IDirector::Scene_Handle& scene, IDirector::WorldObject_Handle& object) {return addToSceneImpl(static_cast<uint64_t*>(scene.ptr), static_cast<uint64_t*>(object.ptr));}
+
+    private:
+        uint64_t* createObjectImpl();
+        int destroyObjectImpl(uint64_t* objectId);
+        int attachMeshImpl(uint64_t* objectId, uint32_t);
+        int setPositionImpl(uint64_t* objectId, Vector3 newPosition);
+
+        uint64_t* createSceneImpl();
+        int destroySceneImpl(uint64_t* sceneId);
+        int addToSceneImpl(uint64_t* sceneId, uint64_t* objectId);
 };
 
 #endif

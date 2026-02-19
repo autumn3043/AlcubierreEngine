@@ -5,36 +5,108 @@ class VulkanDeviceComponent {
     public:
         VulkanDeviceComponent(VulkanHandler* _parent, Registry* _registry_ptr);
         ~VulkanDeviceComponent();
-        
-        VkPhysicalDevice PhysicalDevice = VK_NULL_HANDLE;
-        VkDevice Device = VK_NULL_HANDLE;
-        
-        struct DeviceQueue {
-            VkQueue queue;
-            uint32_t familyIndex;
-            uint32_t queueIndex = 0;
-
-            int priority;
-            VkQueueFlags supportedQueueTypes;
-            bool surfaceSupport;
-
-            DeviceQueue(VkQueueFlags _supportedQueueTypes, int _familyIndex, bool _surfaceSupport = false, int _priority = 1) : supportedQueueTypes(_supportedQueueTypes), familyIndex(static_cast<uint32_t>(_familyIndex)), surfaceSupport(_surfaceSupport), priority(_priority) {};
-        };
-
-        DeviceQueue& getQueue(VkQueueFlags type, bool surfaceSupport = false);
 
     private:
         VulkanHandler* parent = nullptr;
         Registry*& registry_ptr;
+    
+    public:
+        VkPhysicalDevice PhysicalDevice = VK_NULL_HANDLE;
+        VkDevice Device = VK_NULL_HANDLE;
 
+    private:
+        struct queueFamily {
+            uint32_t deviceFamilyIndex;
+            std::vector<VkQueue> queues;
+
+            queueFamily(uint32_t& _deviceFamilyIndex, uint32_t& queueCount) : deviceFamilyIndex(_deviceFamilyIndex) { queues.resize(queueCount); }
+        };
+
+        std::vector<queueFamily> queueFamilies;
+
+        std::vector<int> graphicsFamilyIndices;
+        std::vector<int> presentFamilyIndices;
+        std::vector<int> transferFamilyIndices;
+
+    public:
+        enum queueType {
+            GRAPHICS = 0,
+            PRESENT = 1,
+            TRANSFER = 2
+        };
+
+        class QueueHandle {
+            private:
+                queueFamily* family = nullptr;
+
+            public:
+                QueueHandle(VulkanDeviceComponent* parent, queueType& type);
+                QueueHandle() = default;
+                ~QueueHandle();
+                QueueHandle(const QueueHandle&) = delete;
+                QueueHandle& operator=(const QueueHandle&) = delete;
+                QueueHandle(QueueHandle&& other) { *this = std::move(other); }
+                QueueHandle& operator=(QueueHandle&& other) {
+                    family = other.family;
+                    queue = other.queue;
+                    deviceQueueFamilyIndex = other.deviceQueueFamilyIndex;
+
+                    other.family = nullptr;
+                    other.queue = VK_NULL_HANDLE;
+                    
+                    return *this;
+                }
+
+                uint32_t deviceQueueFamilyIndex;
+                VkQueue queue = VK_NULL_HANDLE;
+        };
+
+        QueueHandle fetchQueueHandle(queueType type);
+
+    public:
+        struct PhysicalDeviceProperties {
+            PhysicalDeviceProperties() = default;
+            PhysicalDeviceProperties(VulkanHandler* parent, const VkPhysicalDevice& physicalDevice);
+
+            PhysicalDeviceProperties(const PhysicalDeviceProperties& other) = delete;
+            PhysicalDeviceProperties& operator=(const PhysicalDeviceProperties& other) = delete;
+            PhysicalDeviceProperties& operator=(PhysicalDeviceProperties&& other) = default;
+
+            struct General {
+                VkPhysicalDeviceProperties rawStruct;
+                bool isDiscrete;
+            };
+
+            General general;
+
+            struct Memory {
+                VkPhysicalDeviceMemoryProperties rawStruct;
+                int hostVisibleIndex;
+                int deviceLocalIndex;
+            };
+
+            Memory memory;
+
+            struct QueueFamily {
+                VkQueueFamilyProperties rawStruct;
+                bool hasSurfaceSupport;
+            };
+
+            std::vector<QueueFamily> queueFamilies;
+        };
+
+        PhysicalDeviceProperties& fetchDeviceProperties();
+
+    private:
+        PhysicalDeviceProperties deviceProperties;
+    
+    private:
         int CreateLogicalDevice();
             VkPhysicalDevice SelectPhysicalDevice();
-            int ScoreDevice(VkPhysicalDevice _PhysicalDevice);
+            int ScoreDevice(PhysicalDeviceProperties& properties);
 
             void FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle);
             void FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo>& ReturnArray);
-                VkQueueFlags ConfigParse_QueueFlagBits(std::vector<std::string>& values);
-                std::vector<DeviceQueue> queues;
             void FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray);
             void FetchDeviceFeatures(AlcDeviceFeatures& ReturnBundle);
 };

@@ -20,26 +20,17 @@ ResourceManager::ResourceManager(void* registry)
     }
 
 ResourceManager::~ResourceManager() {
-    
+    IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(registry_ptr->FetchService(GRAPHICS_BACKEND));
+    for(int i = 0; i < modelsInMemory.size(); i++) {
+        GB->discardMesh(modelsInMemory[i]);
+    }
 }
 
-Mesh3D* IModelLoader::loadModel(uint32_t& modelHash, rawModelData& model) override {
-    if(!parent->isLoaded(modelHash)) parent->load(modelHash, model);
-    return parent->getMesh(modelHash);
-} 
-
-Mesh3D* IModelLoader::fetchModel(uint32_t& modelHash) override {
-    if(!parent->isLoaded(modelHash)) throw ResourceManagerException("Requested mesh was not loaded");
-    return parent->getMesh(modelHash);
+int ResourceManager::init() {
+    return 0;
 }
 
-int ResourceManager::init() {}
-
-bool ResourceManager::isLoaded(uint32_t& modelHash) {
-    return modelsInMemory.contains(modelHash);
-}
-
-Mesh3D* ResourceManager::load(uint32_t& modelHash, rawModelData& modelData) {
+int ResourceManager::load(IModelLoader::rawModelData& modelData) {
     std::vector<Vector3> modelVertices;
     std::vector<uint32_t> modelIndices;
 
@@ -65,21 +56,17 @@ Mesh3D* ResourceManager::load(uint32_t& modelHash, rawModelData& modelData) {
             float y = attributes.vertices[3 * index.vertex_index + 1];
             float z = attributes.vertices[3 * index.vertex_index + 2];
 
-            modelVertices.push_back(x, y, z);
+            modelVertices.emplace_back(x, y, z);
         }
     }
 
     //Temp: obj file precompiler
         for(int i = 0; i < modelVertices.size(); i++) {
-            modelIndices.push_back(i);
+            modelIndices.emplace_back(i);
         }
 
     IGraphicsBackend* GB = dynamic_cast<IGraphicsBackend*>(registry_ptr->FetchService(GRAPHICS_BACKEND));
-    modelsInMemory.emplace(modelHash, {.vertexCount = modelVertices.size(), .indiceCount = modelIndices.size()});
-    GB->loadMeshToBuffer(&modelsInMemory.back(), modelVertices, modelIndices);
-    return &modelsInMemory.back();
-}
-
-Mesh3D* ResourceManager::getMesh(uint32_t modelHash) {
-    return modelsInMemory[modelHash];
+    modelsInMemory.emplace_back(modelData.hash);
+    GB->storeMesh(modelData.hash, modelVertices, modelIndices);
+    return 0;
 }

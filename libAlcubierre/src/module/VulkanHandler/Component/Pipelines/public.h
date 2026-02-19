@@ -1,6 +1,8 @@
 #ifndef ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_PIPELINES_PUBLIC_H
 #define ALCENGINE_MODULE_VULKANHANDLER_COMPONENT_PIPELINES_PUBLIC_H
 
+#include "spirv_reflect.h"
+
 class VulkanPipelineComponent {
     private:
         VulkanHandler* parent = nullptr;
@@ -11,6 +13,20 @@ class VulkanPipelineComponent {
         ~VulkanPipelineComponent();
 
     private:
+        class PipelineLayout {
+            public:
+                PipelineLayout(VkDevice& _device);
+                ~PipelineLayout();
+
+            private:
+                VkDevice& device;
+
+            public:
+                VkPipelineLayout instance = VK_NULL_HANDLE;
+                VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+                uint32_t bindingsCount;
+        };
+
         class Shader {
             public:
                 Shader(VkDevice& _device, IShaders::AlcShader* shaderData);
@@ -21,11 +37,10 @@ class VulkanPipelineComponent {
 
             public:
                 std::vector<VkDescriptorSetLayout> layouts;
-                //OPT: can be discarded after set has been created AND all associated pipeline layouts have been created
-                VkDescriptorPool pool = VK_NULL_HANDLE;
-                std::vector<VkDescriptorSet> sets;
 
                 VkShaderModule instance = VK_NULL_HANDLE;
+
+                VkPipelineShaderStageCreateInfo stageCreateInfo;
 
                 std::string name;
                 VkShaderStageFlagBits stage;
@@ -33,47 +48,26 @@ class VulkanPipelineComponent {
         Shader* basicVertexShader;
         Shader* basicFragmentShader;
 
-        class PipelineLayout {
-            public:
-                PipelineLayout(VkDevice& _device, std::vector<Shader*> _shaders);
-                ~PipelineLayout();            
-
-            private:
-                VkDevice& device;
-
-            public:
-                VkPipelineLayout instance = VK_NULL_HANDLE;
-
-                std::vector<VkDescriptorSet> getDescriptorSetHandlesArray();
-
-            private:
-                std::vector<Shader*> shaders;
-        };
-        PipelineLayout* geometryLayout = nullptr;
-
-        struct PipelineCreateInfo {
-            PipelineLayout* layout;
-            VkFormat& imageFormat;
-        };
-
         class Pipeline {
             public:
-                Pipeline(VkDevice& _device, PipelineCreateInfo alcCreateInfo);
+                Pipeline(VkDevice& _device, VkPipelineLayout& _layout, VkFormat& imageFormat, std::vector<Shader*> _shaders);
                 ~Pipeline();
 
             private:
                 VkDevice& device;
 
             public:
-                int bind(VkCommandBuffer commandBuffer);
+                int bind(VkCommandBuffer& commandBuffer, VkDescriptorSet descriptorSet);
             
             private:
                 VkPipeline instance = VK_NULL_HANDLE;
+                VkPipelineLayout layout = VK_NULL_HANDLE;
 
-                PipelineLayout* layout;
+                std::vector<Shader*> shaders;
         };
 
     public:
+        PipelineLayout* pipelineLayout = nullptr;
         Pipeline* opaqueGeometryPipe = nullptr;
 };
 

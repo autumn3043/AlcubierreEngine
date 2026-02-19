@@ -75,6 +75,7 @@ DebugManagerImpl::~DebugManagerImpl() {
 }
 
 void DebugManagerImpl::InternalLog(DebugReport* Report, bool Write) {
+    std::lock_guard<std::mutex> lock(loggingThreadLock);
     std::ostringstream oss;
 
     if(Report->Time) {

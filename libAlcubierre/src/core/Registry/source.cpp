@@ -52,7 +52,7 @@ int RegistryImpl::GracefulDeconstruct(ModuleData& module) {
     return 1;
 }
 
-InterfaceBaseClass* RegistryImpl::FetchService(ServiceID id) {
+InterfaceBaseClass*& RegistryImpl::FetchService(ServiceID id) {
     if(!Services.contains(id)) throw AlcEngineException("Requested service '" + ServiceID_str(id) + "' does not exist.");
     if(Services[id].first.size() == 0) throw AlcEngineException("Requested service '" + ServiceID_str(id) + "' is not provided by any module.");
     
@@ -62,8 +62,8 @@ InterfaceBaseClass* RegistryImpl::FetchService(ServiceID id) {
     if(!provider.exists()) {
         provider.instantiate();
 
-        //When we create a module, we add a reference to it to the entries of each of its dependencies. When deconstructing said dependencies we then know to deconstruct this module first
-        //TODO: Let modules register hooks to indicate that they should be instantiated before a given service, such as to enable surface bridge to dump cfg values BEFORE it is requested by graphics backend
+        //When we create a module, we add a reference to it to the entries of each of its dependencies. When deconstructing said dependencies we then know to deconstruct this module first.
+        //TODO: Let modules register hooks to indicate that they should be instantiated before a given service, such as to enable surface bridge to dump cfg values BEFORE it is requested by graphics backend.
         for(const ServiceID& id : provider.dependsArr()) {
             Services[id].second.push_back(provider_index);
         }
@@ -73,9 +73,9 @@ InterfaceBaseClass* RegistryImpl::FetchService(ServiceID id) {
 }
 
 int RegistryImpl::SelectBestProvider(ServiceID id) {
-    //From amongst many modules which may provide a variable number of services, select the best option
-    //Priority is initialising the minimum number of modules possible into memory, so we prefer providers which are already filling another purpose
-    //TODO allow modules to lockout a service if they are chosen to provide it - i.e. configuration_manager service needs to be the same module for all dependents, cannot change based on circumstance 
+    //From amongst many modules which may provide a variable number of services, select the best option.
+    //Priority is initialising the minimum number of modules possible into memory, so we prefer providers which are already filling another purpose.
+    //TODO: allow modules to lockout a service if they are chosen to provide it - i.e. configuration_manager service needs to be the same module for all dependents, cannot change based on circumstance.
 
     int bestScore = INT_MIN;
     int bestModule_index = -1;

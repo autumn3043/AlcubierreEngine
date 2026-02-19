@@ -3,25 +3,21 @@
 
 #include "core/Registry/base/InterfaceBaseClass.h"
 
-struct Mesh3D {
-    uint32_t bufferSetId;
-
-    uint32_t vertexOffset;
-    uint32_t vertexCount;
-    uint32_t indexOffset;
-    uint32_t indexCount;
-};
+typedef uint32_t MeshHash;
 
 struct SceneObject {
-    Mesh3D* mesh = nullptr;
-
+    MeshHash meshHash;
+    Vector3 position;
 };
 
 class IGraphicsBackend : public InterfaceBaseClass {
     public:
         std::string token() override { return "IGraphicsBackend"; }
 
-        virtual int addToFrame(SceneObject* object) = 0;
+        virtual int storeMesh(MeshHash hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) = 0;
+        virtual int discardMesh(MeshHash hash) = 0;
+
+        virtual int addToFrame(SceneObject object) = 0;
         virtual int clearFrame() = 0;
         virtual int drawFrame() = 0;
 };

@@ -27,9 +27,8 @@ class VulkanHandler;
 #include "module/VulkanHandler/Component/Device/public.h"
 #include "module/VulkanHandler/Component/Allocator/public.h"
 #include "module/VulkanHandler/Component/Swapchain/public.h"
-#include "module/VulkanHandler/Component/Shaders/public.h"
 #include "module/VulkanHandler/Component/Pipelines/public.h"
-#include "module/VulkanHandler/Component/Buffers/public.h"
+#include "module/VulkanHandler/Component/Renderchain/public.h"
 
 class VulkanHandler : public WrapperBaseClass {
     public:
@@ -38,10 +37,11 @@ class VulkanHandler : public WrapperBaseClass {
 
         VulkanEnvironmentComponent* environment = nullptr;
         VulkanDeviceComponent* device = nullptr;
-        bool chainInitialisation = false;
-        VulkanSwapchainComponent* swapchain = nullptr;
-        VulkanRenderchainComponent* renderchain = nullptr;
+        VulkanDeviceComponent::QueueHandle graphicsRenderingQueue;
         VulkanMemoryAllocatorComponent* allocator = nullptr;
+        VulkanSwapchainComponent* swapchain = nullptr;
+        VulkanPipelineComponent* pipelines = nullptr;
+        VulkanRenderchainComponent* renderchain = nullptr;
 
         void Init();
 
@@ -51,10 +51,10 @@ class VulkanHandler : public WrapperBaseClass {
 
                 IGraphicsBackendImpl(VulkanHandler* _parent) : Parent(_parent) {}
 
-                int createObjectBuffer(int*& modelBufferIndex, modelData& data) override { return Parent->renderchain->createObjectBuffer(modelBufferIndex, data); }
-                int addObjectToFrame(int& modelBufferIndex, placementData& data) override { return Parent->renderchain->addObjectToFrame(modelBufferIndex, data); }
-                int discardObjectBuffer(int& modelBufferIndex) override { return Parent->renderchain->discardObjectBuffer(modelBufferIndex); }
+                int storeMesh(MeshHash hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) override { return Parent->allocator->storeMesh(hash, vertices, indices); }
+                int discardMesh(MeshHash hash) override { return Parent->allocator->discardMesh(hash); }
 
+                int addToFrame(SceneObject object) override { return Parent->renderchain->addToFrame(object); }
                 int clearFrame() override { return Parent->renderchain->clearFrame(); }
                 int drawFrame() override { return Parent->renderchain->drawFrame(); }
         };

@@ -9,6 +9,7 @@
 #include "core/Registry/interface/IWindowManager.h"
 #include "core/Registry/interface/IGraphicsBackend.h"
 #include "core/Registry/interface/IDirector.h"
+#include "core/Registry/interface/IModelLoader.h"
 
 class AlcubierreEngineImpl {
     private:
@@ -39,6 +40,9 @@ class AlcubierreEngineImpl {
             bool shouldClose();
 
         //Graphics
+            IDirector::Scene_Handle scene;
+            std::vector<IDirector::WorldObject_Handle> objects;
+
             int placeActor(std::vector<int> position, std::string& model);
             int frame();
 

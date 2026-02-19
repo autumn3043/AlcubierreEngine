@@ -18,9 +18,9 @@ class RegistryImpl {
             ModuleData(ModuleRegistryBundle* _bundle, Registry* registry);
             ~ModuleData();
             ModuleData(const ModuleData&) = default;
-            ModuleData(ModuleData&&) noexcept = default;
             ModuleData& operator=(const ModuleData&) = default;
-            ModuleData& operator=(ModuleData&&) noexcept = default;
+            ModuleData(ModuleData&&) = default;
+            ModuleData& operator=(ModuleData&&) = default;
 
             bool exists();
             int instantiate();

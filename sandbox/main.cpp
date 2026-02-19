@@ -8,8 +8,8 @@ std::string importDeveloperConfig() {
     return rawString;
 }
 
-std::string importObjFile() {
-    std::ifstream objFile("viking_room.obj", std::ios::in);
+std::string importObjFile(std::string path) {
+    std::ifstream objFile(path, std::ios::in);
     std::string rawString((std::istreambuf_iterator<char>(objFile)), std::istreambuf_iterator<char>());
     objFile.close();
     return rawString;
@@ -22,8 +22,10 @@ int main() {
 
     app.initEngine();
 
-    std::string objFileString = importObjFile();
-    app.graphics.placeActor({0, 0, 0}, objFileString);
+    std::string vikingRoomObj = importObjFile("viking_room.obj");
+    app.graphics.placeActor({0, 0, 0}, vikingRoomObj);
+    std::string triangleObj = importObjFile("triangle.obj");
+    app.graphics.placeActor({0, 1, 0}, triangleObj);
 
     while(!app.window.shouldClose()) {
         app.graphics.frame();

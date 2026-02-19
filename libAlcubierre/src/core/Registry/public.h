@@ -77,7 +77,7 @@ class Registry {
             return queue;
         }
 
-        InterfaceBaseClass* FetchService(ServiceID id);
+        InterfaceBaseClass*& FetchService(ServiceID id);
 
         Registry();
         ~Registry();

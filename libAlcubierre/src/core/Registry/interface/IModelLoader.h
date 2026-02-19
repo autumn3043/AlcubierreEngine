@@ -8,12 +8,15 @@ class IModelLoader : public InterfaceBaseClass {
         std::string token() override { return "IModelLoader"; }
 
         struct rawModelData {
+            uint32_t hash;
+
             void* data;
-            uint32_t size;
+            uint64_t size;
+
+            rawModelData(uint32_t _hash, void* _data, uint64_t _size) : hash(_hash), data(_data), size(_size) {}
         };
 
-        virtual uint32_t loadModel(rawModelData& model) = 0;
-        virtual Mesh3D* fetchModel(uint32_t& modelHash) = 0;
+        virtual int loadModel(rawModelData model) = 0;
 };
 
 #endif

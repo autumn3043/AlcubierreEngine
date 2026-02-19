@@ -20,7 +20,11 @@ int VulkanDeviceComponent::CreateLogicalDevice() {
 
     VkResult CreateEcho = vkCreateDevice(PhysicalDevice, DeviceInitInfo.Get(), nullptr, &Device);
 
-    for(DeviceQueue& queue : queues) vkGetDeviceQueue(Device, queue.familyIndex, queue.queueIndex, &queue.queue);
+    for(int i = 0; i < queueFamilies.size(); i++) {
+        for(int j = 0; j < queueFamilies[i].queues.size(); j++) {
+            vkGetDeviceQueue(Device, queueFamilies[i].deviceFamilyIndex, static_cast<uint32_t>(j), &queueFamilies[i].queues[j]);
+        }
+    }
 
     if(CreateEcho != VK_SUCCESS) {
         switch(CreateEcho) {
@@ -53,54 +57,40 @@ VkPhysicalDevice VulkanDeviceComponent::SelectPhysicalDevice() {
     std::vector<VkPhysicalDevice> CompatibleDevices(CompatibleDeviceCount);
     vkEnumeratePhysicalDevices(parent->environment->Instance, &CompatibleDeviceCount, CompatibleDevices.data());
 
-    int u = 0;
-    VkPhysicalDevice hold;
+    int best = 0;
+    VkPhysicalDevice holdDevice;
     for(const VkPhysicalDevice& device : CompatibleDevices) {
-        int score = ScoreDevice(device);
-        if(score > u) {
-            u = score;
-            hold = device;
+        PhysicalDeviceProperties properties(parent, device);
+        int score = ScoreDevice(properties);
+        if(score > best) {
+            best = score;
+            holdDevice = device;
+            deviceProperties = std::move(properties);
         }
     }
 
-    return hold;
+    return holdDevice;
 }
 
-int VulkanDeviceComponent::ScoreDevice(VkPhysicalDevice _PhysicalDevice) {    
-    VkPhysicalDeviceProperties DeviceProperties;
-    vkGetPhysicalDeviceProperties(_PhysicalDevice, &DeviceProperties);
-
+int VulkanDeviceComponent::ScoreDevice(PhysicalDeviceProperties& properties) {
     int hold = 0;
 
     //Required and preferred properties go here. Required = return 0 if not present. Preferred = add to score.
-    if(DeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-        hold += 10000;
-    }
-
-    hold += DeviceProperties.apiVersion;
-
-    VkPhysicalDeviceFeatures AvailableFeatures;
-    vkGetPhysicalDeviceFeatures(_PhysicalDevice, &AvailableFeatures);
-
-    uint32_t DeviceQueueFamiliesCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(_PhysicalDevice, &DeviceQueueFamiliesCount, nullptr);
-    std::vector<VkQueueFamilyProperties> DeviceQueueFamilies(DeviceQueueFamiliesCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(_PhysicalDevice, &DeviceQueueFamiliesCount, DeviceQueueFamilies.data());
+    if(properties.general.isDiscrete) hold += 10000;
+    hold += properties.general.rawStruct.apiVersion;
 
     //We need to confirm, firstly, that a device *has* all the features we need to begin with. If it doesn't exclude it. If it does we can score it based on the quantity of supporting queues.
     bool _hasGraphics = false;
     bool _hasSurfaceSupport = false;
 
-    for(int i = 0; i < DeviceQueueFamilies.size(); i++) {
+    for(int i = 0; i < properties.queueFamilies.size(); i++) {
         //TODO: Add logic to prefer GPUs that reflect or better reflect queue requests.
-        if(DeviceQueueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            hold += 100 * DeviceQueueFamilies[i].queueCount;
+        if(properties.queueFamilies[i].rawStruct.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            hold += 100 * properties.queueFamilies[i].rawStruct.queueCount;
             _hasGraphics = true;
         }
 
-        VkBool32 SurfaceSupport;
-        vkGetPhysicalDeviceSurfaceSupportKHR(_PhysicalDevice, i, parent->environment->Surface, &SurfaceSupport);
-        if(SurfaceSupport) _hasSurfaceSupport = true;
+        if(properties.queueFamilies[i].hasSurfaceSupport) _hasSurfaceSupport = true;
     }
 
     if(!(_hasGraphics && _hasSurfaceSupport)) {
@@ -117,81 +107,41 @@ void VulkanDeviceComponent::FetchDeviceInfo(AlcDeviceCreateInfo& ReturnBundle) {
     FetchDeviceFeatures(ReturnBundle._features);
 }
 
-void VulkanDeviceComponent::FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo>& ReturnArray) {
-    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
-    
-    uint32_t QueueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(PhysicalDevice, &QueueFamilyCount, nullptr);
-    std::vector<VkQueueFamilyProperties> QueueFamilies(QueueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(PhysicalDevice, &QueueFamilyCount, QueueFamilies.data());
-
-    /*
-    int desiredGraphicsQueues = CM->Get<int>({"graphics", "device", "queues", "graphics_capable_count"}, 1);
-    int desiredComputeQueues = CM->Get<int>({"graphics", "device", "queues", "compute_capable_count"}, 0);
-    int desiredTransferQueues = CM->Get<int>({"graphics", "device", "queues", "transfer_capable_count"}, 1);
-    int desiredBindingQueues = CM->Get<int>({"graphics", "device", "queues", "binding_capable_count"}, 0);
-    */
-    int desiredGraphicsQueues = 1;
-    int desiredComputeQueues = 0;
-    int desiredTransferQueues = 1;
-    int desiredBindingQueues = 0;
-
-    for(int i = 0; i < QueueFamilyCount; i++) {
-        if(desiredGraphicsQueues + desiredComputeQueues + desiredTransferQueues + desiredBindingQueues == 0) break;
-
-        VkQueueFlags supportedTypes = NULL_BIT;
-
-        if(QueueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT && desiredGraphicsQueues > 0) {
-            supportedTypes |= VK_QUEUE_GRAPHICS_BIT;
-            desiredGraphicsQueues--;
-        };
-        if(QueueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT && desiredComputeQueues > 0) {
-            supportedTypes |= VK_QUEUE_COMPUTE_BIT;
-            desiredComputeQueues--;
-        };
-        if(QueueFamilies[i].queueFlags & VK_QUEUE_TRANSFER_BIT && desiredTransferQueues > 0) {
-            supportedTypes |= VK_QUEUE_TRANSFER_BIT;
-            desiredTransferQueues--;
-        };
-        if(QueueFamilies[i].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT && desiredBindingQueues > 0) {
-            supportedTypes |= VK_QUEUE_SPARSE_BINDING_BIT;
-            desiredBindingQueues--;
-        };
-
-        if(supportedTypes != NULL_BIT) {
-            AlcDeviceQueueCreateInfo& thisQueue = ReturnArray.emplace_back();
-            thisQueue._queueCount = 1;
-            thisQueue._queueFamilyIndex = static_cast<uint32_t>(i);
-            thisQueue._pQueuePriorities = 1;
-
-            VkBool32 surfaceSupport;
-            vkGetPhysicalDeviceSurfaceSupportKHR(PhysicalDevice, i, parent->environment->Surface, &surfaceSupport);
-
-            queues.emplace_back(supportedTypes, i, surfaceSupport);
-        }
+std::string vectorToString(std::vector<int>& vector) {
+    std::string hold;
+    for(int i = 0; i < vector.size(); i++) {
+        hold += std::to_string(vector[i]);
+        hold += " ";
     }
-}
-
-VulkanDeviceComponent::DeviceQueue& VulkanDeviceComponent::getQueue(VkQueueFlags type, bool surfaceSupport) {
-    DeviceQueue& hold = queues[0];
-    int holdPriority = -1;
-
-    for(DeviceQueue& queue : queues) {
-        if(surfaceSupport) {
-            if(!queue.surfaceSupport) continue;
-        }
-
-        if((type & queue.supportedQueueTypes) == type) {
-            if(queue.priority > holdPriority) {
-                hold = queue;
-                holdPriority = queue.priority;
-            }
-        }
-    }
-
-    if(holdPriority == -1) throw VulkanException("No valid device queue was found");
 
     return hold;
+}
+
+void VulkanDeviceComponent::FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo>& ReturnArray) {
+    IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
+
+    for(int i = 0; i < deviceProperties.queueFamilies.size(); i++) {
+        uint32_t deviceFamilyIndex = static_cast<uint32_t>(i);
+        uint32_t familyQueueCount = deviceProperties.queueFamilies[i].rawStruct.queueCount;
+
+        AlcDeviceQueueCreateInfo& thisQueue = ReturnArray.emplace_back();
+        thisQueue._queueCount = familyQueueCount;
+        thisQueue._queueFamilyIndex = deviceFamilyIndex;
+        thisQueue._pQueuePriorities = 1;
+
+        queueFamily& family = queueFamilies.emplace_back(deviceFamilyIndex, familyQueueCount);
+        family.queues.resize(familyQueueCount);
+
+        if(deviceProperties.queueFamilies[i].rawStruct.queueFlags & VK_QUEUE_GRAPHICS_BIT) graphicsFamilyIndices.push_back(i);
+        if(deviceProperties.queueFamilies[i].hasSurfaceSupport) presentFamilyIndices.push_back(i);
+        if(deviceProperties.queueFamilies[i].rawStruct.queueFlags & VK_QUEUE_TRANSFER_BIT) transferFamilyIndices.push_back(i);
+    }
+
+    logIdentity("Created " + std::to_string(deviceProperties.queueFamilies.size()) + " queue families." + 
+        "\n   Graphics: " + vectorToString(graphicsFamilyIndices) + 
+        "\n   Surface: " + vectorToString(presentFamilyIndices) +
+        "\n   Transfer: " + vectorToString(transferFamilyIndices)
+    );
 }
 
 void VulkanDeviceComponent::FetchDeviceExtensionArray(std::vector<std::string>& ReturnArray) {
@@ -218,6 +168,77 @@ void VulkanDeviceComponent::FetchDeviceFeatures(AlcDeviceFeatures& ReturnBundle)
     ReturnBundle.featuresVk1_1.shaderDrawParameters = VK_TRUE;
     ReturnBundle.featuresDynamicState.extendedDynamicState = VK_TRUE;
     ReturnBundle.featuresVk1_3.synchronization2 = VK_TRUE; //For dynamic rendering
+    ReturnBundle.featuresVk1_2.timelineSemaphore = VK_TRUE;
 }
 
-//Undefine shorthands!!
+VulkanDeviceComponent::QueueHandle::QueueHandle(VulkanDeviceComponent* parent, queueType& type) {
+    std::vector<int>* queueFamilyGroup;
+
+    switch(type) {
+        case GRAPHICS:
+            queueFamilyGroup = &parent->graphicsFamilyIndices;
+        break;
+
+        case PRESENT:
+            queueFamilyGroup = &parent->presentFamilyIndices;
+        break;
+
+        case TRANSFER:
+            queueFamilyGroup = &parent->transferFamilyIndices;
+        break;
+    }
+
+    for(int i = 0; i < queueFamilyGroup->size(); i++) {
+        int familyIndex = (*queueFamilyGroup)[i];
+        queueFamily* _family = &parent->queueFamilies[familyIndex];
+        if(_family->queues.size() == 0) continue;
+        family = _family;
+        break;
+    }
+
+    if(!family) throw VulkanException("Unable to find a free queue within a queue family that supported the requested work type");
+
+    deviceQueueFamilyIndex = family->deviceFamilyIndex;
+    queue = family->queues.back();
+    family->queues.pop_back();
+}
+
+VulkanDeviceComponent::QueueHandle::~QueueHandle() {
+    if(family) family->queues.emplace_back(queue);
+}
+
+VulkanDeviceComponent::QueueHandle VulkanDeviceComponent::fetchQueueHandle(queueType type) {
+    return QueueHandle(this, type);
+}
+
+VulkanDeviceComponent::PhysicalDeviceProperties::PhysicalDeviceProperties(VulkanHandler* parent, const VkPhysicalDevice& physicalDevice) {
+    vkGetPhysicalDeviceProperties(physicalDevice, &general.rawStruct);
+    general.isDiscrete = (general.rawStruct.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
+
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memory.rawStruct);
+    VkMemoryPropertyFlags deviceLocalMemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    VkMemoryPropertyFlags hostVisibleMemoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    memory.deviceLocalIndex = -1;
+    memory.hostVisibleIndex = -1;
+    for(int i = 0; i < memory.rawStruct.memoryTypeCount; i++) {
+        if((memory.rawStruct.memoryTypes[i].propertyFlags & deviceLocalMemoryProperties) == deviceLocalMemoryProperties && memory.deviceLocalIndex == -1) memory.deviceLocalIndex = i;
+        if((memory.rawStruct.memoryTypes[i].propertyFlags & hostVisibleMemoryProperties) == hostVisibleMemoryProperties && memory.hostVisibleIndex == -1) memory.hostVisibleIndex = i;
+        if(memory.deviceLocalIndex >= 0 && memory.hostVisibleIndex >= 0) break;
+    }
+
+    uint32_t queueFamiliesCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamiliesCount, nullptr);
+    std::vector<VkQueueFamilyProperties> deviceQueueFamilies(queueFamiliesCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamiliesCount, deviceQueueFamilies.data());
+    queueFamilies.resize(queueFamiliesCount);
+    for(int i = 0; i < queueFamilies.size(); i++) {
+        queueFamilies[i].rawStruct = deviceQueueFamilies[i];
+        VkBool32 _surfaceSupport;
+        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, parent->environment->Surface, &_surfaceSupport);
+        queueFamilies[i].hasSurfaceSupport = _surfaceSupport;
+    }
+}
+
+VulkanDeviceComponent::PhysicalDeviceProperties& VulkanDeviceComponent::fetchDeviceProperties() {
+    return deviceProperties;
+}
