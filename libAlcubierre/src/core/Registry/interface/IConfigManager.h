@@ -203,6 +203,7 @@ class IConfigManager : public InterfaceBaseClass {
             //"Why is this manually accounting" because typeid().name() is buns and im not pulling in a regex library to demangle it.
             //Just add a constexpr line to account for your type I guess. Remember that templates are made at compile so you can't do custom types because they don't exist in this translation unit.
             //FUTURE: Reflection in c++26 should allow an escape from nested if hell.
+            //"Why not an enum?" So that we can easily represent a vector<T>. Carrying around strings is heavy, but it works so thats going in the OPT pile instead of the FIX pile. 
         }
 
         struct Container {

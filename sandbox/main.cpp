@@ -22,7 +22,7 @@ int main() {
 
     app.initEngine();
 
-    std::string obj = importObjFile("rat.obj");
+    std::string obj = importObjFile("viking_room.obj");
     app.graphics.placeActor({0, 0, 0}, obj);
 
     while(!app.window.shouldClose()) {

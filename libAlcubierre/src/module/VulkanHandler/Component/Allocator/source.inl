@@ -78,6 +78,8 @@ int VulkanMemoryAllocatorComponent::discardMesh(MeshHash hash) {
     
     bufferSets.at(meshes.at(hash).bufferSetId)->discardMesh(hash);
     meshes.erase(hash);
+
+    dumpMemoryLayout();
     
     return 0;
 }
@@ -87,6 +89,7 @@ bool VulkanMemoryAllocatorComponent::checkMeshTransferIndexValidity(uint64_t& in
 }
 
 VulkanMemoryAllocatorComponent::meshHandle* VulkanMemoryAllocatorComponent::fetchMesh(MeshHash hash) {
+    // logIdentity(std::to_string(hash));
     assert(meshes.contains(hash));
     return &meshes.at(hash);
 }

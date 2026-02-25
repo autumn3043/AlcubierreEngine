@@ -3,7 +3,8 @@
 
 #include <exception>
 #include <ctime>
-#include <stacktrace>
+#include <string>
+#include <cstdint>
 
 class DebugReport {
     public:

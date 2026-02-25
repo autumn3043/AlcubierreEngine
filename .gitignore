@@ -37,3 +37,4 @@ Progress\ Notes.txt
 libAlcubierre/build/*
 *.log
 *.spv
+*.mtl
