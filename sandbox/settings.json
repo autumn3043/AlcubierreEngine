@@ -1,16 +1,16 @@
-//empty objects or arrays will be ignored by the parser because it cannot interpret the type of the nested value
+//Empty objects or arrays will be ignored by the parser because it cannot interpret the type of the nested value.
 
 {
-    //if debug is false, the Vulkan Debug Callback will not be assigned and debug_layers will be ignored
+    //If debug is false, the Vulkan Debug Callback will not be assigned and debug_layers will be ignored.
     "debug" : true,
-    //all debug (validation) layers whose valid string interpretation is listed here will be loaded 
+    //All debug (validation) layers whose valid string interpretation is listed here will be loaded.
     "debug_layers" : ["VK_LAYER_KHRONOS_validation"],
 
     "metadata" : {
         "application_data" : {
-            //internal app name, *not window title*
+            //Internal app name, *not window title*.
             "name" : "sandbox",
-            //internal app version
+            //Internal app version.
             "version" : [0, 0, 0]
         }
     },
@@ -18,36 +18,40 @@
     "presentation" : {
         "window" : {
             "title" : "Alcubierre sandbox app",
-            //size of the window, also size of the framebuffer by default
+            //Size of the window, also size of the framebuffer by default.
             "width" : 800,
             "height" : 600,
-            //if true, above window size values are ignored 
+            //If true, above window size values are ignored.
             "maximised" : false,
-            //if true, the user may freely resize the window in their compositor. may result in significant performance issues on some systems (namely wayland)
+            //If true, the user may freely resize the window in their compositor. may result in significant performance issues on some systems (namely wayland).
             "permit_resize" : false
         }
     },
 
     "renderer" : {
-        //if true, does not initialise the renderchain (graphics pipeline, shader modules, swapchain, command pools) until the first frame draw command is recieved
+        //If true, does not initialise the renderchain (graphics pipeline, shader modules, swapchain, command pools) until the first frame draw command is recieved.
         "defer_renderchain_initialisation" : false,
-        //all vulkan *instance* extensions whose valid string interpretation is listed here will be loaded
+        //All vulkan *instance* extensions whose valid string interpretation is listed here will be loaded.
         "extensions" : ["VK_EXT_debug_utils"]
     },
 
     "graphics" : {
         "device" : {
-            //all vulkan *device* extensions whose valid string interpretation is listed here will be loaded
+            //All vulkan *device* extensions whose valid string interpretation is listed here will be loaded.
             "extensions" : []
         },
-        //the first vulkan image format whose enumerative representative is listed here and is supported by the window surface will be used. refer to below api reference for enum codes
+        //The first vulkan image format whose enumerative representative is listed here and is supported by the window surface will be used. refer to below api reference for enum codes.
         //https://docs.vulkan.org/refpages/latest/refpages/source/VkFormat.html
         "acceptable_image_formats" : [50],
-        //the first presentation mode listed here which is found to be compatible will be used. valid modes are immediate, triple_buffered, vsync and relaxed_vsync
+        //The first presentation mode listed here which is found to be compatible will be used. valid modes are immediate, triple_buffered, vsync and relaxed_vsync.
         "acceptable_presentation_modes" : ["vsync", "immediate"],
         "max_frames_in_flight" : 2,
-        //rendering command timeout
+        //Rendering command timeout.
         "command_timeout_seconds" : 5,
-        "vertex_buffer_memory_size_bytes" : 10000000
+        //Size of vertex buffers in bytes.
+        "vertex_buffer_memory_size_bytes" : 10000000,
+        //Ratio of index buffer size to vertex buffer size where size = size of one index / size of one vertex * this ratio.
+        //Ideally, this number should be the ratio of indices to vertices. In an average 3d model, each vertice is used by 6 triangles, so the ratio is 6:1.
+        "index_buffer_memory_size_ratio" : 6.00
     }
 }

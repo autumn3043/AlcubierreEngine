@@ -52,8 +52,11 @@ class VulkanHandler : public WrapperBaseClass {
 
                 IGraphicsBackendImpl(VulkanHandler* _parent) : Parent(_parent) {}
 
-                int storeMesh(MeshHash hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) override { return Parent->allocator->storeMesh(hash, vertices, indices); }
-                int discardMesh(MeshHash hash) override { return Parent->allocator->discardMesh(hash); }
+                int storeMesh(Hash_T hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) override { return Parent->allocator->storeMesh(hash, vertices, indices); }
+                int discardMesh(Hash_T hash) override { return Parent->allocator->discardMesh(hash); }
+
+                int storeTexture();
+                int discardTexture();
 
                 int addToFrame(SceneObject object) override { return Parent->renderchain->addToFrame(object); }
                 int clearFrame() override { return Parent->renderchain->clearFrame(); }

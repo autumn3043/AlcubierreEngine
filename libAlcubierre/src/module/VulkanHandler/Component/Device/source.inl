@@ -120,6 +120,8 @@ std::string vectorToString(std::vector<int>& vector) {
 void VulkanDeviceComponent::FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo>& ReturnArray) {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
 
+   std::string familyQueueDebugInfo;
+
     for(int i = 0; i < deviceProperties.queueFamilies.size(); i++) {
         uint32_t deviceFamilyIndex = static_cast<uint32_t>(i);
         uint32_t familyQueueCount = deviceProperties.queueFamilies[i].rawStruct.queueCount;
@@ -135,12 +137,15 @@ void VulkanDeviceComponent::FetchQueueArray(std::vector<AlcDeviceQueueCreateInfo
         if(deviceProperties.queueFamilies[i].rawStruct.queueFlags & VK_QUEUE_GRAPHICS_BIT) graphicsFamilyIndices.push_back(i);
         if(deviceProperties.queueFamilies[i].hasSurfaceSupport) presentFamilyIndices.push_back(i);
         if(deviceProperties.queueFamilies[i].rawStruct.queueFlags & VK_QUEUE_TRANSFER_BIT) transferFamilyIndices.push_back(i);
+
+        familyQueueDebugInfo += "\n   Family " + std::to_string(i) + " has " + std::to_string(familyQueueCount) + " queues";
     }
 
-    logIdentity("Created " + std::to_string(deviceProperties.queueFamilies.size()) + " queue families." + 
+    logIdentity("Found " + std::to_string(deviceProperties.queueFamilies.size()) + " queue families:" + 
         "\n   Graphics: " + vectorToString(graphicsFamilyIndices) + 
         "\n   Surface: " + vectorToString(presentFamilyIndices) +
-        "\n   Transfer: " + vectorToString(transferFamilyIndices)
+        "\n   Transfer: " + vectorToString(transferFamilyIndices) +
+        "\nWhere:" + familyQueueDebugInfo        
     );
 }
 

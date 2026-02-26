@@ -3,10 +3,10 @@
 
 #include "core/Registry/base/InterfaceBaseClass.h"
 
-typedef uint32_t MeshHash;
+typedef uint32_t Hash_T;
 
 struct SceneObject {
-    MeshHash meshHash;
+    Hash_T meshHash;
     Vector3 position;
 };
 
@@ -14,8 +14,8 @@ class IGraphicsBackend : public InterfaceBaseClass {
     public:
         std::string token() override { return "IGraphicsBackend"; }
 
-        virtual int storeMesh(MeshHash hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) = 0;
-        virtual int discardMesh(MeshHash hash) = 0;
+        virtual int storeMesh(Hash_T hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) = 0;
+        virtual int discardMesh(Hash_T hash) = 0;
 
         virtual int addToFrame(SceneObject object) = 0;
         virtual int clearFrame() = 0;

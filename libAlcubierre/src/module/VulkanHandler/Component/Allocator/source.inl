@@ -1,7 +1,7 @@
 VulkanMemoryAllocatorComponent::VulkanMemoryAllocatorComponent(VulkanHandler* _parent, Registry*& _registry_ptr) : parent(_parent), registry_ptr(_registry_ptr) {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
     VERTEXBUFFERSIZE = static_cast<VkDeviceSize>(CM->Get<int>({"graphics", "vertex_buffer_memory_size_bytes"}, 1000000));
-    INDEXBUFFERSIZE = VERTEXBUFFERSIZE * CM->Get<float>({"graphics", "index_buffer_memory_size_ratio"}, 0.25f);
+    INDEXBUFFERSIZE = VERTEXBUFFERSIZE * (static_cast<float>(sizeof(uint32_t)) / static_cast<float>(sizeof(Vector3)) * CM->Get<float>({"graphics", "index_buffer_memory_size_ratio"}, 1.00f));
 
     graphicsQueue = &parent->graphicsRenderingQueue;
     transferQueue = parent->device->fetchQueueHandle(VulkanDeviceComponent::queueType::TRANSFER);
@@ -33,7 +33,7 @@ VulkanMemoryAllocatorComponent::~VulkanMemoryAllocatorComponent() {
     if(stagingSet) delete stagingSet;
 }
 
-int VulkanMemoryAllocatorComponent::storeMesh(MeshHash hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) {
+int VulkanMemoryAllocatorComponent::storeMesh(Hash_T hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) {
     if(meshes.contains(hash)) return 1;
 
     VkDeviceSize verticeDataSize = vertices.size() * sizeof(Vector3);
@@ -43,7 +43,7 @@ int VulkanMemoryAllocatorComponent::storeMesh(MeshHash hash, std::vector<Vector3
 
     //We need to acquire a region of staging buffer memory to guarantee it for the duration of the copy operation.
     if(meshesPendingUpload.size() > 0) {
-        for(std::unordered_map<MeshHash, meshHandle>::iterator it = meshesPendingUpload.begin(); it != meshesPendingUpload.end();) {
+        for(std::unordered_map<Hash_T, meshHandle>::iterator it = meshesPendingUpload.begin(); it != meshesPendingUpload.end();) {
             if(it->second.memoryValid(this)) {
                 stagingSet->discardMesh(it->first);
                 it = meshesPendingUpload.erase(it);
@@ -73,7 +73,7 @@ int VulkanMemoryAllocatorComponent::storeMesh(MeshHash hash, std::vector<Vector3
     return 0;
 }
 
-int VulkanMemoryAllocatorComponent::discardMesh(MeshHash hash) {
+int VulkanMemoryAllocatorComponent::discardMesh(Hash_T hash) {
     if(!meshes.contains(hash)) return 1;
     
     bufferSets.at(meshes.at(hash).bufferSetId)->discardMesh(hash);
@@ -88,7 +88,7 @@ bool VulkanMemoryAllocatorComponent::checkMeshTransferIndexValidity(uint64_t& in
     return worker->transferQueuePage() >= index;
 }
 
-VulkanMemoryAllocatorComponent::meshHandle* VulkanMemoryAllocatorComponent::fetchMesh(MeshHash hash) {
+VulkanMemoryAllocatorComponent::meshHandle* VulkanMemoryAllocatorComponent::fetchMesh(Hash_T hash) {
     // logIdentity(std::to_string(hash));
     assert(meshes.contains(hash));
     return &meshes.at(hash);
@@ -114,6 +114,9 @@ VulkanMemoryAllocatorComponent::BufferSet* VulkanMemoryAllocatorComponent::insta
 }
 
 VulkanMemoryAllocatorComponent::BufferSet* VulkanMemoryAllocatorComponent::pickBufferSet(VkDeviceSize verticeDataSize, VkDeviceSize indiceDataSize) {
+    if(verticeDataSize > VERTEXBUFFERSIZE) throw VulkanException("Mesh sized " + std::to_string(verticeDataSize) + "B" + " will never fit in memory buffers of max size " + std::to_string(VERTEXBUFFERSIZE) + "B");
+    if(indiceDataSize > INDEXBUFFERSIZE) throw VulkanException("Mesh sized " + std::to_string(indiceDataSize) + "B" + " will never fit in memory buffers of max size " + std::to_string(INDEXBUFFERSIZE) + "B");
+
     BufferSet* r = nullptr;
     VkDeviceSize smallestFoundFreeVertexBlockSize = bufferSets.begin()->second->smallestFreeVertexBlockSize() + 1;
 
@@ -132,7 +135,7 @@ VulkanMemoryAllocatorComponent::BufferSet* VulkanMemoryAllocatorComponent::pickB
 }
 
 VulkanMemoryAllocatorComponent::BufferSet::BufferSet(VkDevice& _device, uint64_t _setId, VkDeviceSize vertexBufferSize, VkDeviceSize indexBufferSize, int _queueIndex, int _memoryTypeIndex, bool staging) : device(_device), setId(_setId) {
-    logIdentity("Creating buffer set with VBuffer size " + std::to_string(vertexBufferSize) + " and IBuffer size " + std::to_string(indexBufferSize));
+    logIdentity("Creating buffer set with VBuffer size " + std::to_string(vertexBufferSize) + "B" + " and IBuffer size " + std::to_string(indexBufferSize) + "B");
     
     VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     if(staging) usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
@@ -165,7 +168,7 @@ VulkanMemoryAllocatorComponent::BufferSet::~BufferSet() {
     vkFreeMemory(device, allocation, nullptr);
 }
 
-VulkanMemoryAllocatorComponent::meshHandle VulkanMemoryAllocatorComponent::BufferSet::storeMesh(MeshHash id, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) {
+VulkanMemoryAllocatorComponent::meshHandle VulkanMemoryAllocatorComponent::BufferSet::storeMesh(Hash_T id, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) {
     VkDeviceSize verticesSize = sizeof(Vector3) * vertices.size();
     assert(verticesSize < largestFreeVertexBlockSize());
     VkDeviceSize indicesSize = sizeof(uint32_t) * indices.size();
@@ -179,7 +182,7 @@ VulkanMemoryAllocatorComponent::meshHandle VulkanMemoryAllocatorComponent::Buffe
     );
 }
 
-int VulkanMemoryAllocatorComponent::BufferSet::discardMesh(MeshHash id) {
+int VulkanMemoryAllocatorComponent::BufferSet::discardMesh(Hash_T id) {
     assert(vertexMemoryBlocks.contains(id) && indexMemoryBlocks.contains(id));
     vertexBuffer->releaseMemory(vertexMemoryBlocks.at(id));
     vertexMemoryBlocks.erase(id);
@@ -314,14 +317,12 @@ int VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::releaseMemory(memor
 }
 
 int VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::recalculateBlockSizes() {
-    if(blockCompositionChanged) {
-        largestFreeBlock = smallestFreeBlock = &freeBlocks[0];
+    largestFreeBlock = smallestFreeBlock = &freeBlocks[0];
 
-        for(int i = 1; i < freeBlocks.size(); i++) {
-            VkDeviceSize& size = freeBlocks[i].size;
-            if(size > largestFreeBlock->size) largestFreeBlock = &freeBlocks[i];
-            else if(size < smallestFreeBlock->size) smallestFreeBlock = &freeBlocks[i];
-        }
+    for(int i = 1; i < freeBlocks.size(); i++) {
+        VkDeviceSize& size = freeBlocks[i].size;
+        if(size > largestFreeBlock->size) largestFreeBlock = &freeBlocks[i];
+        else if(size < smallestFreeBlock->size) smallestFreeBlock = &freeBlocks[i];
     }
 
     blockCompositionChanged = false;
@@ -333,8 +334,9 @@ int VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::coalesce(int& index
     VkDeviceSize end = freeBlocks[index].endIndex();
 
     bool previousAdjacentIsFree = false;
-    if(index > 0) previousAdjacentIsFree = (freeBlocks[index - 1].endIndex() == offset);
     bool nextAdjacentIsFree = false;
+
+    if(index > 0) previousAdjacentIsFree = (freeBlocks[index - 1].endIndex() == offset);
     if(index < freeBlocks.size() - 1) nextAdjacentIsFree = (freeBlocks[index + 1].offset == end);
     if(!previousAdjacentIsFree && !nextAdjacentIsFree) return 1;
 
@@ -344,7 +346,8 @@ int VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::coalesce(int& index
 
     memoryBlock newBlock(offset, end - offset);
     freeBlocks.insert(freeBlocks.begin() + newIndex, std::move(newBlock));
-    freeBlocks.erase(freeBlocks.begin() + newIndex + 1, freeBlocks.begin() + newIndex + 1 + previousAdjacentIsFree + nextAdjacentIsFree);
+    freeBlocks.erase(freeBlocks.begin() + newIndex + 1, freeBlocks.begin() + newIndex + 2 + previousAdjacentIsFree + nextAdjacentIsFree);
+    //erase is [i, j), i.e. it will erase i but not j, so add 1 to the entry index because we insert the new block before everything else, then add 2 to the end index so that j is 1 past the end.
     
     blockCompositionChanged = true;
     return 0;    
@@ -355,40 +358,51 @@ VkBuffer& VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::handle() {
 }
 
 VkDeviceSize VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::largestFreeBlockSize() {
-    recalculateBlockSizes();
+    if(blockCompositionChanged) recalculateBlockSizes();
     return largestFreeBlock->size;
 }
 
 VkDeviceSize VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::smallestFreeBlockSize() {
-    recalculateBlockSizes();
+    if(blockCompositionChanged) recalculateBlockSizes();
     return smallestFreeBlock->size;
 }
 
+#include <algorithm>
+
 std::string VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::dump() {
-    std::map<uint64_t, std::string> memoryMap;
+    struct memoryBlockDebugInfo {
+        VkDeviceSize offset;
+        std::string info;
+
+        bool operator<(memoryBlockDebugInfo& other) { return offset < other.offset; }
+    };
+
+    std::vector<memoryBlockDebugInfo> allMemoryBlocks(allocatedBlocks.size() + freeBlocks.size());
+
     for(int i = 0; i < allocatedBlocks.size(); i++) {
-        memoryBlock& block = allocatedBlocks[i];
-        memoryMap.emplace(block.offset, std::string("\n   ") +
+        allMemoryBlocks[i].offset = allocatedBlocks[i].offset;
+        allMemoryBlocks[i].info = (std::string("\n   ") +
             "Allocated #" + std::to_string(i) + ": " +
-            "begin " + std::to_string(block.offset) + "; "
-            "end " + std::to_string(block.endIndex()) + "; "
-            "size " + std::to_string(block.size) + ";"
+            "begin " + std::to_string(allocatedBlocks[i].offset) + "; "
+            "end " + std::to_string(allocatedBlocks[i].endIndex()) + "; "
+            "size " + std::to_string(allocatedBlocks[i].size) + "B;"
+        );
+    }
+    for(int i = 0; i < freeBlocks.size(); i++) {
+        allMemoryBlocks[i + allocatedBlocks.size()].offset = freeBlocks[i].offset;
+        allMemoryBlocks[i + allocatedBlocks.size()].info = (std::string("\n   ") +
+            "Free #" + std::to_string(i) + ": " +
+            "begin " + std::to_string(freeBlocks[i].offset) + "; "
+            "end " + std::to_string(freeBlocks[i].endIndex()) + "; "
+            "size " + std::to_string(freeBlocks[i].size) + "B;"
         );
     }
 
-    for(int i = 0; i < freeBlocks.size(); i++) {
-        memoryBlock& block = freeBlocks[i];
-        memoryMap.emplace(block.offset, std::string("\n   ") +
-            "Free #" + std::to_string(i) + ": " +
-            "begin " + std::to_string(block.offset) + "; "
-            "end " + std::to_string(block.endIndex()) + "; "
-            "size " + std::to_string(block.size) + ";"
-        );
-    }
+    std::sort(allMemoryBlocks.begin(), allMemoryBlocks.end());
 
     std::string hold;
-    for (std::map<uint64_t, std::string>::iterator it = memoryMap.begin(); it != memoryMap.end(); it++) {
-        hold += it->second;
+    for(int i = 0; i < allMemoryBlocks.size(); i++) {
+        hold += allMemoryBlocks[i].info;
     }
 
     return hold;
@@ -466,7 +480,7 @@ uint64_t VulkanMemoryAllocatorComponent::transferWorkerThread::transferQueuePage
     return r;
 }
 
-#include <iostream>
+// #include <iostream>
 
 void VulkanMemoryAllocatorComponent::transferWorkerThread::thread() {
     while(running) {

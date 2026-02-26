@@ -33,136 +33,151 @@ class VulkanMemoryAllocatorComponent {
         VulkanDeviceComponent::QueueHandle* graphicsQueue;
         VulkanDeviceComponent::QueueHandle transferQueue;
 
-    public:
-        int storeMesh(MeshHash hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
-        int discardMesh(MeshHash hash);
+    //Meshes
+        public:
+            int storeMesh(Hash_T hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
+            int discardMesh(Hash_T hash);
 
-        bool checkMeshTransferIndexValidity(uint64_t& index);
+            bool checkMeshTransferIndexValidity(uint64_t& index);
 
-        struct meshHandle {
-            struct meshHandlePart {
-                VkBuffer* buffer;
-                VkDeviceSize offset;
-                int count;
-                VkDeviceSize size;
-
-                uint64_t memoryValidAfter;
-                bool memoryValidSignal = false;
-                bool memoryValid(VulkanMemoryAllocatorComponent* allocator) { if(!memoryValidSignal) memoryValidSignal = allocator->checkMeshTransferIndexValidity(memoryValidAfter); return memoryValidSignal; };
-
-                meshHandlePart(VkBuffer* _buffer, VkDeviceSize _offset, int _count, VkDeviceSize _size) : buffer(_buffer), offset(_offset), count(_count), size(_size) {};
-            };
-            meshHandlePart vertices;
-            meshHandlePart indices;
-
-            bool memoryValid(VulkanMemoryAllocatorComponent* allocator) { return vertices.memoryValid(allocator) && indices.memoryValid(allocator); };
-
-            uint64_t bufferSetId; //Don't use this to query buffer set, renderchain just groups meshHandles.
-            //(For now)
-
-            meshHandle(uint64_t _bufferSetId, meshHandlePart _vertices, meshHandlePart _indices) : bufferSetId(_bufferSetId), vertices(_vertices), indices(_indices) {}
-        };
-
-        meshHandle* fetchMesh(uint32_t hash);
-
-        std::string dumpMemoryLayout();
-
-    private:
-        class BufferSet {
-            public:
-                BufferSet(VkDevice& _device, uint64_t _setId, VkDeviceSize vertexBufferSize, VkDeviceSize indexBufferSize, int _queueIndex, int _memoryTypeIndex, bool staging = false);
-                ~BufferSet();
-
-            protected:
-                struct memoryBlock {
-                    memoryBlock(VkDeviceSize _offset, VkDeviceSize _size) : offset(_offset), size(_size) {};
-                    
+            struct meshHandle {
+                struct meshHandlePart {
+                    VkBuffer* buffer;
                     VkDeviceSize offset;
+                    int count;
                     VkDeviceSize size;
-                    VkDeviceSize endIndex() { return offset + size; } //Actually returns the first index AFTER the end of the block
 
-                    bool operator==(const memoryBlock& other) const { return offset == other.offset; };
-                    const memoryBlock operator+(const memoryBlock& other) = delete;
+                    uint64_t memoryValidAfter;
+                    bool memoryValidSignal = false;
+                    bool memoryValid(VulkanMemoryAllocatorComponent* allocator) { if(!memoryValidSignal) memoryValidSignal = allocator->checkMeshTransferIndexValidity(memoryValidAfter); return memoryValidSignal; };
 
-                    memoryBlock(memoryBlock&& other) : offset(other.offset), size(other.size) {};
-                    memoryBlock& operator=(memoryBlock&& other) {offset = other.offset; size = other.size; return *this;}
-                    memoryBlock(const memoryBlock& other) : offset(other.offset), size(other.size) {}; //We need a copy constructor to return values in acquireMemory
+                    meshHandlePart(VkBuffer* _buffer, VkDeviceSize _offset, int _count, VkDeviceSize _size) : buffer(_buffer), offset(_offset), count(_count), size(_size) {};
                 };
+                meshHandlePart vertices;
+                meshHandlePart indices;
 
-            private:
-                class MemoryBuffer {
-                    public:
-                        MemoryBuffer(VkDevice& _device, VkDeviceSize* size, VkDeviceSize* alignment, uint32_t _queueIndex, VkBufferUsageFlags _usage);
-                        ~MemoryBuffer();
+                bool memoryValid(VulkanMemoryAllocatorComponent* allocator) { return vertices.memoryValid(allocator) && indices.memoryValid(allocator); };
 
-                    private:
-                        VkDevice& device;
-                        VkBuffer instance = VK_NULL_HANDLE;
-                        VkDeviceSize alignment;
+                uint64_t bufferSetId; //Don't use this to query buffer set, renderchain just groups meshHandles.
+                //(For now)
 
-                        std::vector<memoryBlock> freeBlocks; //Order not guaranteed.
-                        std::vector<memoryBlock> allocatedBlocks;
+                meshHandle(uint64_t _bufferSetId, meshHandlePart _vertices, meshHandlePart _indices) : bufferSetId(_bufferSetId), vertices(_vertices), indices(_indices) {}
+            };
 
-                        memoryBlock* largestFreeBlock;
-                        memoryBlock* smallestFreeBlock;
-                        int recalculateBlockSizes();
-                        bool blockCompositionChanged = true;
+            meshHandle* fetchMesh(Hash_T hash);
 
-                        int coalesce(int& index);
+            std::string dumpMemoryLayout();
 
-                    public:
-                        memoryBlock acquireMemory(void* data, VkDeviceSize dataSize);
-                        int releaseMemory(memoryBlock& block);
+        private:
+            class BufferSet {
+                public:
+                    BufferSet(VkDevice& _device, uint64_t _setId, VkDeviceSize vertexBufferSize, VkDeviceSize indexBufferSize, int _queueIndex, int _memoryTypeIndex, bool staging = false);
+                    ~BufferSet();
 
-                        VkBuffer& handle();
+                protected:
+                    struct memoryBlock {
+                        memoryBlock(VkDeviceSize _offset, VkDeviceSize _size) : offset(_offset), size(_size) {};
+                        
+                        VkDeviceSize offset;
+                        VkDeviceSize size;
+                        VkDeviceSize endIndex() { return offset + size; } //Actually returns the first index AFTER the end of the block
 
-                        VkDeviceSize largestFreeBlockSize();
-                        VkDeviceSize smallestFreeBlockSize();
+                        bool operator==(const memoryBlock& other) const { return offset == other.offset; };
+                        const memoryBlock operator+(const memoryBlock& other) = delete;
 
-                        std::string dump();
-                };
+                        memoryBlock(memoryBlock&& other) : offset(other.offset), size(other.size) {};
+                        memoryBlock& operator=(memoryBlock&& other) {offset = other.offset; size = other.size; return *this;}
+                        memoryBlock(const memoryBlock& other) : offset(other.offset), size(other.size) {}; //We need a copy constructor to return values in acquireMemory
+                    };
 
-            private:
-                VkDevice& device;
+                private:
+                    class MemoryBuffer {
+                        public:
+                            MemoryBuffer(VkDevice& _device, VkDeviceSize* size, VkDeviceSize* alignment, uint32_t _queueIndex, VkBufferUsageFlags _usage);
+                            ~MemoryBuffer();
 
-                VkDeviceMemory allocation;
+                        private:
+                            VkDevice& device;
+                            VkBuffer instance = VK_NULL_HANDLE;
+                            VkDeviceSize alignment;
 
-                MemoryBuffer* vertexBuffer = nullptr;
-                MemoryBuffer* indexBuffer = nullptr;
+                            std::vector<memoryBlock> freeBlocks;
+                            std::vector<memoryBlock> allocatedBlocks;
 
-                std::unordered_map<MeshHash, memoryBlock> vertexMemoryBlocks;
-                std::unordered_map<MeshHash, memoryBlock> indexMemoryBlocks;
+                            memoryBlock* largestFreeBlock;
+                            memoryBlock* smallestFreeBlock;
+                            int recalculateBlockSizes();
+                            bool blockCompositionChanged = true;
 
-            public:
-                uint64_t setId;
+                            int coalesce(int& index);
 
-                meshHandle storeMesh(MeshHash id, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
-                int discardMesh(MeshHash id);
+                        public:
+                            memoryBlock acquireMemory(void* data, VkDeviceSize dataSize);
+                            int releaseMemory(memoryBlock& block);
 
-                VkDeviceSize largestFreeVertexBlockSize();
-                VkDeviceSize smallestFreeVertexBlockSize();
-                VkDeviceSize largestFreeIndexBlockSize();
-                VkDeviceSize smallestFreeIndexBlockSize();
-                int storedCount();
+                            VkBuffer& handle();
 
-                VkDeviceMemory& allocationHandle();
+                            VkDeviceSize largestFreeBlockSize();
+                            VkDeviceSize smallestFreeBlockSize();
 
-                std::string dump();
-        };
+                            std::string dump();
+                    };
 
-        std::unordered_map<MeshHash, meshHandle> meshes;
+                private:
+                    VkDevice& device;
 
-        BufferSet* stagingSet = nullptr;
-        std::unordered_map<MeshHash, meshHandle> meshesPendingUpload;
-        
-        void* hostVisibleMemoryAccess = nullptr;
-        char* hostVisibleMemoryAccessBaseIndex = nullptr;
+                    VkDeviceMemory allocation;
 
-        std::unordered_map<int, BufferSet*> bufferSets;
-        uint64_t buffersEver = 0;
+                    MemoryBuffer* vertexBuffer = nullptr;
+                    MemoryBuffer* indexBuffer = nullptr;
 
-        BufferSet* instantiateBufferSet();
-        BufferSet* pickBufferSet(VkDeviceSize verticeDataSize, VkDeviceSize indiceDataSize);
+                    std::unordered_map<Hash_T, memoryBlock> vertexMemoryBlocks;
+                    std::unordered_map<Hash_T, memoryBlock> indexMemoryBlocks;
+
+                public:
+                    uint64_t setId;
+
+                    meshHandle storeMesh(Hash_T id, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
+                    int discardMesh(Hash_T id);
+
+
+
+                    VkDeviceSize largestFreeVertexBlockSize();
+                    VkDeviceSize smallestFreeVertexBlockSize();
+                    VkDeviceSize largestFreeIndexBlockSize();
+                    VkDeviceSize smallestFreeIndexBlockSize();
+                    int storedCount();
+
+                    VkDeviceMemory& allocationHandle();
+
+                    std::string dump();
+            };
+
+            std::unordered_map<Hash_T, meshHandle> meshes;
+
+            BufferSet* stagingSet = nullptr;
+            std::unordered_map<Hash_T, meshHandle> meshesPendingUpload;
+            
+            void* hostVisibleMemoryAccess = nullptr;
+            char* hostVisibleMemoryAccessBaseIndex = nullptr;
+
+            std::unordered_map<int, BufferSet*> bufferSets;
+            uint64_t buffersEver = 0;
+
+            BufferSet* instantiateBufferSet();
+            BufferSet* pickBufferSet(VkDeviceSize verticeDataSize, VkDeviceSize indiceDataSize);
+
+    //Textures
+        // public:
+        //     int storeTexture(Hash_T hash, std::vector<>& texels);
+        //     int discardMesh(Hash_T hash);
+
+        //     bool checkTextureTransferIndexValidity(uint64_t& index);
+
+        //     struct textureHandle {
+        //     };
+
+        //     textureHandle* fetchTexture(Hash_T hash);
 
     private:
         struct transferOperation {

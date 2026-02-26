@@ -294,7 +294,7 @@ int VulkanRenderchainComponent::recordCommandBuffer(Frame* frame, VulkanSwapchai
                 uint32_t firstIndex = static_cast<uint32_t>(it->second.objects[j]->indices.offset) / sizeof(uint32_t);
                 int32_t vertexOffset = static_cast<int32_t>(it->second.objects[j]->vertices.offset) / sizeof(Vector3);
                 vkCmdDrawIndexed(commandBuffer, it->second.objects[j]->indices.count, 1, firstIndex, vertexOffset, 0);
-            } 
+            }
         }
     }
     vkCmdEndRendering(commandBuffer);
