@@ -76,6 +76,13 @@ int AlcubierreEngineImpl::placeActor(std::vector<int> position, std::string& mod
 }
 
 int AlcubierreEngineImpl::frame() {
+    // static int frames = 0;
+    // frames++;
+    // if(frames == 120) {
+    //     IDirector* DR = dynamic_cast<IDirector*>(registryMasterInstance.FetchService(DIRECTOR));
+    //     DR->detachMesh(objects[0]);
+    // }
+
     IWindowManager* WM = dynamic_cast<IWindowManager*>(registryMasterInstance.FetchService(WINDOW_MANAGER));
     WM->pollEvents();
     IDirector* DR = dynamic_cast<IDirector*>(registryMasterInstance.FetchService(DIRECTOR));

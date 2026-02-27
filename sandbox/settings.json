@@ -23,7 +23,7 @@
             "height" : 600,
             //If true, above window size values are ignored.
             "maximised" : false,
-            //If true, the user may freely resize the window in their compositor. may result in significant performance issues on some systems (namely wayland).
+            //If true, the user may freely resize the window in their compositor. May result in significant performance issues on some systems (namely wayland).
             "permit_resize" : false
         }
     },
@@ -51,7 +51,7 @@
         //Size of vertex buffers in bytes.
         "vertex_buffer_memory_size_bytes" : 10000000,
         //Ratio of index buffer size to vertex buffer size where size = size of one index / size of one vertex * this ratio.
-        //Ideally, this number should be the ratio of indices to vertices. In an average 3d model, each vertice is used by 6 triangles, so the ratio is 6:1.
+        //Ideally, this number should be the ratio of indices to vertices. In an average 3d model, each vertice is used by 6 triangles, so the ratio would be 6:1.
         "index_buffer_memory_size_ratio" : 6.00
     }
 }

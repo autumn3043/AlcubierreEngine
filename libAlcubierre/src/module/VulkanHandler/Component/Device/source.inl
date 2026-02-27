@@ -222,7 +222,7 @@ VulkanDeviceComponent::PhysicalDeviceProperties::PhysicalDeviceProperties(Vulkan
 
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memory.rawStruct);
     VkMemoryPropertyFlags deviceLocalMemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    VkMemoryPropertyFlags hostVisibleMemoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    VkMemoryPropertyFlags hostVisibleMemoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     memory.deviceLocalIndex = -1;
     memory.hostVisibleIndex = -1;
     for(int i = 0; i < memory.rawStruct.memoryTypeCount; i++) {
@@ -244,6 +244,6 @@ VulkanDeviceComponent::PhysicalDeviceProperties::PhysicalDeviceProperties(Vulkan
     }
 }
 
-VulkanDeviceComponent::PhysicalDeviceProperties& VulkanDeviceComponent::fetchDeviceProperties() {
+const VulkanDeviceComponent::PhysicalDeviceProperties& VulkanDeviceComponent::fetchDeviceProperties() {
     return deviceProperties;
 }

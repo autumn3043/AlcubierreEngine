@@ -13,6 +13,7 @@ class IDirector : public InterfaceBaseClass {
         virtual int createObject(WorldObject_Handle& object) = 0;
         virtual int destroyObject(WorldObject_Handle& object) = 0;
         virtual int attachMesh(WorldObject_Handle& object, uint32_t modelHash) = 0;
+        virtual int detachMesh(WorldObject_Handle& object) = 0;
         virtual int setPosition(WorldObject_Handle& object, Vector3 newPosition) = 0;
 
         struct Scene_Handle { void* ptr = nullptr; };

@@ -12,11 +12,24 @@ VulkanMemoryAllocatorComponent::VulkanMemoryAllocatorComponent(VulkanHandler* _p
     LOCALMEMORYINDEX = parent->device->fetchDeviceProperties().memory.deviceLocalIndex;
     HOSTMEMORYINDEX = parent->device->fetchDeviceProperties().memory.hostVisibleIndex;
 
-    stagingSet = new BufferSet(parent->device->Device, 0, VERTEXBUFFERSIZE, INDEXBUFFERSIZE, TRANSFERQUEUEINDEX, HOSTMEMORYINDEX, true);
-    vkMapMemory(parent->device->Device, stagingSet->allocationHandle(), 0, VK_WHOLE_SIZE, NULL_BIT, &hostVisibleMemoryAccess);
-    hostVisibleMemoryAccessBaseIndex = static_cast<char*>(hostVisibleMemoryAccess);
     WORKERTHREADBUFFERCOUNT = CM->Get<int>({"graphics", "transfer_buffer_count"}, 8);
     worker = new transferWorkerThread(parent->device->Device, &transferQueue, WORKERTHREADBUFFERCOUNT);
+
+    //Staging buffer
+    VkDeviceSize stagingBufferSize = VERTEXBUFFERSIZE;
+    stagingBuffer = new MemoryBuffer(parent->device->Device, &stagingBufferSize, nullptr, TRANSFERQUEUEINDEX, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+
+    VkMemoryAllocateInfo allocationInfo {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = nullptr,
+        .allocationSize = stagingBufferSize,
+        .memoryTypeIndex = static_cast<uint32_t>(HOSTMEMORYINDEX)
+    };
+
+    vkAllocateMemory(parent->device->Device, &allocationInfo, nullptr, &stagingAllocation);
+    vkBindBufferMemory(parent->device->Device, stagingBuffer->handle(), stagingAllocation, 0);
+    vkMapMemory(parent->device->Device, stagingAllocation, 0, VK_WHOLE_SIZE, NULL_BIT, &hostVisibleMemoryAccess);
+    hostVisibleMemoryAccessBaseIndex = static_cast<char*>(hostVisibleMemoryAccess);
 
     instantiateBufferSet();
 }
@@ -28,9 +41,9 @@ VulkanMemoryAllocatorComponent::~VulkanMemoryAllocatorComponent() {
         if(bufferSets.at(i)) delete bufferSets.at(i);
     }
 
-    vkUnmapMemory(parent->device->Device, stagingSet->allocationHandle());
-    
-    if(stagingSet) delete stagingSet;
+    vkUnmapMemory(parent->device->Device, stagingAllocation);
+    vkFreeMemory(parent->device->Device, stagingAllocation, nullptr);
+    if(stagingBuffer) delete stagingBuffer;
 }
 
 int VulkanMemoryAllocatorComponent::storeMesh(Hash_T hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) {
@@ -41,31 +54,43 @@ int VulkanMemoryAllocatorComponent::storeMesh(Hash_T hash, std::vector<Vector3>&
     BufferSet* set = pickBufferSet(verticeDataSize, indiceDataSize);
     meshHandle& deviceMemory = meshes.emplace(hash, set->storeMesh(hash, vertices, indices)).first->second;
 
-    //We need to acquire a region of staging buffer memory to guarantee it for the duration of the copy operation.
+    //Check all meshes pending upload in buffers. If they have been completed, we can free that part of the staging buffer. 
+    //OPT: Find some way to call back to this or include it in the worker thread or something. 
+    //OPT: If members are stored in order of their memory valid index then we can do something like release all it.begin() -> x where x is the last element where memoryValid()
+    //FIX: Erases member from list currently being iterated.
     if(meshesPendingUpload.size() > 0) {
         for(std::unordered_map<Hash_T, meshHandle>::iterator it = meshesPendingUpload.begin(); it != meshesPendingUpload.end();) {
             if(it->second.memoryValid(this)) {
-                stagingSet->discardMesh(it->first);
+                stagingBuffer->releaseMemory(it->second.vertices.block);
+                stagingBuffer->releaseMemory(it->second.indices.block);
                 it = meshesPendingUpload.erase(it);
             } else {
                 it++;
             }
         }
     }
-    meshHandle& stagingMemory = meshesPendingUpload.emplace(hash, stagingSet->storeMesh(hash, vertices, indices)).first->second;
+    //We need to acquire a region of staging buffer memory to guarantee it for the duration of the copy operation.
+    meshHandle& stagingMemory = meshesPendingUpload.emplace(
+        hash, 
+        meshHandle(
+            0,
+            meshHandle::meshHandlePart(&stagingBuffer->handle(), vertices.size(), stagingBuffer->acquireMemory(verticeDataSize)),
+            meshHandle::meshHandlePart(&stagingBuffer->handle(), indices.size(), stagingBuffer->acquireMemory(indiceDataSize))
+        )
+    ).first->second;
 
     //Copy into the staging memory.
-    memcpy(hostVisibleMemoryAccessBaseIndex + stagingMemory.vertices.offset, vertices.data(), verticeDataSize);
-    memcpy(hostVisibleMemoryAccessBaseIndex + VERTEXBUFFERSIZE + stagingMemory.indices.offset, indices.data(), indiceDataSize);
+    memcpy(hostVisibleMemoryAccessBaseIndex + stagingMemory.vertices.block.offset, vertices.data(), verticeDataSize);
+    memcpy(hostVisibleMemoryAccessBaseIndex + stagingMemory.indices.block.offset, indices.data(), indiceDataSize);
 
     //From here, add copy operations to pool queue without blocking and mark when done.
     deviceMemory.vertices.memoryValidAfter = worker->addTransferOperationToQueue(transferOperation(
-        transferOperation::region(stagingMemory.vertices.buffer, stagingMemory.vertices.offset, stagingMemory.vertices.size), 
-        transferOperation::region(deviceMemory.vertices.buffer, deviceMemory.vertices.offset, deviceMemory.vertices.size)
+        transferOperation::region(stagingMemory.vertices.buffer, stagingMemory.vertices.block.offset, stagingMemory.vertices.block.size), 
+        transferOperation::region(deviceMemory.vertices.buffer, deviceMemory.vertices.block.offset, deviceMemory.vertices.block.size)
     ));
     deviceMemory.indices.memoryValidAfter = worker->addTransferOperationToQueue(transferOperation(
-        transferOperation::region(stagingMemory.indices.buffer, stagingMemory.indices.offset, stagingMemory.indices.size), 
-        transferOperation::region(deviceMemory.indices.buffer, deviceMemory.indices.offset, deviceMemory.indices.size)
+        transferOperation::region(stagingMemory.indices.buffer, stagingMemory.indices.block.offset, stagingMemory.indices.block.size), 
+        transferOperation::region(deviceMemory.indices.buffer, deviceMemory.indices.block.offset, deviceMemory.indices.block.size)
     ));
 
     dumpMemoryLayout();
@@ -81,6 +106,27 @@ int VulkanMemoryAllocatorComponent::discardMesh(Hash_T hash) {
 
     dumpMemoryLayout();
     
+    return 0;
+}
+
+int VulkanMemoryAllocatorComponent::incrementMeshConsumers(Hash_T hash) {
+    if(!meshes.contains(hash)) return 1;
+
+    meshes.at(hash).consumers++;
+
+    return 0;
+}
+
+int VulkanMemoryAllocatorComponent::decrementMeshConsumers(Hash_T hash) {
+    if(!meshes.contains(hash)) return 1;
+
+    meshHandle& mesh = meshes.at(hash);
+    mesh.consumers--;
+    if(mesh.consumers == 0) {
+        discardMesh(hash);
+        return 2;
+    }
+
     return 0;
 }
 
@@ -134,19 +180,16 @@ VulkanMemoryAllocatorComponent::BufferSet* VulkanMemoryAllocatorComponent::pickB
     else return r;
 }
 
-VulkanMemoryAllocatorComponent::BufferSet::BufferSet(VkDevice& _device, uint64_t _setId, VkDeviceSize vertexBufferSize, VkDeviceSize indexBufferSize, int _queueIndex, int _memoryTypeIndex, bool staging) : device(_device), setId(_setId) {
+VulkanMemoryAllocatorComponent::BufferSet::BufferSet(VkDevice& _device, uint64_t _setId, VkDeviceSize vertexBufferSize, VkDeviceSize indexBufferSize, int _queueIndex, int _memoryTypeIndex) : device(_device), setId(_setId) {
     logIdentity("Creating buffer set with VBuffer size " + std::to_string(vertexBufferSize) + "B" + " and IBuffer size " + std::to_string(indexBufferSize) + "B");
-    
-    VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    if(staging) usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     VkDeviceSize v_size = vertexBufferSize;
     VkDeviceSize v_alignment;
-    vertexBuffer = new MemoryBuffer(device, &v_size, &v_alignment, _queueIndex, usage | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    vertexBuffer = new MemoryBuffer(device, &v_size, &v_alignment, _queueIndex, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
     VkDeviceSize i_size = indexBufferSize;
     VkDeviceSize i_alignment;
-    indexBuffer = new MemoryBuffer(device, &i_size, &i_alignment, _queueIndex, usage | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    indexBuffer = new MemoryBuffer(device, &i_size, &i_alignment, _queueIndex, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     VkDeviceSize i_offset = ((v_size + i_alignment - 1) / i_alignment) * i_alignment; //Cancelling multiplication to truncate decimal
 
     VkMemoryAllocateInfo allocationInfo {
@@ -173,12 +216,14 @@ VulkanMemoryAllocatorComponent::meshHandle VulkanMemoryAllocatorComponent::Buffe
     assert(verticesSize < largestFreeVertexBlockSize());
     VkDeviceSize indicesSize = sizeof(uint32_t) * indices.size();
     assert(indicesSize < largestFreeIndexBlockSize());
-    vertexMemoryBlocks.emplace(id, vertexBuffer->acquireMemory(vertices.data(), verticesSize));
-    indexMemoryBlocks.emplace(id, indexBuffer->acquireMemory(indices.data(), indicesSize));
+
+    vertexMemoryBlocks.emplace(id, vertexBuffer->acquireMemory(verticesSize));
+    indexMemoryBlocks.emplace(id, indexBuffer->acquireMemory(indicesSize));
+
     return meshHandle(
         setId,
-        meshHandle::meshHandlePart(&vertexBuffer->handle(), vertexMemoryBlocks.at(id).offset, static_cast<int>(vertices.size()), verticesSize),
-        meshHandle::meshHandlePart(&indexBuffer->handle(), indexMemoryBlocks.at(id).offset, static_cast<int>(indices.size()), indicesSize)
+        meshHandle::meshHandlePart(&vertexBuffer->handle(), vertices.size(), vertexMemoryBlocks.at(id)),
+        meshHandle::meshHandlePart(&indexBuffer->handle(), indices.size(), indexMemoryBlocks.at(id))
     );
 }
 
@@ -225,7 +270,7 @@ std::string VulkanMemoryAllocatorComponent::BufferSet::dump() {
     return hold;
 }
 
-VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::MemoryBuffer(VkDevice& _device, VkDeviceSize* size, VkDeviceSize* alignment, uint32_t _queueIndex, VkBufferUsageFlags _usage) : device(_device) {
+VulkanMemoryAllocatorComponent::MemoryBuffer::MemoryBuffer(VkDevice& _device, VkDeviceSize* size, VkDeviceSize* alignment, uint32_t _queueIndex, VkBufferUsageFlags _usage) : device(_device) {
     VkBufferCreateInfo createInfo {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
@@ -239,17 +284,17 @@ VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::MemoryBuffer(VkDevice& 
     vkCreateBuffer(device, &createInfo, nullptr, &instance);
     VkMemoryRequirements requirements;
     vkGetBufferMemoryRequirements(device, instance, &requirements);
-    *size = requirements.size; 
-    *alignment = requirements.alignment;
+    if(size) *size = requirements.size; 
+    if(alignment) *alignment = requirements.alignment;
 
     freeBlocks.emplace_back(0, *size);
 }
 
-VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::~MemoryBuffer() {
+VulkanMemoryAllocatorComponent::MemoryBuffer::~MemoryBuffer() {
     if(instance) vkDestroyBuffer(device, instance, nullptr);
 }
 
-VulkanMemoryAllocatorComponent::BufferSet::memoryBlock VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::acquireMemory(void* data, VkDeviceSize dataSize) {
+VulkanMemoryAllocatorComponent::MemoryBuffer::memoryBlock& VulkanMemoryAllocatorComponent::MemoryBuffer::acquireMemory(VkDeviceSize dataSize) {
     VkDeviceSize smallestFoundIndex = 0;
     VkDeviceSize& smallestFoundSize = freeBlocks[0].size;
     for(int i = 1; i < freeBlocks.size(); i++) {
@@ -276,7 +321,7 @@ VulkanMemoryAllocatorComponent::BufferSet::memoryBlock VulkanMemoryAllocatorComp
     return allocatedBlocks.back();
 }
 
-int VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::releaseMemory(memoryBlock& block) {
+int VulkanMemoryAllocatorComponent::MemoryBuffer::releaseMemory(memoryBlock& block) {
     int eraseIndex;
     int insertIndex;
 
@@ -316,7 +361,7 @@ int VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::releaseMemory(memor
     return 0;
 }
 
-int VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::recalculateBlockSizes() {
+int VulkanMemoryAllocatorComponent::MemoryBuffer::recalculateBlockSizes() {
     largestFreeBlock = smallestFreeBlock = &freeBlocks[0];
 
     for(int i = 1; i < freeBlocks.size(); i++) {
@@ -329,7 +374,7 @@ int VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::recalculateBlockSiz
     return 0;
 }
 
-int VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::coalesce(int& index) {
+int VulkanMemoryAllocatorComponent::MemoryBuffer::coalesce(int& index) {
     VkDeviceSize offset = freeBlocks[index].offset;
     VkDeviceSize end = freeBlocks[index].endIndex();
 
@@ -353,34 +398,35 @@ int VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::coalesce(int& index
     return 0;    
 }
 
-VkBuffer& VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::handle() {
+VkBuffer& VulkanMemoryAllocatorComponent::MemoryBuffer::handle() {
     return instance;
 }
 
-VkDeviceSize VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::largestFreeBlockSize() {
+VkDeviceSize VulkanMemoryAllocatorComponent::MemoryBuffer::largestFreeBlockSize() {
     if(blockCompositionChanged) recalculateBlockSizes();
     return largestFreeBlock->size;
 }
 
-VkDeviceSize VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::smallestFreeBlockSize() {
+VkDeviceSize VulkanMemoryAllocatorComponent::MemoryBuffer::smallestFreeBlockSize() {
     if(blockCompositionChanged) recalculateBlockSizes();
     return smallestFreeBlock->size;
 }
 
 #include <algorithm>
 
-std::string VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::dump() {
+std::string VulkanMemoryAllocatorComponent::MemoryBuffer::dump() {
+    //OPT: This is a convenient way to sort because std::sort uses T::operator<() by default, but I don't love defining a struct inside a method. 
     struct memoryBlockDebugInfo {
-        VkDeviceSize offset;
+        VkDeviceSize* offset;
         std::string info;
 
-        bool operator<(memoryBlockDebugInfo& other) { return offset < other.offset; }
+        bool operator<(memoryBlockDebugInfo& other) { return *offset < *other.offset; }
     };
 
     std::vector<memoryBlockDebugInfo> allMemoryBlocks(allocatedBlocks.size() + freeBlocks.size());
 
     for(int i = 0; i < allocatedBlocks.size(); i++) {
-        allMemoryBlocks[i].offset = allocatedBlocks[i].offset;
+        allMemoryBlocks[i].offset = &allocatedBlocks[i].offset;
         allMemoryBlocks[i].info = (std::string("\n   ") +
             "Allocated #" + std::to_string(i) + ": " +
             "begin " + std::to_string(allocatedBlocks[i].offset) + "; "
@@ -389,7 +435,7 @@ std::string VulkanMemoryAllocatorComponent::BufferSet::MemoryBuffer::dump() {
         );
     }
     for(int i = 0; i < freeBlocks.size(); i++) {
-        allMemoryBlocks[i + allocatedBlocks.size()].offset = freeBlocks[i].offset;
+        allMemoryBlocks[i + allocatedBlocks.size()].offset = &freeBlocks[i].offset;
         allMemoryBlocks[i + allocatedBlocks.size()].info = (std::string("\n   ") +
             "Free #" + std::to_string(i) + ": " +
             "begin " + std::to_string(freeBlocks[i].offset) + "; "

@@ -95,7 +95,7 @@ class VulkanDeviceComponent {
             std::vector<QueueFamily> queueFamilies;
         };
 
-        PhysicalDeviceProperties& fetchDeviceProperties();
+        const PhysicalDeviceProperties& fetchDeviceProperties();
 
     private:
         PhysicalDeviceProperties deviceProperties;

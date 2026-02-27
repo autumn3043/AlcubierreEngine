@@ -37,7 +37,7 @@ int Director::renderFrame() {
 }
 
 uint64_t* Director::createObjectImpl() {
-    uint64_t* r = &objects.emplace(objectsEver, WorldObject(objectsEver)).first->second.uniqueId;
+    uint64_t* r = &objects.emplace(objectsEver, WorldObject(this, objectsEver)).first->second.uniqueId;
     objectsEver++;
     return r;
 }
@@ -54,18 +54,40 @@ int Director::attachMeshImpl(uint64_t* objectId, uint32_t meshHash) {
     return 0;
 }
 
+int Director::detachMeshImpl(uint64_t* objectId) {
+    objects.at(*objectId).detachMesh();
+
+    return 0;
+}
+
 int Director::setPositionImpl(uint64_t* objectId, Vector3 newPosition) {
     objects.at(*objectId).moveto(newPosition);
 
     return 0;
 }
 
-Director::WorldObject::WorldObject(uint64_t _uniqueId) : uniqueId(_uniqueId) {}
-Director::WorldObject::~WorldObject() {}
+Director::WorldObject::WorldObject(Director* _parent, uint64_t _uniqueId) : parent(_parent), uniqueId(_uniqueId) {}
+Director::WorldObject::~WorldObject() {
+    detachMesh();
+}
 
 int Director::WorldObject::attachMesh(uint32_t _meshHash) {
+    if(meshHash) detachMesh();
+
     meshHash = _meshHash;
     hasMesh = true;
+
+    dynamic_cast<IGraphicsBackend*>(parent->registry_ptr->FetchService(GRAPHICS_BACKEND))->incrementMeshConsumers(meshHash);
+
+    return 0;
+}
+
+int Director::WorldObject::detachMesh() {
+    if(hasMesh) {
+        hasMesh = false;
+
+        dynamic_cast<IGraphicsBackend*>(parent->registry_ptr->FetchService(GRAPHICS_BACKEND))->decrementMeshConsumers(meshHash);
+    }
 
     return 0;
 }

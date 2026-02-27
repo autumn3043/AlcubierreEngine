@@ -34,6 +34,7 @@ class Director : public WrapperBaseClass {
                 int createObject(WorldObject_Handle& object) override { return parent->createObject(object); }
                 int destroyObject(WorldObject_Handle& object) override { return parent->destroyObject(object); }
                 int attachMesh(WorldObject_Handle& object, uint32_t meshHash) override { return parent->attachMesh(object, meshHash); }
+                int detachMesh(WorldObject_Handle& object) override { return parent->detachMesh(object); }
                 int setPosition(WorldObject_Handle& object, Vector3 newPosition) override { return parent->setPosition(object, newPosition); }
 
                 int createScene(Scene_Handle& scene) override { return parent->createScene(scene); }
@@ -44,6 +45,8 @@ class Director : public WrapperBaseClass {
 
     private:
         static ModuleRegistryBundle bundle;
+
+    protected:
         Registry* registry_ptr = nullptr;
 
     private:
@@ -51,16 +54,19 @@ class Director : public WrapperBaseClass {
             public:
                 uint64_t uniqueId;
 
-                WorldObject(uint64_t _uniqueId);
+                WorldObject(Director* _parent, uint64_t _uniqueId);
                 ~WorldObject();
 
-                int attachMesh(uint32_t meshHash);
+                Director* parent;
+
+                int attachMesh(Hash_T meshHash);
+                int detachMesh();
                 int moveto(Vector3 _position);
 
                 Vector3 position = {0, 0, 0};
 
                 bool hasMesh = false;
-                uint32_t meshHash;
+                Hash_T meshHash;
         };
 
         class Scene {
@@ -83,19 +89,21 @@ class Director : public WrapperBaseClass {
     public:
         int renderFrame();
 
-        int createObject(IDirector::WorldObject_Handle& object) {object.ptr = createObjectImpl(); return 0;}
-        int destroyObject(IDirector::WorldObject_Handle& object) {return destroyObjectImpl(static_cast<uint64_t*>(object.ptr));}
-        int attachMesh(IDirector::WorldObject_Handle& object, uint32_t meshHash) {return attachMeshImpl(static_cast<uint64_t*>(object.ptr), meshHash);}
-        int setPosition(IDirector::WorldObject_Handle& object, Vector3 newPosition) {return setPositionImpl(static_cast<uint64_t*>(object.ptr), newPosition);}
+        int createObject(IDirector::WorldObject_Handle& object) { object.ptr = createObjectImpl(); return 0; }
+        int destroyObject(IDirector::WorldObject_Handle& object) { return destroyObjectImpl(static_cast<uint64_t*>(object.ptr)); }
+        int attachMesh(IDirector::WorldObject_Handle& object, Hash_T meshHash) { return attachMeshImpl(static_cast<uint64_t*>(object.ptr), meshHash); }
+        int detachMesh(IDirector::WorldObject_Handle& object) { return detachMeshImpl(static_cast<uint64_t*>(object.ptr)); }
+        int setPosition(IDirector::WorldObject_Handle& object, Vector3 newPosition) { return setPositionImpl(static_cast<uint64_t*>(object.ptr), newPosition); }
 
-        int createScene(IDirector::Scene_Handle& scene) {scene.ptr = createSceneImpl(); return 0;}
-        int destroyScene(IDirector::Scene_Handle& scene) {return destroySceneImpl(static_cast<uint64_t*>(scene.ptr));}
-        int addToScene(IDirector::Scene_Handle& scene, IDirector::WorldObject_Handle& object) {return addToSceneImpl(static_cast<uint64_t*>(scene.ptr), static_cast<uint64_t*>(object.ptr));}
+        int createScene(IDirector::Scene_Handle& scene) { scene.ptr = createSceneImpl(); return 0; }
+        int destroyScene(IDirector::Scene_Handle& scene) { return destroySceneImpl(static_cast<uint64_t*>(scene.ptr)); }
+        int addToScene(IDirector::Scene_Handle& scene, IDirector::WorldObject_Handle& object) { return addToSceneImpl(static_cast<uint64_t*>(scene.ptr), static_cast<uint64_t*>(object.ptr)); }
 
     private:
         uint64_t* createObjectImpl();
         int destroyObjectImpl(uint64_t* objectId);
         int attachMeshImpl(uint64_t* objectId, uint32_t);
+        int detachMeshImpl(uint64_t* objectId);
         int setPositionImpl(uint64_t* objectId, Vector3 newPosition);
 
         uint64_t* createSceneImpl();

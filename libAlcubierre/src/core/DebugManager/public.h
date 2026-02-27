@@ -39,7 +39,7 @@ class AlcEngineException : public std::exception {
 
 class DebugManagerImpl;
 
-class DebugManager{
+class DebugManager {
     public:
         static DebugManager& GetDebugManager();
 

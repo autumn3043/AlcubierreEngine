@@ -3,8 +3,6 @@
 
 #include "core/DebugManager/public.h"
 
-#include <climits>
-
 static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "Registry"), Write); }
 
 Registry::Registry() {

@@ -33,25 +33,82 @@ class VulkanMemoryAllocatorComponent {
         VulkanDeviceComponent::QueueHandle* graphicsQueue;
         VulkanDeviceComponent::QueueHandle transferQueue;
 
+    private:
+        class MemoryBuffer {
+            public:
+                MemoryBuffer(VkDevice& _device, VkDeviceSize* size, VkDeviceSize* alignment, uint32_t _queueIndex, VkBufferUsageFlags _usage);
+                ~MemoryBuffer();
+
+            public:
+                struct memoryBlock {
+                    memoryBlock(VkDeviceSize _offset, VkDeviceSize _size) : offset(_offset), size(_size) {};
+                    
+                    VkDeviceSize offset;
+                    VkDeviceSize size;
+                    VkDeviceSize endIndex() { return offset + size; } //Actually returns the first index AFTER the end of the block
+
+                    bool operator==(const memoryBlock& other) const { return offset == other.offset; };
+                    const memoryBlock operator+(const memoryBlock& other) = delete;
+
+                    memoryBlock(memoryBlock&& other) : offset(other.offset), size(other.size) {};
+                    memoryBlock& operator=(memoryBlock&& other) {offset = other.offset; size = other.size; return *this;}
+                    memoryBlock(const memoryBlock& other) : offset(other.offset), size(other.size) {}; //We need a copy constructor to return values in acquireMemory
+                };
+
+            private:
+                VkDevice& device;
+                VkBuffer instance = VK_NULL_HANDLE;
+                VkDeviceSize alignment;
+
+                std::vector<memoryBlock> freeBlocks;
+                std::vector<memoryBlock> allocatedBlocks;
+
+                memoryBlock* largestFreeBlock;
+                memoryBlock* smallestFreeBlock;
+                int recalculateBlockSizes();
+                bool blockCompositionChanged = true;
+
+                int coalesce(int& index);
+
+            public:
+                memoryBlock& acquireMemory(VkDeviceSize dataSize);
+                int releaseMemory(memoryBlock& block);
+
+                VkBuffer& handle();
+
+                VkDeviceSize largestFreeBlockSize();
+                VkDeviceSize smallestFreeBlockSize();
+
+                std::string dump();
+        };
+
+    private:
+        VkDeviceMemory stagingAllocation = VK_NULL_HANDLE;
+        MemoryBuffer* stagingBuffer = nullptr;
+
     //Meshes
         public:
             int storeMesh(Hash_T hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
             int discardMesh(Hash_T hash);
 
+            int incrementMeshConsumers(Hash_T hash);
+            int decrementMeshConsumers(Hash_T hash);
+
             bool checkMeshTransferIndexValidity(uint64_t& index);
 
             struct meshHandle {
+                int consumers = 0;
+
                 struct meshHandlePart {
                     VkBuffer* buffer;
-                    VkDeviceSize offset;
+                    MemoryBuffer::memoryBlock block;
                     int count;
-                    VkDeviceSize size;
 
                     uint64_t memoryValidAfter;
                     bool memoryValidSignal = false;
                     bool memoryValid(VulkanMemoryAllocatorComponent* allocator) { if(!memoryValidSignal) memoryValidSignal = allocator->checkMeshTransferIndexValidity(memoryValidAfter); return memoryValidSignal; };
 
-                    meshHandlePart(VkBuffer* _buffer, VkDeviceSize _offset, int _count, VkDeviceSize _size) : buffer(_buffer), offset(_offset), count(_count), size(_size) {};
+                    meshHandlePart(VkBuffer* _buffer, int _count, MemoryBuffer::memoryBlock& _block) : buffer(_buffer), count(_count), block(_block) {};
                 };
                 meshHandlePart vertices;
                 meshHandlePart indices;
@@ -71,57 +128,8 @@ class VulkanMemoryAllocatorComponent {
         private:
             class BufferSet {
                 public:
-                    BufferSet(VkDevice& _device, uint64_t _setId, VkDeviceSize vertexBufferSize, VkDeviceSize indexBufferSize, int _queueIndex, int _memoryTypeIndex, bool staging = false);
+                    BufferSet(VkDevice& _device, uint64_t _setId, VkDeviceSize vertexBufferSize, VkDeviceSize indexBufferSize, int _queueIndex, int _memoryTypeIndex);
                     ~BufferSet();
-
-                protected:
-                    struct memoryBlock {
-                        memoryBlock(VkDeviceSize _offset, VkDeviceSize _size) : offset(_offset), size(_size) {};
-                        
-                        VkDeviceSize offset;
-                        VkDeviceSize size;
-                        VkDeviceSize endIndex() { return offset + size; } //Actually returns the first index AFTER the end of the block
-
-                        bool operator==(const memoryBlock& other) const { return offset == other.offset; };
-                        const memoryBlock operator+(const memoryBlock& other) = delete;
-
-                        memoryBlock(memoryBlock&& other) : offset(other.offset), size(other.size) {};
-                        memoryBlock& operator=(memoryBlock&& other) {offset = other.offset; size = other.size; return *this;}
-                        memoryBlock(const memoryBlock& other) : offset(other.offset), size(other.size) {}; //We need a copy constructor to return values in acquireMemory
-                    };
-
-                private:
-                    class MemoryBuffer {
-                        public:
-                            MemoryBuffer(VkDevice& _device, VkDeviceSize* size, VkDeviceSize* alignment, uint32_t _queueIndex, VkBufferUsageFlags _usage);
-                            ~MemoryBuffer();
-
-                        private:
-                            VkDevice& device;
-                            VkBuffer instance = VK_NULL_HANDLE;
-                            VkDeviceSize alignment;
-
-                            std::vector<memoryBlock> freeBlocks;
-                            std::vector<memoryBlock> allocatedBlocks;
-
-                            memoryBlock* largestFreeBlock;
-                            memoryBlock* smallestFreeBlock;
-                            int recalculateBlockSizes();
-                            bool blockCompositionChanged = true;
-
-                            int coalesce(int& index);
-
-                        public:
-                            memoryBlock acquireMemory(void* data, VkDeviceSize dataSize);
-                            int releaseMemory(memoryBlock& block);
-
-                            VkBuffer& handle();
-
-                            VkDeviceSize largestFreeBlockSize();
-                            VkDeviceSize smallestFreeBlockSize();
-
-                            std::string dump();
-                    };
 
                 private:
                     VkDevice& device;
@@ -131,16 +139,14 @@ class VulkanMemoryAllocatorComponent {
                     MemoryBuffer* vertexBuffer = nullptr;
                     MemoryBuffer* indexBuffer = nullptr;
 
-                    std::unordered_map<Hash_T, memoryBlock> vertexMemoryBlocks;
-                    std::unordered_map<Hash_T, memoryBlock> indexMemoryBlocks;
+                    std::unordered_map<Hash_T, MemoryBuffer::memoryBlock> vertexMemoryBlocks;
+                    std::unordered_map<Hash_T, MemoryBuffer::memoryBlock> indexMemoryBlocks;
 
                 public:
                     uint64_t setId;
 
                     meshHandle storeMesh(Hash_T id, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
                     int discardMesh(Hash_T id);
-
-
 
                     VkDeviceSize largestFreeVertexBlockSize();
                     VkDeviceSize smallestFreeVertexBlockSize();
@@ -153,9 +159,8 @@ class VulkanMemoryAllocatorComponent {
                     std::string dump();
             };
 
+        private:
             std::unordered_map<Hash_T, meshHandle> meshes;
-
-            BufferSet* stagingSet = nullptr;
             std::unordered_map<Hash_T, meshHandle> meshesPendingUpload;
             
             void* hostVisibleMemoryAccess = nullptr;
@@ -170,7 +175,7 @@ class VulkanMemoryAllocatorComponent {
     //Textures
         // public:
         //     int storeTexture(Hash_T hash, std::vector<>& texels);
-        //     int discardMesh(Hash_T hash);
+        //     int discardTexture(Hash_T hash);
 
         //     bool checkTextureTransferIndexValidity(uint64_t& index);
 

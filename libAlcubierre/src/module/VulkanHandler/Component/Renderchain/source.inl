@@ -17,7 +17,7 @@ VulkanRenderchainComponent::~VulkanRenderchainComponent() {
     for(int i = 0; i < frameDeltas.size(); i++) {
         total += frameDeltas[i];
     }
-    logIdentity("Average frame rendering latency across " + std::to_string(framesEver) + " (only " + std::to_string(FRAMEDELTACACHESIZE) + " most recent frame deltas cached) was " + std::to_string(total / frameDeltas.size()) + "ms");
+    logIdentity("Average frame rendering latency across " + std::to_string(framesEver) + " frames (only " + std::to_string(FRAMEDELTACACHESIZE) + " most recent frame deltas cached) was " + std::to_string(total / frameDeltas.size()) + "ms");
     vkDestroyQueryPool(parent->device->Device, queryPool, nullptr);
 
     frames.clear();
@@ -147,7 +147,7 @@ int VulkanRenderchainComponent::drawFrame() {
         std::vector<uint32_t> lastFrameTimer(2);
         VkResult lastFrame = vkGetQueryPoolResults(parent->device->Device, queryPool, frame->queryPoolBaseIndex, 2, sizeof(uint32_t) * 2, lastFrameTimer.data(), sizeof(uint32_t), NULL_BIT);
         if(lastFrame != VK_NOT_READY) {
-            if(frameDeltas.size() == FRAMEDELTACACHESIZE) frameDeltas.pop_back(); //POP ELEMENT IN 9 index not last exisitng
+            if(frameDeltas.size() == FRAMEDELTACACHESIZE) frameDeltas.pop_back(); //Pop element in index 9 not last exisitng
             frameDeltas.insert(frameDeltas.begin(), (lastFrameTimer[1] - lastFrameTimer[0]) * parent->device->fetchDeviceProperties().general.rawStruct.limits.timestampPeriod / 1000000);
         }
     }
@@ -291,8 +291,8 @@ int VulkanRenderchainComponent::recordCommandBuffer(Frame* frame, VulkanSwapchai
         for(int j = 0; j < it->second.objects.size(); j++) {
             if(!it->second.objects[j]->memoryValid(parent->allocator)) logIdentity("Skipped drawing mesh " + std::to_string(j) + " in buffer set " + std::to_string(std::distance(sceneTree.begin(), it)) + " because its memoryValid was false");
             else {
-                uint32_t firstIndex = static_cast<uint32_t>(it->second.objects[j]->indices.offset) / sizeof(uint32_t);
-                int32_t vertexOffset = static_cast<int32_t>(it->second.objects[j]->vertices.offset) / sizeof(Vector3);
+                uint32_t firstIndex = static_cast<uint32_t>(it->second.objects[j]->indices.block.offset) / sizeof(uint32_t);
+                int32_t vertexOffset = static_cast<int32_t>(it->second.objects[j]->vertices.block.offset) / sizeof(Vector3);
                 vkCmdDrawIndexed(commandBuffer, it->second.objects[j]->indices.count, 1, firstIndex, vertexOffset, 0);
             }
         }

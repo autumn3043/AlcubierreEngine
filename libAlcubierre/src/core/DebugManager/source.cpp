@@ -108,7 +108,7 @@ void DebugManagerImpl::InternalLog(DebugReport* Report, bool Write) {
 
     if(Report->Level >= logToLogfileMinVerb) {
 
-        //To access DM globally it has to be static. This makes logfile static. If something tries to log during static deconstruction DM will exist but logfile will not - > segfault. 
+        //To access DM globally it has to be static. This makes logfile static. If something tries to log during static deconstruction DM will exist but logfile will not -> segfault. 
         //Below workaround avoids a segfault by creating new logfile object. This is to be avoided. Handled deconstruct should finish BEFORE any static deconstruct.
         if(!logfile.is_open()) {
             std::ofstream logfileTROUBLE;
