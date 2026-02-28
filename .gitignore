@@ -38,3 +38,7 @@ libAlcubierre/build/*
 *.log
 *.spv
 *.mtl
+*.bin
+
+libAlcubierre/dev/objToBinary/*.h
+libAlcubierre/dev/objToBinary/*.obj

@@ -20,7 +20,7 @@ class Example {
 
         //Operator inheritors are defined thusly:
         Example& operator+=(Example& other);
-        bool operator==(Example& other) {
+        bool operator==(Example& other) const {
             return x == other.x;
         }
         //By convention (but not by spec) comparison operators return a bool, whereas arithmatic operators return Example&.

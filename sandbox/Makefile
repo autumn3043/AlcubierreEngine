@@ -9,14 +9,14 @@ PLATFORM ?= dev
 ifeq ($(PLATFORM), dev)
 	COMPILER = g++
 	COMPILEFLAGS = -fsanitize=address -std=c++23 -g -O0 -I$(ENGINE_DIR)
-	OUTPUT = Sandbox
+	OUTPUT = Sandbox.bin
 endif
 
 #RELEASE
 ifeq ($(PLATFORM), linux)
 	COMPILER = g++
 	COMPILEFLAGS = -std=c++23 -g -O0 -I$(ENGINE_DIR)
-	OUTPUT = Sandbox
+	OUTPUT = Sandbox.bin
 endif
 
 #To build for windows you must have the relevant build libraries to link against. Currently these are not simply provided by the maintainers, you will have to build GLFW and Vulkan for windows yourself and link them here

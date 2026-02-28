@@ -173,16 +173,20 @@ class VulkanMemoryAllocatorComponent {
             BufferSet* pickBufferSet(VkDeviceSize verticeDataSize, VkDeviceSize indiceDataSize);
 
     //Textures
-        // public:
-        //     int storeTexture(Hash_T hash, std::vector<>& texels);
-        //     int discardTexture(Hash_T hash);
+        public:
+            // int storeTexture(Hash_T hash, );
+            // int discardTexture(Hash_T hash);
 
-        //     bool checkTextureTransferIndexValidity(uint64_t& index);
+            // int incrementTextureConsumers(Hash_T hash);
+            // int decrementTextureConsumers(Hash_T hash);
 
-        //     struct textureHandle {
-        //     };
+            // bool checkTextureTransferIndexValidity(uint64_t& index);
 
-        //     textureHandle* fetchTexture(Hash_T hash);
+            // struct textureHandle {
+            //     int consumers = 0;
+            // };
+
+            // textureHandle* fetchTexture(Hash_T hash);
 
     private:
         struct transferOperation {
