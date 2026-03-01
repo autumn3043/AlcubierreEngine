@@ -56,7 +56,7 @@ void VulkanHandler::Init() {
     renderchain = new VulkanRenderchainComponent(this, registry_ptr);
 
     logIdentity("Finished graphics backend init in " + std::to_string(bootstrapTimer.delta()) + " milliseconds. Awaiting frame draw command", 1);
-    allocator->dumpMemoryLayout();
+    allocator->dumpMeshMemoryLayout();
 
     timeToFirstLive.punch();
 }

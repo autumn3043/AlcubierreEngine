@@ -10,8 +10,8 @@ const uint32_t HASHSEED = 385701799u + VERSION;
 #include <vector>
 #include <unordered_map>
 
-#include "deps/xxhash.h"
-#include "deps/tiny_obj_loader.h"
+#include "xxhash.h"
+#include "tiny_obj_loader.h"
 
 std::string readFile(std::string path) {
     if(path.empty()) {
@@ -32,19 +32,19 @@ std::string readFile(std::string path) {
 }
 
 struct VertexWrapper {
-    Vertex actual;
+    Vector3 actual;
     float sum;
 
-    const uint32_t hash = XXH32(actual.pos, sizeof(float) * 3, HASHSEED);
+    const uint32_t hash = XXH32(actual.val, sizeof(float) * 3, HASHSEED);
 
-    VertexWrapper(Vertex _actual) : actual(_actual) {
-        sum = actual.pos[0] + actual.pos[1] + actual.pos[2];
+    VertexWrapper(Vector3 _actual) : actual(_actual) {
+        sum = actual.val[0] + actual.val[1] + actual.val[2];
     }
 
     bool operator==(const VertexWrapper& other) const {
         if(sum != other.sum) return false;
         for(int i = 0; i < 3; i++) {
-            if(actual.pos[i] != other.actual.pos[i]) return false;
+            if(actual.val[i] != other.actual.val[i]) return false;
         }
         return true;
     }
@@ -59,8 +59,8 @@ namespace std {
     };
 }
 
-int parseInput(AlcubierreEngineMesh* mesh, std::string path_obj, std::string path_mtl) {
-    std::cout << "Parsing input file(s)" << std::endl;
+int parseInput(AlcubierreEngineMesh* mesh, std::string path_obj, std::string path_mtl, bool quiet) {
+    if(!quiet) std::cout << "Parsing input file(s)" << std::endl;
 
     std::string objData = readFile(path_obj);
     std::string mtlData = readFile(path_mtl);
@@ -71,7 +71,7 @@ int parseInput(AlcubierreEngineMesh* mesh, std::string path_obj, std::string pat
 
     //We try to proceed anyway. If we fail, then we fail. If we don't, then the user can analyse the debug output and decide for themselves if the output we produce is invalid.
     if(!reader.Warning().empty()) {
-        std::cout << "tinyobjloader indicated a problem: " << reader.Warning() << std::endl;
+        if(!quiet) std::cout << "tinyobjloader indicated a problem: " << reader.Warning() << std::endl;
     }
     if(!reader.Error().empty()) {
         std::cout << "tinyobjloader indicated an error: " << reader.Error() << std::endl;
@@ -83,7 +83,7 @@ int parseInput(AlcubierreEngineMesh* mesh, std::string path_obj, std::string pat
 
     std::vector<VertexWrapper> allVertices;
 
-    std::cout << "Collecting vertices" << std::endl;
+    if(!quiet) std::cout << "Collecting vertices" << std::endl;
 
     for(int i = 0; i < shapes.size(); i++) {
         tinyobj::shape_t& shape = shapes[i];
@@ -95,27 +95,23 @@ int parseInput(AlcubierreEngineMesh* mesh, std::string path_obj, std::string pat
             float y = attributes.vertices[3 * index.vertex_index + 1];
             float z = attributes.vertices[3 * index.vertex_index + 2];
 
-            Vertex v = {
-                .pos = {x, y, z}
-            };
-
-            allVertices.push_back(v);
+            allVertices.push_back(Vector3(x, y, z));
         }
     }
 
-    std::cout << "Collected " << std::to_string(allVertices.size()) << " vertices" << std::endl;
+    if(!quiet) std::cout << "Collected " << std::to_string(allVertices.size()) << " vertices" << std::endl;
 
     std::unordered_map<VertexWrapper, int> uniqueVerticesMap;
-    std::vector<Vertex> uniqueVertices;
+    std::vector<Vector3> uniqueVertices;
     std::vector<uint32_t> indices;
 
-    std::cout << "Discarding duplicate vertices:" << std::endl;
+    if(!quiet) std::cout << "Discarding duplicate vertices:" << std::endl;
 
     int lastLoggedProgress = 0;
     for(int i = 0; i < allVertices.size(); i++) {
         int progress = static_cast<int>(static_cast<float>(i) / allVertices.size() * 100);
         if(progress >= lastLoggedProgress + 5) {
-            std::cout << "   " << std::to_string(progress) << "%" << std::endl;
+            if(!quiet) std::cout << "   " << std::to_string(progress) << "%" << std::endl;
             lastLoggedProgress = progress;
         }
 
@@ -129,7 +125,7 @@ int parseInput(AlcubierreEngineMesh* mesh, std::string path_obj, std::string pat
     }
 
     int discardedCount = allVertices.size() - uniqueVertices.size();
-    std::cout << "Discarded " << std::to_string(discardedCount) << " vertices, saving " << std::to_string(mesh->header.vertexSize * discardedCount) << " bytes" << std::endl;
+    if(!quiet) std::cout << "Discarded " << std::to_string(discardedCount) << " vertices, saving " << std::to_string(mesh->header.vertexSize * discardedCount) << " bytes" << std::endl;
 
     mesh->header.hash = XXH64(objData.data(), objData.size(), HASHSEED);
     mesh->header.version = VERSION;
@@ -142,8 +138,8 @@ int parseInput(AlcubierreEngineMesh* mesh, std::string path_obj, std::string pat
     return 0;
 }
 
-int serialise(AlcubierreEngineMesh* mesh, std::string path) {
-    std::cout << "Serialising to output" << std::endl;
+int serialise(AlcubierreEngineMesh* mesh, std::string path, bool quiet) {
+    if(!quiet) std::cout << "Serialising to output" << std::endl;
 
     std::fstream file;
     file.open(path, std::ios_base::out | std::ios_base::trunc);
@@ -169,26 +165,31 @@ int serialise(AlcubierreEngineMesh* mesh, std::string path) {
 
 int main(int argc, char* argv[]) {
     std::string objfile, mtlfile, outfile;
+    bool quiet = false;
 
-    if(argc == 3) {
-        objfile = std::string(argv[1]);
-        mtlfile = std::string();
-        outfile = std::string(argv[2]);
-    } else if(argc == 4) {
-        objfile = std::string(argv[1]);
-        mtlfile = std::string(argv[2]);
-        outfile = std::string(argv[3]);
-    } else {
-        std::cout << "Correct usage: '" << argv[0] << "[input.obj] [input.mtl (optional)] [output.h]'" << std::endl;
-        std::exit(0);
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+
+        if (arg == "--quiet") {
+            quiet = true;
+        } else if (objfile.empty()) {
+            objfile = arg;
+        } else if (mtlfile.empty() && arg.find(".mtl") != std::string::npos) {
+            mtlfile = arg;
+        } else if (outfile.empty()) {
+            outfile = arg;
+        } else {
+            std::cerr << "Unknown extra argument: " << arg << std::endl;
+            return 1;
+        }
     }
 
     AlcubierreEngineMesh mesh = AlcubierreEngineMesh();
 
-    parseInput(&mesh, objfile, mtlfile);
-    serialise(&mesh, outfile);
+    parseInput(&mesh, objfile, mtlfile, quiet);
+    serialise(&mesh, outfile, quiet);
 
-    std::cout << "Done!" << std::endl;
+    if(!quiet) std::cout << "Done!" << std::endl;
 
     return 0;
 }

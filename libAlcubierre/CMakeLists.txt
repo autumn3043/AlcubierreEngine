@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(FetchContent)
+
 project(AlcubierreEngine)
 
 add_library(Alcubierre SHARED)
@@ -24,10 +25,6 @@ add_library(Alcubierre SHARED)
     FetchContent_Declare(xxhash GIT_REPOSITORY https://github.com/Cyan4973/xxHash.git GIT_TAG e626a72)
     FetchContent_MakeAvailable(xxhash)
     list(APPEND DEPENDENCIES xxhash)
-
-    FetchContent_Declare(tinyobjloader GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git GIT_TAG d56555b)
-    FetchContent_MakeAvailable(tinyobjloader)
-    list(APPEND DEPENDENCIES tinyobjloader)
 
     find_package(Vulkan REQUIRED)
     list(APPEND DEPENDENCIES "Vulkan::Vulkan")
@@ -83,3 +80,6 @@ add_library(Alcubierre SHARED)
     add_custom_target(copy_public_header ALL
         DEPENDS ${CMAKE_BINARY_DIR}/AlcubierreEngine.h
     )
+
+#TOOLS
+    add_subdirectory(src/extern/ModelPrecompiler ${CMAKE_BINARY_DIR}/tools/ModelPrecompiler)

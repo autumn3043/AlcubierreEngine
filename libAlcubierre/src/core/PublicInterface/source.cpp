@@ -65,24 +65,21 @@ bool AlcubierreEngineImpl::shouldClose() {
 int AlcubierreEngineImpl::placeActor(std::vector<int> position, std::string& model) {
     int objectIndex = objects.size();
     objects.resize(objects.size() + 1);
+
+    // logIdentity(std::to_string(model.size()));
+
     IModelLoader* ML = dynamic_cast<IModelLoader*>(registryMasterInstance.FetchService(MODEL_LOADER));
-    ML->loadModel(IModelLoader::rawModelData(99 + objectIndex, model.data(), model.size()));
+    Hash_T modelHash = ML->loadModel(model.data(), model.size());
+    // logIdentity(std::to_string(modelHash));
+
     IDirector* DR = dynamic_cast<IDirector*>(registryMasterInstance.FetchService(DIRECTOR));
-    Vector3 pos = {static_cast<float>(position[0]), static_cast<float>(position[1]), static_cast<float>(position[2])};
     DR->createObject(objects[objectIndex]);
-    DR->attachMesh(objects[objectIndex], 99 + objectIndex);
+    DR->attachMesh(objects[objectIndex], modelHash);
     DR->addToScene(scene, objects[objectIndex]);
     return 0;
 }
 
 int AlcubierreEngineImpl::frame() {
-    // static int frames = 0;
-    // frames++;
-    // if(frames == 120) {
-    //     IDirector* DR = dynamic_cast<IDirector*>(registryMasterInstance.FetchService(DIRECTOR));
-    //     DR->detachMesh(objects[0]);
-    // }
-
     IWindowManager* WM = dynamic_cast<IWindowManager*>(registryMasterInstance.FetchService(WINDOW_MANAGER));
     WM->pollEvents();
     IDirector* DR = dynamic_cast<IDirector*>(registryMasterInstance.FetchService(DIRECTOR));

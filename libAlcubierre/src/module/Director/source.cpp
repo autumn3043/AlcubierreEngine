@@ -48,7 +48,7 @@ int Director::destroyObjectImpl(uint64_t* objectId) {
     return 0;
 }
 
-int Director::attachMeshImpl(uint64_t* objectId, uint32_t meshHash) {
+int Director::attachMeshImpl(uint64_t* objectId, Hash_T meshHash) {
     objects.at(*objectId).attachMesh(meshHash);
 
     return 0;
@@ -71,11 +71,12 @@ Director::WorldObject::~WorldObject() {
     detachMesh();
 }
 
-int Director::WorldObject::attachMesh(uint32_t _meshHash) {
-    if(meshHash) detachMesh();
+int Director::WorldObject::attachMesh(Hash_T _meshHash) {
+    if(hasMesh) detachMesh();
 
     meshHash = _meshHash;
     hasMesh = true;
+    // logIdentity(std::to_string(_meshHash));
 
     dynamic_cast<IGraphicsBackend*>(parent->registry_ptr->FetchService(GRAPHICS_BACKEND))->incrementMeshConsumers(meshHash);
 

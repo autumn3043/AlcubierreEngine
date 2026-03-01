@@ -221,7 +221,8 @@ int VulkanRenderchainComponent::updateUniformBuffer(char* buffer, VulkanSwapchai
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBuffer ubo {};
-    ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
+    ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * scale;
     ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(image->extent.width) / static_cast<float>(image->extent.height), 0.1f, 10.0f);
     ubo.proj[1][1] *= -1;

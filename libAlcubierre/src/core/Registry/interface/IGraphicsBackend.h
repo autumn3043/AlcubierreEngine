@@ -3,8 +3,6 @@
 
 #include "core/Registry/base/InterfaceBaseClass.h"
 
-typedef uint32_t Hash_T;
-
 struct SceneObject {
     Hash_T meshHash;
     Vector3 position;

@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <cassert>
 
+typedef uint64_t Hash_T;
+
 struct Vector3 {
     float val[3];
     float& x = val[0];
@@ -25,6 +27,8 @@ struct Vector3 {
         }
         return *this;
     }
+
+    Vector3() : val(0.0f, 0.0f, 0.0f) {}
 };
 
 #endif

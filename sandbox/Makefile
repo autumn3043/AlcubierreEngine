@@ -31,14 +31,31 @@ endif
 
 TARGET = ./main.cpp
 
-default: $(OUTPUT)
+ASSET_SRC_DIR = ./assets
+ASSET_OBJS := $(wildcard $(ASSET_SRC_DIR)/*.obj)
+ASSET_MTLS := $(wildcard $(ASSET_SRC_DIR)/*.mtl)
+ASSET_BLOBS := $(patsubst $(ASSET_SRC_DIR)/%.obj,$(BUILD_DIR)/assets/%.blob,$(ASSET_OBJS))
+
+default: $(ASSET_BLOBS) $(OUTPUT)
 
 $(OUTPUT):
 	$(COMPILER) $(COMPILEFLAGS) $(TARGET) -L$(ENGINE_DIR) -lAlcubierre -Wl,-rpath,'$$ORIGIN' $(LINKFLAGS) -o $(BUILD_DIR)/$(OUTPUT) > makelog 2>&1
 	cp -u $(ENGINE_DIR)/libAlcubierre.so $(BUILD_DIR)/libAlcubierre.so
+
+$(BUILD_DIR)/assets/%.blob: $(ASSET_SRC_DIR)/%.obj
+	@\
+	OBJFILE=$(ASSET_SRC_DIR)/$*.obj; \
+	MTLFILE=$(ASSET_SRC_DIR)/$*.mtl; \
+	if [ -f $$MTLFILE ]; then \
+		$(ENGINE_DIR)/modelPrecompiler.bin --quiet $$OBJFILE $$MTLFILE $@; \
+	else \
+		$(ENGINE_DIR)/modelPrecompiler.bin --quiet $$OBJFILE $@; \
+	fi
 
 test: $(OUTPUT)
 	LSAN_OPTIONS=suppressions=$(SUPPRESSIONS_FILE) $(BUILD_DIR)/$(OUTPUT)
 
 clean:
 	rm $(BUILD_DIR)/*
+
+.PHONY: assets

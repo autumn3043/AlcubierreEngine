@@ -33,7 +33,7 @@ class Director : public WrapperBaseClass {
 
                 int createObject(WorldObject_Handle& object) override { return parent->createObject(object); }
                 int destroyObject(WorldObject_Handle& object) override { return parent->destroyObject(object); }
-                int attachMesh(WorldObject_Handle& object, uint32_t meshHash) override { return parent->attachMesh(object, meshHash); }
+                int attachMesh(WorldObject_Handle& object, Hash_T meshHash) override { return parent->attachMesh(object, meshHash); }
                 int detachMesh(WorldObject_Handle& object) override { return parent->detachMesh(object); }
                 int setPosition(WorldObject_Handle& object, Vector3 newPosition) override { return parent->setPosition(object, newPosition); }
 
@@ -102,7 +102,7 @@ class Director : public WrapperBaseClass {
     private:
         uint64_t* createObjectImpl();
         int destroyObjectImpl(uint64_t* objectId);
-        int attachMeshImpl(uint64_t* objectId, uint32_t);
+        int attachMeshImpl(uint64_t* objectId, Hash_T meshHash);
         int detachMeshImpl(uint64_t* objectId);
         int setPositionImpl(uint64_t* objectId, Vector3 newPosition);
 

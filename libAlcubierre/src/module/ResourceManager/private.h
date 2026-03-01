@@ -33,15 +33,15 @@ class ResourceManager : public WrapperBaseClass {
 
                 IModelLoaderImpl(ResourceManager* _parent) : parent(_parent) {} 
 
-                int loadModel(rawModelData model) override { return parent->load(model); }               
+                Hash_T loadModel(char* model, uint64_t size) override { return parent->load(model, size); }               
         };
 
         IModelLoaderImpl IModelLoader_ResourceManager;
 
     private:
-        int load(IModelLoader::rawModelData& modelData);
+        Hash_T load(char* model, uint64_t size);
         
-        std::vector<uint32_t> modelsInMemory;
+        std::vector<Hash_T> modelsInMemory;
 };
 
 #endif

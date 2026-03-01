@@ -87,6 +87,10 @@ class VulkanMemoryAllocatorComponent {
         MemoryBuffer* stagingBuffer = nullptr;
 
     //Meshes
+        private:
+            int initMeshHandler();
+            int destroyMeshHandler();
+
         public:
             int storeMesh(Hash_T hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
             int discardMesh(Hash_T hash);
@@ -123,7 +127,7 @@ class VulkanMemoryAllocatorComponent {
 
             meshHandle* fetchMesh(Hash_T hash);
 
-            std::string dumpMemoryLayout();
+            std::string dumpMeshMemoryLayout();
 
         private:
             class BufferSet {
@@ -173,74 +177,85 @@ class VulkanMemoryAllocatorComponent {
             BufferSet* pickBufferSet(VkDeviceSize verticeDataSize, VkDeviceSize indiceDataSize);
 
     //Textures
+        private:
+            int initTextureHandler();
+            int destroyTextureHandler();
+
         public:
-            // int storeTexture(Hash_T hash, );
-            // int discardTexture(Hash_T hash);
+            int storeTexture(Hash_T hash);
+            int discardTexture(Hash_T hash);
 
-            // int incrementTextureConsumers(Hash_T hash);
-            // int decrementTextureConsumers(Hash_T hash);
+            int incrementTextureConsumers(Hash_T hash);
+            int decrementTextureConsumers(Hash_T hash);
 
-            // bool checkTextureTransferIndexValidity(uint64_t& index);
+            bool checkTextureTransferIndexValidity(uint64_t& index);
 
-            // struct textureHandle {
-            //     int consumers = 0;
-            // };
-
-            // textureHandle* fetchTexture(Hash_T hash);
-
-    private:
-        struct transferOperation {
-            struct region {
-                VkBuffer* buffer;
-                VkDeviceSize offset;
-                VkDeviceSize size;
-
-                region(VkBuffer* _buffer, VkDeviceSize _offset, VkDeviceSize _size) : buffer(_buffer), offset(_offset), size(_size) {}
-                region() {}
+            struct textureHandle {
+                int consumers = 0;
             };
-            region source;
-            region destination;
 
-            transferOperation(region _source, region _destination) : source(_source), destination(_destination) {}
-            transferOperation() {}
-        };
+            textureHandle* fetchTexture(Hash_T hash);
 
-        class transferWorkerThread {
-            public:
-                transferWorkerThread(VkDevice& _device, VulkanDeviceComponent::QueueHandle* _transferQueue, int bufferCount);
-                ~transferWorkerThread();
+            std::string dumpTextureMemoryLayout();
 
-            private:
-                std::thread workerThread;
-                bool running = false;
+    //Transfer
+        private:
+            int initTransferHandler();
+            int destroyTransferHandler();
 
-                void thread();
+        private:
+            struct transferOperation {
+                struct region {
+                    VkBuffer* buffer;
+                    VkDeviceSize offset;
+                    VkDeviceSize size;
 
-            public:
-                uint64_t addTransferOperationToQueue(transferOperation operation);
-                uint64_t transferQueuePage();
+                    region(VkBuffer* _buffer, VkDeviceSize _offset, VkDeviceSize _size) : buffer(_buffer), offset(_offset), size(_size) {}
+                    region() {}
+                };
+                region source;
+                region destination;
 
-            private:
-                void executeOperation(transferOperation& operation, VkCommandBuffer& buffer, VkFence& fence);
+                transferOperation(region _source, region _destination) : source(_source), destination(_destination) {}
+                transferOperation() {}
+            };
 
-            private:
-                uint64_t requestCount = 0;
-                VkSemaphore completedCount;
-                std::atomic<uint64_t> nextSignalValue{1};
+            class transferWorkerThread {
+                public:
+                    transferWorkerThread(VkDevice& _device, VulkanDeviceComponent::QueueHandle* _transferQueue, int bufferCount);
+                    ~transferWorkerThread();
 
-                VkDevice& device;
-                VulkanDeviceComponent::QueueHandle* transferQueue = nullptr;
+                private:
+                    std::thread workerThread;
+                    bool running = false;
 
-                std::deque<transferOperation> operationQueue;
-                std::mutex operationQueue_mutex;
-                std::condition_variable operationQueue_conditional;
+                    void thread();
 
-                VkCommandPool transferCommandPool = VK_NULL_HANDLE;
-                std::vector<VkCommandBuffer> commandBuffers;
-                std::vector<VkFence> fences;
-        };
+                public:
+                    uint64_t addTransferOperationToQueue(transferOperation operation);
+                    uint64_t transferQueuePage();
 
-        transferWorkerThread* worker = nullptr;
+                private:
+                    void executeOperation(transferOperation& operation, VkCommandBuffer& buffer, VkFence& fence);
+
+                private:
+                    uint64_t requestCount = 0;
+                    VkSemaphore completedCount;
+                    std::atomic<uint64_t> nextSignalValue{1};
+
+                    VkDevice& device;
+                    VulkanDeviceComponent::QueueHandle* transferQueue = nullptr;
+
+                    std::deque<transferOperation> operationQueue;
+                    std::mutex operationQueue_mutex;
+                    std::condition_variable operationQueue_conditional;
+
+                    VkCommandPool transferCommandPool = VK_NULL_HANDLE;
+                    std::vector<VkCommandBuffer> commandBuffers;
+                    std::vector<VkFence> fences;
+            };
+
+            transferWorkerThread* worker = nullptr;
 };
 
 #endif

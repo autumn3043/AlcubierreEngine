@@ -39,6 +39,4 @@ libAlcubierre/build/*
 *.spv
 *.mtl
 *.bin
-
-libAlcubierre/dev/objToBinary/*.h
-libAlcubierre/dev/objToBinary/*.obj
+*.blob
