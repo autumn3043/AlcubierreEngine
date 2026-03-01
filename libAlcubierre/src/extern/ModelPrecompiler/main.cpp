@@ -131,9 +131,11 @@ int parseInput(AlcubierreEngineMesh* mesh, std::string path_obj, std::string pat
     mesh->header.version = VERSION;
 
     mesh->body.vertexCount = uniqueVertices.size();
-    mesh->body.vertices = uniqueVertices.data();
+    mesh->body.vertices = new Vector3[mesh->body.vertexCount];
+    memcpy(mesh->body.vertices, uniqueVertices.data(), mesh->body.vertexCount * mesh->header.vertexSize);
     mesh->body.indexCount = indices.size();
-    mesh->body.indices = indices.data();
+    mesh->body.indices = new uint32_t[mesh->body.indexCount];
+    memcpy(mesh->body.indices, indices.data(), mesh->body.indexCount * mesh->header.indexSize);
 
     return 0;
 }

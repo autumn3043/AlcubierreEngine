@@ -32,9 +32,9 @@
 *.app
 
 makelog
-Sandbox
 Progress\ Notes.txt
 libAlcubierre/build/*
+sandbox/build/*
 *.log
 *.spv
 *.mtl

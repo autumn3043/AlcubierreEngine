@@ -22,7 +22,7 @@ int main() {
 
     app.initEngine();
 
-    std::string obj = importObjFile("build/assets/viking_room.blob");
+    std::string obj = importObjFile("assets/viking_room.blob");
     app.graphics.placeActor({0, 0, 0}, obj);
 
     while(!app.window.shouldClose()) {

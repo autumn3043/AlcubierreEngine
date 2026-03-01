@@ -1,7 +1,7 @@
 int VulkanMemoryAllocatorComponent::initTransferHandler() {
     worker = new transferWorkerThread(parent->device->Device, &transferQueue, WORKERTHREADBUFFERCOUNT);
 
-    VkDeviceSize stagingBufferSize = VERTEXBUFFERSIZE;
+    VkDeviceSize stagingBufferSize = VERTEXBUFFERSIZE + INDEXBUFFERSIZE;
     stagingBuffer = new MemoryBuffer(parent->device->Device, &stagingBufferSize, nullptr, TRANSFERQUEUEINDEX, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
     VkMemoryAllocateInfo allocationInfo {

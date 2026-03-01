@@ -41,6 +41,7 @@ default: $(ASSET_BLOBS) $(OUTPUT)
 $(OUTPUT):
 	$(COMPILER) $(COMPILEFLAGS) $(TARGET) -L$(ENGINE_DIR) -lAlcubierre -Wl,-rpath,'$$ORIGIN' $(LINKFLAGS) -o $(BUILD_DIR)/$(OUTPUT) > makelog 2>&1
 	cp -u $(ENGINE_DIR)/libAlcubierre.so $(BUILD_DIR)/libAlcubierre.so
+	cp -u settings.json $(BUILD_DIR)/settings.json
 
 $(BUILD_DIR)/assets/%.blob: $(ASSET_SRC_DIR)/%.obj
 	@\
@@ -52,8 +53,8 @@ $(BUILD_DIR)/assets/%.blob: $(ASSET_SRC_DIR)/%.obj
 		$(ENGINE_DIR)/modelPrecompiler.bin --quiet $$OBJFILE $@; \
 	fi
 
-test: $(OUTPUT)
-	LSAN_OPTIONS=suppressions=$(SUPPRESSIONS_FILE) $(BUILD_DIR)/$(OUTPUT)
+test: $(ASSET_BLOBS) $(OUTPUT)
+	cd $(BUILD_DIR) && LSAN_OPTIONS=suppressions=$(SUPPRESSIONS_FILE) ./$(OUTPUT)
 
 clean:
 	rm $(BUILD_DIR)/*
