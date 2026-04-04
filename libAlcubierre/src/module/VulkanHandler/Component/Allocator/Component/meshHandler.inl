@@ -12,10 +12,10 @@ int VulkanMemoryAllocatorComponent::destroyMeshHandler() {
     return 0;
 }
 
-int VulkanMemoryAllocatorComponent::storeMesh(Hash_T hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) {
+int VulkanMemoryAllocatorComponent::storeMesh(Hash_T hash, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices) {
     if(meshes.contains(hash)) return 1;
 
-    VkDeviceSize verticeDataSize = vertices.size() * sizeof(Vector3);
+    VkDeviceSize verticeDataSize = vertices.size() * sizeof(Vertex);
     VkDeviceSize indiceDataSize = indices.size() * sizeof(uint32_t);
     BufferSet* set = pickBufferSet(verticeDataSize, indiceDataSize);
     meshHandle& deviceMemory = meshes.emplace(hash, set->storeMesh(hash, vertices, indices)).first->second;
@@ -51,10 +51,12 @@ int VulkanMemoryAllocatorComponent::storeMesh(Hash_T hash, std::vector<Vector3>&
 
     //From here, add copy operations to pool queue without blocking and mark when done.
     deviceMemory.vertices.memoryValidAfter = worker->addTransferOperationToQueue(transferOperation(
+        TRANSFER_OPERATION_TYPE_BUFFER,
         transferOperation::region(stagingMemory.vertices.buffer, stagingMemory.vertices.block.offset, stagingMemory.vertices.block.size), 
         transferOperation::region(deviceMemory.vertices.buffer, deviceMemory.vertices.block.offset, deviceMemory.vertices.block.size)
     ));
     deviceMemory.indices.memoryValidAfter = worker->addTransferOperationToQueue(transferOperation(
+        TRANSFER_OPERATION_TYPE_BUFFER,
         transferOperation::region(stagingMemory.indices.buffer, stagingMemory.indices.block.offset, stagingMemory.indices.block.size), 
         transferOperation::region(deviceMemory.indices.buffer, deviceMemory.indices.block.offset, deviceMemory.indices.block.size)
     ));
@@ -177,8 +179,8 @@ VulkanMemoryAllocatorComponent::BufferSet::~BufferSet() {
     vkFreeMemory(device, allocation, nullptr);
 }
 
-VulkanMemoryAllocatorComponent::meshHandle VulkanMemoryAllocatorComponent::BufferSet::storeMesh(Hash_T id, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices) {
-    VkDeviceSize verticesSize = sizeof(Vector3) * vertices.size();
+VulkanMemoryAllocatorComponent::meshHandle VulkanMemoryAllocatorComponent::BufferSet::storeMesh(Hash_T id, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices) {
+    VkDeviceSize verticesSize = sizeof(Vertex) * vertices.size();
     assert(verticesSize < largestFreeVertexBlockSize());
     VkDeviceSize indicesSize = sizeof(uint32_t) * indices.size();
     assert(indicesSize < largestFreeIndexBlockSize());

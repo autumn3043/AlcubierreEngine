@@ -27,7 +27,7 @@ class ConfigManagerException : public AlcEngineException {
         ConfigManagerException(std::string message, int priority = 1) : AlcEngineException(DebugReport(message, priority, "ConfigManager")) {}
 };
 
-#include <nlohmann/json.hpp>
+#include "nlohmann/json.hpp"
 
 class ConfigManager : public WrapperBaseClass{
     public:

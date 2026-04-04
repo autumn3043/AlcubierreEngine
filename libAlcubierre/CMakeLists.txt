@@ -13,6 +13,10 @@ add_library(Alcubierre SHARED)
 #DEPENDENCIES
     set(DEPENDENCIES)
 
+    FetchContent_Declare(nlohmann_json GIT_REPOSITORY https://github.com/nlohmann/json.git GIT_TAG 55f9368)
+    FetchContent_MakeAvailable(nlohmann_json)
+    list(APPEND DEPENDENCIES nlohmann_json)
+
     FetchContent_Declare(glfw GIT_REPOSITORY https://github.com/glfw/glfw.git GIT_TAG 7b6aead)
     FetchContent_MakeAvailable(glfw)
     list(APPEND DEPENDENCIES glfw)
@@ -80,6 +84,3 @@ add_library(Alcubierre SHARED)
     add_custom_target(copy_public_header ALL
         DEPENDS ${CMAKE_BINARY_DIR}/AlcubierreEngine.h
     )
-
-#TOOLS
-    add_subdirectory(src/extern/ModelPrecompiler ${CMAKE_BINARY_DIR}/tools/ModelPrecompiler)

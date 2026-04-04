@@ -1,5 +1,6 @@
 VulkanMemoryAllocatorComponent::VulkanMemoryAllocatorComponent(VulkanHandler* _parent, Registry*& _registry_ptr) : parent(_parent), registry_ptr(_registry_ptr) {
     IConfigManager* CM = dynamic_cast<IConfigManager*>(registry_ptr->FetchService(CONFIGURATION_MANAGER));
+    
     VERTEXBUFFERSIZE = static_cast<VkDeviceSize>(CM->Get<int>({"graphics", "vertex_buffer_memory_size_bytes"}, 1000000));
     INDEXBUFFERSIZE = VERTEXBUFFERSIZE * (static_cast<float>(sizeof(uint32_t)) / static_cast<float>(sizeof(Vector3)) * CM->Get<float>({"graphics", "index_buffer_memory_size_ratio"}, 1.00f));
 
@@ -13,6 +14,8 @@ VulkanMemoryAllocatorComponent::VulkanMemoryAllocatorComponent(VulkanHandler* _p
     HOSTMEMORYINDEX = parent->device->fetchDeviceProperties().memory.hostVisibleIndex;
 
     WORKERTHREADBUFFERCOUNT = CM->Get<int>({"graphics", "transfer_buffer_count"}, 8);
+    
+    DESCRIPTORSETSPERPOOL = CM->Get<int>({"graphics", "descriptor_sets_per_pool_count"}, 8);
 
     initTransferHandler();
     initMeshHandler();

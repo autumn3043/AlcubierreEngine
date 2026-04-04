@@ -332,7 +332,14 @@ void VulkanMemoryAllocatorComponent::transferWorkerThread::executeOperation(tran
     
     VkBufferCopy region { .srcOffset = operation.source.offset, .dstOffset = operation.destination.offset, .size = operation.source.size };
     // std::cout << operation.source.size << std::endl;
-    vkCmdCopyBuffer(buffer, *operation.source.buffer, *operation.destination.buffer, 1, &region);
+    switch(operation.type) {
+        case TRANSFER_OPERATION_TYPE_BUFFER:
+            vkCmdCopyBuffer(buffer, *static_cast<VkBuffer*>(operation.source.buffer), *static_cast<VkBuffer*>(operation.destination.buffer), 1, &region);
+        break;
+        case TRANSFER_OPERATION_TYPE_IMAGE:
+            vkCmdCopyBufferToImage(buffer, *static_cast<VkBuffer*>(operation.source.buffer), *static_cast<VkImage*>(operation.destination.buffer), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        break;
+    }
 
     vkEndCommandBuffer(buffer);
 

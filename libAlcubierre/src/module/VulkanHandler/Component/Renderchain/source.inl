@@ -129,7 +129,7 @@ int VulkanRenderchainComponent::addToFrame(SceneObject object) {
     VulkanMemoryAllocatorComponent::meshHandle* handle = parent->allocator->fetchMesh(object.meshHash);
 
     if(!sceneTree.contains(handle->bufferSetId)) sceneTree.emplace(handle->bufferSetId, meshSet(handle->vertices.buffer, handle->indices.buffer));
-    sceneTree.at(handle->bufferSetId).objects.emplace_back(handle);
+    sceneTree.at(handle->bufferSetId).objects.emplace_back(object);
 
     return 0;
 }
@@ -282,22 +282,45 @@ int VulkanRenderchainComponent::recordCommandBuffer(Frame* frame, VulkanSwapchai
 
     vkCmdBeginRendering(commandBuffer, &RenderingInfo);
 
-    parent->pipelines->opaqueGeometryPipe->bind(commandBuffer, frame->descriptorSet);
+    VulkanPipelineComponent::Pipeline* pipeline = parent->pipelines->opaqueGeometryPipe;
+
     //OPT: Move below loop to a child command buffer and resubmit that buffer per pipeline instead of re-recording per pipeline
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->instance);
     for(std::unordered_map<uint32_t, meshSet>::iterator it = sceneTree.begin(); it != sceneTree.end(); it++) {
         if(it->second.objects.size() == 0) continue;
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, it->second.vertexBuffer, &offset);
         vkCmdBindIndexBuffer(commandBuffer, *it->second.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        
         for(int j = 0; j < it->second.objects.size(); j++) {
-            if(!it->second.objects[j]->memoryValid(parent->allocator)) logIdentity("Skipped drawing mesh " + std::to_string(j) + " in buffer set " + std::to_string(std::distance(sceneTree.begin(), it)) + " because its memoryValid was false");
-            else {
-                uint32_t firstIndex = static_cast<uint32_t>(it->second.objects[j]->indices.block.offset) / sizeof(uint32_t);
-                int32_t vertexOffset = static_cast<int32_t>(it->second.objects[j]->vertices.block.offset) / sizeof(Vector3);
-                vkCmdDrawIndexed(commandBuffer, it->second.objects[j]->indices.count, 1, firstIndex, vertexOffset, 0);
+            SceneObject& object = it->second.objects[j];
+            VulkanMemoryAllocatorComponent::meshHandle* mesh = parent->allocator.fetchMesh(object.mesh);
+            if(!mesh->memoryValid(parent->allocator)) {
+                logIdentity("Skipped drawing mesh " + std::to_string(j) + " in buffer set " + std::to_string(std::distance(sceneTree.begin(), it)) + " because its memoryValid was false");
+                continue;
             }
+            
+            VulkanMemoryAllocatorComponent::materialHandle* material = parent->allocator.fetchMaterial(object.material); 
+            if(!material->memoryValid(parent->allocator)) {
+                logIdentity("Skipped drawing material " + std::to_string(j) + " in buffer set " + std::to_string(std::distance(sceneTree.begin(), it)) + " because its memoryValid was false");
+                material = parent->allocator.fetchMaterial(DEFAULT_MATERIAL_HASH);
+            }
+            
+            VulkanMemoryAllocatorComponent::worldDataHandle* worldData = parent->allocator.fetchWorldData(object.worldData);
+            if(!worldData->memoryValid(parent->allocator)) {
+                logIdentity("Skipped drawing world data " + std::to_string(j) + " in buffer set " + std::to_string(std::distance(sceneTree.begin(), it)) + " because its memoryValid was false");
+                continue;
+            }
+
+            VkDescriptorSet* descriptors = new VkDescriptorSet[frame->descriptorSet, parent->allocator->fetchDescriptorSet(material.descriptorSetIndex), worldData->descriptorSet];
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout, 0, 3, descriptors, 0, nullptr);
+            //OPT: descriptor set buffer, index into buffer, group meshes by set buffer and bind at top of loop
+            uint32_t firstIndex = static_cast<uint32_t>(mesh->indices.block.offset) / sizeof(uint32_t);
+            int32_t vertexOffset = static_cast<int32_t>(mesh->vertices.block.offset) / sizeof(Vertex);
+            vkCmdDrawIndexed(commandBuffer, mesh->indices.count, 1, firstIndex, vertexOffset, 0);
         }
     }
+
     vkCmdEndRendering(commandBuffer);
     vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, queryPool, frame->queryPoolBaseIndex + 1);
 

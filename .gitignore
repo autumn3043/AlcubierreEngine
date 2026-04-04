@@ -40,3 +40,6 @@ sandbox/build/*
 *.mtl
 *.bin
 *.blob
+AlcubierreEngine.code-workspace
+**/build/*
+**/assets/*

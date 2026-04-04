@@ -9,15 +9,129 @@ VulkanPipelineComponent::VulkanPipelineComponent(VulkanHandler* _parent, Registr
 }
 
 VulkanPipelineComponent::~VulkanPipelineComponent() {
+    vkDestroyDescriptorSetLayout(device, globalDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, materialDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, objectDescriptorSetLayout, nullptr);
+
     if(opaqueGeometryPipe) delete opaqueGeometryPipe;
     if(basicFragmentShader) delete basicFragmentShader;
     if(basicVertexShader) delete basicVertexShader;
     if(pipelineLayout) delete pipelineLayout;
 }
 
-VulkanPipelineComponent::PipelineLayout::PipelineLayout(VkDevice& _device) : device(_device) {
-    std::vector<VkDescriptorSetLayoutBinding> bindings = {
-        // Binding 0: Projection Matrix
+VulkanPipelineComponent::createDescriptorSetLayouts() {
+    //Set 0: Frame
+
+    std::vector<VkDescriptorSetLayoutBinding> frameBindings = {
+        // Binding 0: View
+        {
+            .binding = 0,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            .pImmutableSamplers = nullptr
+        },
+        // Binding 1: Projection Matrix
+        {
+            .binding = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            .pImmutableSamplers = nullptr
+        }
+    };
+
+    VkDescriptorSetLayoutCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = NULL_BIT,
+        .bindingCount = static_cast<uint32_t>(frameBindings.size());,
+        .pBindings = frameBindings.data()
+    };
+    vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &frameDescriptorSetLayout);
+
+    //Set 1: Material
+
+    std::vector<VkDescriptorSetLayoutBinding> materialBindings = {
+        // Binding 0: Ambient
+        {
+            .binding = 0,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = nullptr
+        }, 
+        // Binding 1: Diffuse (neutral lighting colour map)
+        {
+            .binding = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = nullptr
+        },
+        // Binding 2: Specular (lighting greyscale map)
+        {
+            .binding = 2,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = nullptr
+        },
+        // Binding 3: Specular Highlight (lighting highlights greyscale map)
+        {
+            .binding = 3,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = nullptr
+        },
+        // Binding 4: Bump (imitated surface elevation greyscale map)
+        {
+            .binding = 4,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = nullptr
+        },
+        // Binding 5: Displacement (real surface elevation greyscale map)
+        {
+            .binding = 5,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = nullptr
+        },
+        // Binding 6: Alpha (opacity greyscale map)
+        {
+            .binding = 6,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = nullptr
+        },
+        // Binding 7: Reflection (reflection greyscale map)
+        {
+            .binding = 7,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = nullptr
+        }
+    };
+
+    VkDescriptorSetLayoutCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = NULL_BIT,
+        .bindingCount = static_cast<uint32_t>(materialBindings.size());,
+        .pBindings = materialBindings.data()
+    };
+    vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &materialDescriptorSetLayout);
+
+    //Set 2: Object
+
+    std::vector<VkDescriptorSetLayoutBinding> objectBindings = {
+        // Binding 0: Position
         {
             .binding = 0,
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -26,23 +140,26 @@ VulkanPipelineComponent::PipelineLayout::PipelineLayout(VkDevice& _device) : dev
             .pImmutableSamplers = nullptr
         }
     };
-    bindingsCount = static_cast<uint32_t>(bindings.size());
 
     VkDescriptorSetLayoutCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = NULL_BIT,
-        .bindingCount = bindingsCount,
-        .pBindings = bindings.data()
+        .bindingCount = static_cast<uint32_t>(objectBindings.size());,
+        .pBindings = objectBindings.data()
     };
-    vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &descriptorSetLayout);
+    vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &objectDescriptorSetLayout);
+}
+
+VulkanPipelineComponent::PipelineLayout::PipelineLayout(VkDevice& _device) : device(_device) {
+    VkDescriptorSetLayout* layouts = new VkDescriptorSetLayout[globalDescriptorSetLayout, materialDescriptorSetLayout, objectDescriptorSetLayout];
 
     VkPipelineLayoutCreateInfo layoutInfo {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = nullptr,
         .flags = NULL_BIT,
-        .setLayoutCount = 1,
-        .pSetLayouts = &descriptorSetLayout,
+        .setLayoutCount = 3,
+        .pSetLayouts = layouts,
         .pushConstantRangeCount = 0,
         .pPushConstantRanges = nullptr
     };
@@ -50,7 +167,6 @@ VulkanPipelineComponent::PipelineLayout::PipelineLayout(VkDevice& _device) : dev
 }
 
 VulkanPipelineComponent::PipelineLayout::~PipelineLayout() {
-    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
     vkDestroyPipelineLayout(device, instance, nullptr);
 }
 
@@ -133,7 +249,7 @@ VulkanPipelineComponent::Pipeline::Pipeline(VkDevice& _device, VkPipelineLayout&
     createInfo.stageCount = static_cast<uint32_t>(shaderStageCreateInfos.size());
     createInfo.pStages = shaderStageCreateInfos.data();
 
-    std::vector<VkVertexInputBindingDescription> bindingDescriptions = {{0, sizeof(Vector3), VK_VERTEX_INPUT_RATE_VERTEX}};
+    std::vector<VkVertexInputBindingDescription> bindingDescriptions = {{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX}};
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions = {{0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0}};
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo {
@@ -208,10 +324,4 @@ VulkanPipelineComponent::Pipeline::Pipeline(VkDevice& _device, VkPipelineLayout&
 
 VulkanPipelineComponent::Pipeline::~Pipeline() {
     vkDestroyPipeline(device, instance, nullptr);
-}
-
-int VulkanPipelineComponent::Pipeline::bind(VkCommandBuffer& commandBuffer, VkDescriptorSet descriptorSet) {
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &descriptorSet, 0, nullptr);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, instance);
-    return 0;
 }

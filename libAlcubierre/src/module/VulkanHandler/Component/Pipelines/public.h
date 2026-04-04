@@ -13,6 +13,14 @@ class VulkanPipelineComponent {
         ~VulkanPipelineComponent();
 
     private:
+        createDescriptorSetLayouts();
+
+    public:
+        VkDescriptorSetLayout frameDescriptorSetLayout = VK_NULL_HANDLE;
+        VkDescriptorSetLayout materialDescriptorSetLayout = VK_NULL_HANDLE;
+        VkDescriptorSetLayout objectDescriptorSetLayout = VK_NULL_HANDLE;
+
+    private:
         class PipelineLayout {
             public:
                 PipelineLayout(VkDevice& _device);
@@ -23,8 +31,6 @@ class VulkanPipelineComponent {
 
             public:
                 VkPipelineLayout instance = VK_NULL_HANDLE;
-                VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
-                uint32_t bindingsCount;
         };
 
         class Shader {
@@ -56,10 +62,7 @@ class VulkanPipelineComponent {
             private:
                 VkDevice& device;
 
-            public:
-                int bind(VkCommandBuffer& commandBuffer, VkDescriptorSet descriptorSet);
-            
-            private:
+            public:            
                 VkPipeline instance = VK_NULL_HANDLE;
                 VkPipelineLayout layout = VK_NULL_HANDLE;
 

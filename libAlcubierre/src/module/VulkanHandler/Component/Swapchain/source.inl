@@ -168,16 +168,13 @@ void VulkanSwapchainComponent::FetchSwapMode(VkPresentModeKHR& ReturnMode) {
         if(mode == "immediate") {
             PreferredMode.push_back(VK_PRESENT_MODE_IMMEDIATE_KHR);
             continue;
-        }
-        if(mode == "triple_buffered") {
+        } else if(mode == "triple_buffered") {
             PreferredMode.push_back(VK_PRESENT_MODE_MAILBOX_KHR);
             continue;
-        }
-        if(mode == "vsync") {
+        } else if(mode == "vsync") {
             PreferredMode.push_back(VK_PRESENT_MODE_FIFO_KHR);
             continue;
-        }
-        if(mode == "relaxed_vsync") {
+        } else if(mode == "relaxed_vsync") {
             PreferredMode.push_back(VK_PRESENT_MODE_FIFO_RELAXED_KHR);
             continue;
         }

@@ -1,7 +1,7 @@
 # ---> YOU <--- have to configure these:
 ENGINE_DIR = ../libAlcubierre/build
 BUILD_DIR = build
-SUPPRESSIONS_FILE = leaks.supp
+SUPPRESSIONS_FILE = ../leaks.supp
 
 PLATFORM ?= dev
 

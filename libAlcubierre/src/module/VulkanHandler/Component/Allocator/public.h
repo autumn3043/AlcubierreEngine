@@ -51,7 +51,7 @@ class VulkanMemoryAllocatorComponent {
                     const memoryBlock operator+(const memoryBlock& other) = delete;
 
                     memoryBlock(memoryBlock&& other) : offset(other.offset), size(other.size) {};
-                    memoryBlock& operator=(memoryBlock&& other) {offset = other.offset; size = other.size; return *this;}
+                    memoryBlock& operator=(memoryBlock&& other) { offset = other.offset; size = other.size; return *this; };
                     memoryBlock(const memoryBlock& other) : offset(other.offset), size(other.size) {}; //We need a copy constructor to return values in acquireMemory
                 };
 
@@ -86,19 +86,114 @@ class VulkanMemoryAllocatorComponent {
         VkDeviceMemory stagingAllocation = VK_NULL_HANDLE;
         MemoryBuffer* stagingBuffer = nullptr;
 
+    //Textures
+        private:
+            initTextureHandler();
+            destroyTextureHandler();
+
+        public:
+            storeTexture(Hash_T hash);
+
+        private:
+            const Hash_T DEFAULT_TEXTURE_HASH_WHITE = 100u;
+            const Hash_T DEFAULT_TEXTURE_HASH_BLACK = 101u;
+            const Hash_T DEFAULT_TEXTURE_HASH_RED = 110u;
+            const Hash_T DEFAULT_TEXTURE_HASH_GREEN = 111u;
+            const Hash_T DEFAULT_TEXTURE_HASH_BLUE = 112u;
+
+            struct TextureImage {
+                VkImage image = VK_NULL_HANDLE;
+                VkImageView imageView = VK_NULL_HANDLE;
+                VkSampler sampler = VK_NULL_HANDLE;
+
+                uint64_t memoryValidAfter;
+                bool memoryValidSignal = false;
+                bool memoryValid(VulkanMemoryAllocatorComponent* allocator) { if(!memoryValidSignal) memoryValidSignal = allocator->checkTransferIndexValidity(memoryValidAfter); return memoryValidSignal; };
+            };
+
+            std::unordered_map<Hash_T, TextureImage*> textureImages;
+
+            struct TextureImageView {
+                TextureImage* pointer = nullptr;
+            }
+
+            std::unordered_map<Hash_T, TextureImageView*> textureImageViews;
+
+    //Materials
+        private:
+            const Hash_T DEFAULT_MATERIAL_HASH = 901u;
+
+        private:
+            int initMaterialHandler();
+            int destroyMaterialHandler();
+
+        public:
+            struct MaterialTextureHashList {
+                Hash_T ambient = DEFAULT_TEXTURE_HASH_WHITE;
+                Hash_T diffuse = DEFAULT_TEXTURE_HASH_RED;
+                Hash_T specular = DEFAULT_TEXTURE_HASH_BLACK;
+                Hash_T specular_highlight = DEFAULT_TEXTURE_HASH_BLACK;
+                Hash_T bump = DEFAULT_TEXTURE_HASH_BLACK;
+                Hash_T displacement = DEFAULT_TEXTURE_HASH_BLACK;
+                Hash_T alpha = DEFAULT_TEXTURE_HASH_WHITE;
+                Hash_T reflection = DEFAULT_TEXTURE_HASH_BLACK;
+            };
+
+            int storeMaterial(Hash_T hash, MaterialTextureHashList textures);
+            int discardMaterial(Hash_T hash);
+
+            int incrementMaterialConsumers(Hash_T hash);
+            int decrementMaterialConsumers(Hash_T hash);
+
+            struct materialHandle {
+                int consumers = 0;
+
+                MaterialTextureHashList textures;
+
+                int descriptorSetIndex = 0;
+
+                bool memoryValid(VulkanMemoryAllocatorComponent* allocator);
+            };
+
+            std::unordered_map<Hash_T, materialHandle*> materials;
+
+            materialHandle* fetchMaterial(Hash_T hash);
+
+        private:
+            struct DescriptorPool {
+                DescriptorPool(int _setCount);
+
+                VkDescriptorPool instance = VK_NULL_HANDLE;
+
+                std::vector<VkDescriptorSet> descriptorSets;
+                std::vector<int> freeDescriptorSetIndices;
+
+                bool hasFree();
+                int getSetIndex();
+                int releaseSetIndex();
+            };
+            
+            std::vector<DescriptorPool*> descriptorPools;
+            std::vector<DescriptorSet*> descriptorSetList;
+
+            int acquireDescriptorSet();
+            int freeDescriptorSet(int index);
+
+        public:
+            VkDescriptorSet& fetchDescriptorSet(int index);
+
+
     //Meshes
         private:
             int initMeshHandler();
             int destroyMeshHandler();
 
         public:
-            int storeMesh(Hash_T hash, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
+            int storeMesh(Hash_T hash, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices);
             int discardMesh(Hash_T hash);
 
             int incrementMeshConsumers(Hash_T hash);
             int decrementMeshConsumers(Hash_T hash);
-
-            bool checkMeshTransferIndexValidity(uint64_t& index);
 
             struct meshHandle {
                 int consumers = 0;
@@ -110,7 +205,7 @@ class VulkanMemoryAllocatorComponent {
 
                     uint64_t memoryValidAfter;
                     bool memoryValidSignal = false;
-                    bool memoryValid(VulkanMemoryAllocatorComponent* allocator) { if(!memoryValidSignal) memoryValidSignal = allocator->checkMeshTransferIndexValidity(memoryValidAfter); return memoryValidSignal; };
+                    bool memoryValid(VulkanMemoryAllocatorComponent* allocator) { if(!memoryValidSignal) memoryValidSignal = allocator->checkTransferIndexValidity(memoryValidAfter); return memoryValidSignal; };
 
                     meshHandlePart(VkBuffer* _buffer, int _count, MemoryBuffer::memoryBlock& _block) : buffer(_buffer), count(_count), block(_block) {};
                 };
@@ -149,7 +244,7 @@ class VulkanMemoryAllocatorComponent {
                 public:
                     uint64_t setId;
 
-                    meshHandle storeMesh(Hash_T id, std::vector<Vector3>& vertices, std::vector<uint32_t>& indices);
+                    meshHandle storeMesh(Hash_T id, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices);
                     int discardMesh(Hash_T id);
 
                     VkDeviceSize largestFreeVertexBlockSize();
@@ -176,37 +271,25 @@ class VulkanMemoryAllocatorComponent {
             BufferSet* instantiateBufferSet();
             BufferSet* pickBufferSet(VkDeviceSize verticeDataSize, VkDeviceSize indiceDataSize);
 
-    //Textures
-        private:
-            int initTextureHandler();
-            int destroyTextureHandler();
-
-        public:
-            int storeTexture(Hash_T hash);
-            int discardTexture(Hash_T hash);
-
-            int incrementTextureConsumers(Hash_T hash);
-            int decrementTextureConsumers(Hash_T hash);
-
-            bool checkTextureTransferIndexValidity(uint64_t& index);
-
-            struct textureHandle {
-                int consumers = 0;
-            };
-
-            textureHandle* fetchTexture(Hash_T hash);
-
-            std::string dumpTextureMemoryLayout();
-
     //Transfer
         private:
             int initTransferHandler();
             int destroyTransferHandler();
 
+        public:
+            bool checkTransferIndexValidity(uint64_t& index);
+
         private:
             struct transferOperation {
+                enum operationType {
+                    TRANSFER_OPERATION_TYPE_BUFFER = 0,
+                    TRANSFER_OPERATION_TYPE_IMAGE = 1,
+                };
+
+                operationType type;
+
                 struct region {
-                    VkBuffer* buffer;
+                    void* buffer;
                     VkDeviceSize offset;
                     VkDeviceSize size;
 
@@ -216,7 +299,7 @@ class VulkanMemoryAllocatorComponent {
                 region source;
                 region destination;
 
-                transferOperation(region _source, region _destination) : source(_source), destination(_destination) {}
+                transferOperation(operationType _type, region _source, region _destination) : type(_type), source(_source), destination(_destination) {}
                 transferOperation() {}
             };
 

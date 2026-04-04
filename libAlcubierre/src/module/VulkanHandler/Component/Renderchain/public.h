@@ -30,7 +30,7 @@ class VulkanRenderchainComponent {
         struct meshSet {
             VkBuffer* vertexBuffer;
             VkBuffer* indexBuffer;
-            std::vector<VulkanMemoryAllocatorComponent::meshHandle*> objects;
+            std::vector<SceneObject> objects;
 
             meshSet(VkBuffer* _vertexBuffer, VkBuffer* _indexBuffer) : vertexBuffer(_vertexBuffer), indexBuffer(_indexBuffer), objects({}) {}
         };

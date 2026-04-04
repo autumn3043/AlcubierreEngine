@@ -1,6 +1,6 @@
 #include "module/ResourceManager/private.h"
 
-#include "extern/ModelPrecompiler/mesh_def.h"
+#include "extern/ModelPrecompiler/public.h"
 
 static void logIdentity(std::string message, int level = 0, bool Write = true) { return DM().Log(DebugReport(message, level, "ResourceManager"), Write); }
 
@@ -31,18 +31,16 @@ int ResourceManager::init() {
 }
 
 Hash_T ResourceManager::load(char* model, uint64_t size) {
-    std::vector<Vector3> modelVertices;
-    std::vector<uint32_t> modelIndices;
+    Mesh modelData(model, size);
 
-    AlcubierreEngineMesh modelData;
-    // logIdentity(std::to_string(size));
-    int result = modelData.deserialise(model, size);
-    if(result != 0) throw ResourceManagerException("Failed to deserialise a model");
-
-    std::vector<Vector3> vertices(modelData.body.vertexCount);
-    memcpy(vertices.data(), modelData.body.vertices, modelData.header.vertexSize * modelData.body.vertexCount);
-    std::vector<uint32_t> indices(modelData.body.indexCount);
-    memcpy(indices.data(), modelData.body.indices, modelData.header.indexSize * modelData.body.indexCount);
+    std::vector<Vertex> vertices(modelData.verticeCount);
+    memcpy(vertices.data(), modelData.vertices, sizeof(Vertex) * modelData.verticeCount);
+    std::vector<uint32_t> indices;
+    for(int i = 0; i < modelData.subMeshCount; i++) {
+        int oldSize = indices.size();
+        indices.resize(oldSize + modelData.subMeshes[i].indiceCount);
+        memcpy(indices.data() + oldSize, modelData.subMeshes[i].indices, sizeof(uint32_t) * modelData.subMeshes[i].indiceCount);
+    }
 
     modelsInMemory.emplace_back(modelData.header.hash);
     dynamic_cast<IGraphicsBackend*>(registry_ptr->FetchService(GRAPHICS_BACKEND))->storeMesh(modelData.header.hash, vertices, indices);

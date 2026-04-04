@@ -8,10 +8,10 @@ std::string importDeveloperConfig() {
     return rawString;
 }
 
-std::string importObjFile(std::string path) {
-    std::ifstream objFile(path, std::ios::in);
-    std::string rawString((std::istreambuf_iterator<char>(objFile)), std::istreambuf_iterator<char>());
-    objFile.close();
+std::string importBinaryFile(std::string path) {
+    std::ifstream file(path, std::ios::in | std::ios::binary);
+    std::string rawString((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    file.close();
     return rawString;
 }
 
@@ -22,7 +22,7 @@ int main() {
 
     app.initEngine();
 
-    std::string obj = importObjFile("assets/viking_room.blob");
+    std::string obj = importBinaryFile("assets/meshes/18123728687218786811.blob");
     app.graphics.placeActor({0, 0, 0}, obj);
 
     while(!app.window.shouldClose()) {
