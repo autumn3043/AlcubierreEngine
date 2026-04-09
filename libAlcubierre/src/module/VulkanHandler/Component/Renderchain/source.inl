@@ -23,10 +23,15 @@ VulkanRenderchainComponent::~VulkanRenderchainComponent() {
     frames.clear();
     if(descriptorSetPool) vkDestroyDescriptorPool(parent->device->Device, descriptorSetPool, nullptr);
     if(renderingCommandPool) vkDestroyCommandPool(parent->device->Device, renderingCommandPool, nullptr);
-    if(deviceMemory) vkFreeMemory(parent->device->Device, deviceMemory, nullptr);
+
+    if(frameDataHostBuffer) vkDestroyBuffer(parent->device->Device, frameDataHostBuffer, nullptr);
+    if(frameDataHostMemory) vkFreeMemory(parent->device->Device, frameDataHostMemory, nullptr);
+    if(frameDataDeviceBuffer) vkDestroyBuffer(parent->device->Device, frameDataDeviceBuffer, nullptr);
+    if(frameDataDeviceMemory) vkFreeMemory(parent->device->Device, frameDataDeviceMemory, nullptr);
 }
 
 int VulkanRenderchainComponent::createFrames() {
+    //Debug and timing utilities
     VkQueryPoolCreateInfo queryPoolInfo {
         .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
         .queryType = VK_QUERY_TYPE_TIMESTAMP,
@@ -34,6 +39,7 @@ int VulkanRenderchainComponent::createFrames() {
     };
     vkCreateQueryPool(parent->device->Device, &queryPoolInfo, nullptr, &queryPool);
 
+    //Rendering command buffers
     VkCommandPoolCreateInfo commandPoolCreateInfo {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
@@ -41,7 +47,7 @@ int VulkanRenderchainComponent::createFrames() {
     };
     vkCreateCommandPool(parent->device->Device, &commandPoolCreateInfo, nullptr, &renderingCommandPool);
 
-    std::vector<VkCommandBuffer> commandBuffers(maxFramesInFlight);
+    commandBuffers.resize(maxFramesInFlight);
     VkCommandBufferAllocateInfo commandBufferCreateInfo {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = renderingCommandPool,
@@ -50,46 +56,67 @@ int VulkanRenderchainComponent::createFrames() {
     };
     vkAllocateCommandBuffers(parent->device->Device, &commandBufferCreateInfo, commandBuffers.data());
 
-    std::vector<VkBuffer> uniformBuffers(maxFramesInFlight);
-    std::vector<char*> uniformBufferMappings(maxFramesInFlight);
-    uint32_t uniformBufferSize = sizeof(UniformBuffer);
-    for(int i = 0; i < maxFramesInFlight; i++) {
-        VkBufferCreateInfo uniformBufferCreateInfo {
+    //Frame data memory buffers and descriptor sets
+    VkDeviceSize frameDataBufferSize = sizeof(Frame::FrameData) * maxFramesInFlight;
+
+    //Host
+    {
+        VkBufferCreateInfo createInfo {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .pNext = nullptr,
-            .size = uniformBufferSize,
+            .size = frameDataBufferSize,
+            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = 1,
+            .pQueueFamilyIndices = &graphicalQueue->deviceQueueFamilyIndex
+        };
+        vkCreateBuffer(parent->device->Device, &createInfo, nullptr, &frameDataHostBuffer);
+
+        VkMemoryRequirements requirements;
+        vkGetBufferMemoryRequirements(parent->device->Device, frameDataHostBuffer, &requirements);
+        VkDeviceSize requiredSize = ((frameDataBufferSize + requirements.alignment - 1) / requirements.alignment) * requirements.alignment;
+
+        VkMemoryAllocateInfo allocateInfo {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .pNext = nullptr,
+            .allocationSize = requiredSize,
+            .memoryTypeIndex = static_cast<uint32_t>(parent->device->fetchDeviceProperties().memory.hostVisibleIndex)
+        };
+        vkAllocateMemory(parent->device->Device, &allocateInfo, nullptr, &frameDataHostMemory);
+
+        vkBindBufferMemory(parent->device->Device, frameDataHostBuffer, frameDataHostMemory, 0);
+
+        void* accessPointer;
+        vkMapMemory(parent->device->Device, frameDataHostMemory, 0, VK_WHOLE_SIZE, NULL_BIT, &accessPointer);
+        frameDataHostBufferAccessIndex = static_cast<char*>(accessPointer);
+    }       
+
+    //Device
+    {
+        VkBufferCreateInfo createInfo {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .pNext = nullptr,
+            .size = frameDataBufferSize,
             .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
             .queueFamilyIndexCount = 1,
             .pQueueFamilyIndices = &graphicalQueue->deviceQueueFamilyIndex
         };
-        vkCreateBuffer(parent->device->Device, &uniformBufferCreateInfo, nullptr, &uniformBuffers[i]);
-    }
+        vkCreateBuffer(parent->device->Device, &createInfo, nullptr, &frameDataDeviceBuffer);
 
-    VkMemoryRequirements requirements;
-    vkGetBufferMemoryRequirements(parent->device->Device, uniformBuffers[0], &requirements);
-    uniformBufferSize = ((uniformBufferSize + requirements.alignment - 1) / requirements.alignment) * requirements.alignment;
+        VkMemoryRequirements requirements;
+        vkGetBufferMemoryRequirements(parent->device->Device, frameDataDeviceBuffer, &requirements);
+        VkDeviceSize requiredSize = ((frameDataBufferSize + requirements.alignment - 1) / requirements.alignment) * requirements.alignment;
 
-    VkMemoryAllocateInfo bufferAllocateInfo {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = nullptr,
-        .allocationSize = uniformBufferSize * static_cast<uint32_t>(maxFramesInFlight),
-        .memoryTypeIndex = static_cast<uint32_t>(parent->device->fetchDeviceProperties().memory.hostVisibleIndex)
-    };
-    vkAllocateMemory(parent->device->Device, &bufferAllocateInfo, nullptr, &deviceMemory);
+        VkMemoryAllocateInfo allocateInfo {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .pNext = nullptr,
+            .allocationSize = requiredSize,
+            .memoryTypeIndex = static_cast<uint32_t>(parent->device->fetchDeviceProperties().memory.deviceLocalIndex)
+        };
+        vkAllocateMemory(parent->device->Device, &allocateInfo, nullptr, &frameDataDeviceMemory);
 
-    std::vector<VkDescriptorBufferInfo> bufferInfos(maxFramesInFlight);
-    void* sourceUniformBufferMapping;
-    vkMapMemory(parent->device->Device, deviceMemory, 0, VK_WHOLE_SIZE, NULL_BIT, &sourceUniformBufferMapping);
-    for(int i = 0; i < maxFramesInFlight; i++) {
-        uint32_t offset = uniformBufferSize * i;
-
-        vkBindBufferMemory(parent->device->Device, uniformBuffers[i], deviceMemory, offset);
-        uniformBufferMappings[i] = static_cast<char*>(sourceUniformBufferMapping) + offset;
-
-        bufferInfos[i].buffer = uniformBuffers[i];
-        bufferInfos[i].offset = 0;
-        bufferInfos[i].range = uniformBufferSize;
+        vkBindBufferMemory(parent->device->Device, frameDataDeviceBuffer, frameDataDeviceMemory, 0);
     }
 
     VkDescriptorPoolSize descriptorPoolSize = {
@@ -106,20 +133,58 @@ int VulkanRenderchainComponent::createFrames() {
     };
     vkCreateDescriptorPool(parent->device->Device, &descriptorPoolCreateInfo, nullptr, &descriptorSetPool);
 
-    std::vector<VkDescriptorSet> descriptorSets(maxFramesInFlight);
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts(maxFramesInFlight, parent->pipelines->pipelineLayout->descriptorSetLayout);
+    descriptorSets.resize(maxFramesInFlight);
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts(maxFramesInFlight, parent->pipelines->frameDescriptorSetLayout);
     VkDescriptorSetAllocateInfo descriptorAllocateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .pNext = nullptr,
         .descriptorPool = descriptorSetPool,
-        .descriptorSetCount = static_cast<uint32_t>(maxFramesInFlight),
+        .descriptorSetCount = static_cast<uint32_t>(descriptorSetLayouts.size()),
         .pSetLayouts = descriptorSetLayouts.data()
     };
     vkAllocateDescriptorSets(parent->device->Device, &descriptorAllocateInfo, descriptorSets.data());
 
+    std::vector<VkDescriptorBufferInfo> bufferInfos(maxFramesInFlight * 2);
+    std::vector<VkWriteDescriptorSet> writeDescriptorSets(maxFramesInFlight * 2);
+    for(int i = 0; i < maxFramesInFlight; i++) {
+        bufferInfos[i] = {
+            .buffer = frameDataDeviceBuffer,
+            .offset = i * sizeof(Frame::FrameData),
+            .range = sizeof(glm::mat4)
+        };
+        writeDescriptorSets[i] = {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext = nullptr,
+            .dstSet = descriptorSets[i],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pBufferInfo = &bufferInfos[i]
+        };
+
+        bufferInfos[i + 1] = {
+            .buffer = frameDataDeviceBuffer,
+            .offset = i * sizeof(Frame::FrameData) + sizeof(glm::mat4),
+            .range = sizeof(glm::mat4)
+        };
+        writeDescriptorSets[i + 1] = {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext = nullptr,
+            .dstSet = descriptorSets[i],
+            .dstBinding = 1,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pBufferInfo = &bufferInfos[i + 1]
+        };
+    }
+
+    vkUpdateDescriptorSets(parent->device->Device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
+
     frames.reserve(maxFramesInFlight);
     for(int i = 0; i < maxFramesInFlight; i++) {
-        frames.emplace_back(parent->device->Device, commandTimeout, 2 * i, commandBuffers[i], uniformBuffers[i], uniformBufferMappings[i], bufferInfos[i], descriptorSets[i]);
+        frames.emplace_back(parent->device->Device, i);
     }
 
     return 0;
@@ -141,6 +206,7 @@ int VulkanRenderchainComponent::clearFrame() {
 
 int VulkanRenderchainComponent::drawFrame() {
     Frame* frame = &frames[currentFrameIndex]; //Get (or wait for) next frame free out of max frames in flight
+    uint64_t& frameIndex = frame->frameIndex;
     vkWaitForFences(parent->device->Device, 1, &frame->fence_frameInFlight, VK_TRUE, frame->timeout);
 
     if(framesEver > maxFramesInFlight) {
@@ -153,24 +219,11 @@ int VulkanRenderchainComponent::drawFrame() {
     }
 
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(parent->device->Device, parent->swapchain->Swapchain, frame->timeout, frame->semaphore_awaitImageGrab, VK_NULL_HANDLE, &imageIndex);
+    vkAcquireNextImageKHR(parent->device->Device, parent->swapchain->Swapchain, commandTimeout, frame->semaphore_awaitImageGrab, VK_NULL_HANDLE, &imageIndex);
     VulkanSwapchainComponent::SwapchainImageWrapper& image = parent->swapchain->Images[imageIndex]; //Get the next image from the swapchain
     
     vkResetFences(parent->device->Device, 1, &frame->fence_frameInFlight);
-    vkResetCommandBuffer(frame->commandBuffer, NULL_BIT);
-
-    updateUniformBuffer(frame->uniformBufferAccessPointer, &image);
-    VkWriteDescriptorSet writeDescriptorSet = {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .pNext = nullptr,
-        .dstSet = frame->descriptorSet,
-        .dstBinding = 0,
-        .dstArrayElement = 0,
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .pBufferInfo = &frame->bufferInfo
-    };
-    vkUpdateDescriptorSets(parent->device->Device, 1, &writeDescriptorSet, 0, nullptr);
+    vkResetCommandBuffer(commandBuffers[frameIndex], NULL_BIT);
 
     recordCommandBuffer(frame, &image); //Record our render pass onto this frame's command buffer
 
@@ -183,7 +236,7 @@ int VulkanRenderchainComponent::drawFrame() {
         .pWaitSemaphores = &frame->semaphore_awaitImageGrab,
         .pWaitDstStageMask = &pipelineStageFlags,
         .commandBufferCount = 1,
-        .pCommandBuffers = &frame->commandBuffer,
+        .pCommandBuffers = &commandBuffers[frameIndex],
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = &image.semaphore
     };
@@ -204,7 +257,7 @@ int VulkanRenderchainComponent::drawFrame() {
     VkResult result_queuePresent = vkQueuePresentKHR(presentationQueue.queue, &presentInfo);
 
     if(framesEver == 0) {
-        vkWaitForFences(parent->device->Device, 1, &frame->fence_frameInFlight, VK_TRUE, frame->timeout);
+        vkWaitForFences(parent->device->Device, 1, &frame->fence_frameInFlight, VK_TRUE, commandTimeout);
         logIdentity("Time to first live measured at " + std::to_string(parent->timeToFirstLive.delta()) + " milliseconds", 1);
     }
 
@@ -214,25 +267,9 @@ int VulkanRenderchainComponent::drawFrame() {
     return 0;
 }
 
-int VulkanRenderchainComponent::updateUniformBuffer(char* buffer, VulkanSwapchainComponent::SwapchainImageWrapper* image) {
-    static auto startTime = std::chrono::high_resolution_clock::now();
-
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-    UniformBuffer ubo {};
-    glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
-    ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * scale;
-    ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(image->extent.width) / static_cast<float>(image->extent.height), 0.1f, 10.0f);
-    ubo.proj[1][1] *= -1;
-
-    memcpy(buffer, &ubo, sizeof(UniformBuffer));
-
-    return 0;
-}
-
 int VulkanRenderchainComponent::recordCommandBuffer(Frame* frame, VulkanSwapchainComponent::SwapchainImageWrapper* image) {
+    uint64_t& frameIndex = frame->frameIndex;
+
     VkCommandBufferBeginInfo BeginInfo { 
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .pNext = nullptr,
@@ -240,12 +277,16 @@ int VulkanRenderchainComponent::recordCommandBuffer(Frame* frame, VulkanSwapchai
         .pInheritanceInfo = nullptr
     };
 
-    VkCommandBuffer& commandBuffer = frame->commandBuffer;
+    VkCommandBuffer& commandBuffer = commandBuffers[frameIndex];
 
     vkBeginCommandBuffer(commandBuffer, &BeginInfo);
 
-    vkCmdResetQueryPool(commandBuffer, queryPool, frame->queryPoolBaseIndex, 2);
-    vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, queryPool, frame->queryPoolBaseIndex);
+    vkCmdResetQueryPool(commandBuffer, queryPool, frameIndex, 2);
+    vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, queryPool, frameIndex);
+
+    VkDeviceSize offset = sizeof(Frame::FrameData) * frameIndex;
+    VkBufferCopy region { .srcOffset = offset, .dstOffset = offset, .size = sizeof(Frame::FrameData) };
+    vkCmdCopyBuffer(commandBuffer, frameDataHostBuffer, frameDataDeviceBuffer, 1, &region);
 
     image->TransitionImageLayout(commandBuffer, VulkanSwapchainComponent::LAYOUT_DETAILS_PRESET_COLOURATTACHMENT);
 
@@ -312,7 +353,7 @@ int VulkanRenderchainComponent::recordCommandBuffer(Frame* frame, VulkanSwapchai
                 continue;
             }
 
-            VkDescriptorSet* descriptors = new VkDescriptorSet[frame->descriptorSet, parent->allocator->fetchDescriptorSet(material.descriptorSetIndex), worldData->descriptorSet];
+            VkDescriptorSet* descriptors = new VkDescriptorSet[descriptorSets[frameIndex], parent->allocator->fetchDescriptorSet(material.descriptorSetIndex), worldData->descriptorSet];
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->layout, 0, 3, descriptors, 0, nullptr);
             //OPT: descriptor set buffer, index into buffer, group meshes by set buffer and bind at top of loop
             uint32_t firstIndex = static_cast<uint32_t>(mesh->indices.block.offset) / sizeof(uint32_t);
@@ -322,7 +363,7 @@ int VulkanRenderchainComponent::recordCommandBuffer(Frame* frame, VulkanSwapchai
     }
 
     vkCmdEndRendering(commandBuffer);
-    vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, queryPool, frame->queryPoolBaseIndex + 1);
+    vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, queryPool, frameIndex + 1);
 
     image->TransitionImageLayout(commandBuffer, VulkanSwapchainComponent::LAYOUT_DETAILS_PRESET_PRESENT);
 
@@ -331,15 +372,9 @@ int VulkanRenderchainComponent::recordCommandBuffer(Frame* frame, VulkanSwapchai
     return 0;
 }
 
-VulkanRenderchainComponent::Frame::Frame(VkDevice& _device, int _timeout, int _queryPoolBaseIndex, VkCommandBuffer& _commandBuffer, VkBuffer& _uniformBuffer, char* _uniformBufferAccessPointer, VkDescriptorBufferInfo& _bufferInfo, VkDescriptorSet& _descriptorSet)
+VulkanRenderchainComponent::Frame::Frame(VkDevice& _device, uint64_t _frameIndex, VkCommandBuffer& _commandBuffer, VkDescriptorSet& _descriptorSet)
     :   device(_device),
-        timeout(_timeout),
-        queryPoolBaseIndex(static_cast<uint32_t>(_queryPoolBaseIndex)),
-        commandBuffer(_commandBuffer), 
-        uniformBuffer(_uniformBuffer),
-        uniformBufferAccessPointer(_uniformBufferAccessPointer), 
-        bufferInfo(_bufferInfo),
-        descriptorSet(_descriptorSet) 
+        frameIndex(_frameIndex)
     {
         VkFenceCreateInfo FenceCreateInfo { 
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -358,9 +393,7 @@ VulkanRenderchainComponent::Frame::~Frame() {
         vkWaitForFences(device, 1, &fence_frameInFlight, VK_TRUE, timeout);
         if(fence_frameInFlight) vkDestroyFence(device, fence_frameInFlight, nullptr);
         if(semaphore_awaitImageGrab) vkDestroySemaphore(device, semaphore_awaitImageGrab, nullptr);
-
-        vkDestroyBuffer(device, uniformBuffer, nullptr);
     } else {
-        logIdentity("Tried to destroy command buffer utilites, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
+        logIdentity("Tried to destroy frame fence and semaphore utilites, but VkDevice handle was null, which would have caused a segfault. This memory will leak");
     }
 }

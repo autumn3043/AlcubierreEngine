@@ -18,13 +18,20 @@ int VulkanMemoryAllocatorComponent::storeMaterial(Hash_T hash, MaterialTextureHa
     materialHandle*& material = materials[hash];
 
     std::vector<VkWriteDescriptorSet> writeDescriptorSets;
+    std::vector<VkDescriptorImageInfo> descriptorImageInfos;
 
     for(int i = 0; i < textureHashes.size(); i++) {
         Hash_T& textureHash = textureHashes[i];
         if(textureHash == 0) continue;
 
         VulkanMemoryAllocatorComponent::TextureImageView view = getTextureImageView(textureHash);
-        VkDescriptorImageInfo& descriptorImageInfo = {*view->pointer->sampler, *view->pointer->imageView, *view->pointer->imageLayout};
+
+        descriptorImageInfos.emplace_back({
+            .sampler = *view->pointer->sampler,
+            .imageView = *view->pointer->imageView,
+            .imageLayout = *view->pointer->imageLayout
+        })
+
         writeDescriptorSets.emplace_back({
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext = nullptr,
@@ -33,7 +40,7 @@ int VulkanMemoryAllocatorComponent::storeMaterial(Hash_T hash, MaterialTextureHa
             .dstArrayElement = 0,
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = &descriptorImageInfo
+            .pImageInfo = &descriptorImageInfos[i]
         });
     }
 
